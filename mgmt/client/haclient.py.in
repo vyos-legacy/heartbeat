@@ -154,13 +154,14 @@ def make_label_active(label, text, url) :
 	label.set_markup('<span foreground="blue"><u>'+text+'</u></span>')
 	label.get_parent().connect("button_press_event", on_label_active, url)
 	#label.get_parent().window.set_cursor(gtk.gdk.Cursor(gtk.gdk.HAND1))
-	
-def kvbox(title, fields) :
+
+def kvbox(title, fields, auto_fill = None) :
 	global top_window
 	dialog = gtk.Dialog(title, top_window, gtk.DIALOG_MODAL,
 		(gtk.STOCK_OK, gtk.RESPONSE_OK, gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL))
 	table = gtk.Table(2, 1, False)
 	widgets = []
+	combos = {}
 	for row in range(len(fields)):
 		if fields[row].auto_gen :
 			widgets.append(None)
@@ -176,12 +177,20 @@ def kvbox(title, fields) :
 				combo.child.set_text(fields[row].options[0])
 			widgets.append(combo)
 			table.attach(combo, 1,2, row, row+1)
+			combos[fields[row].key] = combo
 		else :
 			entry = gtk.Entry()
 			if fields[row].default != None :
 				entry.set_text(fields[row].default)
 			widgets.append(entry)
 			table.attach(entry, 1,2, row, row+1)
+
+	if auto_fill != None :
+		if title == _("Add Parameter") :
+			combos["name"].connect("changed", auto_fill, widgets)
+		elif title == _("Add Operation") :
+			combos["name"].connect("changed", auto_fill, widgets, "name")
+			combos["role"].connect("changed", auto_fill, widgets, "role")
 	
 	dialog.vbox.pack_start(table)
 	dialog.vbox.show_all()
@@ -387,7 +396,7 @@ class ListWithAddDel :
 	
 		
 	def on_add(self, widget) :
-		new = kvbox(self.title, filter(lambda f:f.editable, self.fields))
+		new = kvbox(self.title, filter(lambda f:f.editable, self.fields), self.auto_fill)
 		if new != None :
 			self.insert(new)
 			
@@ -400,7 +409,7 @@ class ListWithAddDel :
 			return gtk.ListStore(str, str, str, str, str,str, str, str, str, str)
 		return None
 		
-	def __init__(self, widget, add_btn, del_btn, title, fields, call_back=None) :
+	def __init__(self, widget, add_btn, del_btn, title, fields, call_back=None, auto_fill=None) :
 		self.add_btn = add_btn
 		self.del_btn = del_btn
 		self.widget = widget
@@ -409,6 +418,7 @@ class ListWithAddDel :
  		self.fields = fields
 		self.add_btn_handler = add_btn.connect("clicked", self.on_add)
 		self.del_btn_handler = del_btn.connect("clicked", self.on_del)
+		self.auto_fill = auto_fill
 		self.store = self.create_store(len(fields))
 		widget.set_model(self.store)
 		for i in range(len(fields)) :
@@ -962,6 +972,7 @@ class RscView(View) :
 	
 	attr_list = None
 	attrs_save = None
+	meta = None
 	def on_apply(self, widget):
 		glade = self.glade
 		View.on_apply(self, widget)
@@ -1020,6 +1031,37 @@ class RscView(View) :
 		global last_rsc_view_page_num
 		last_rsc_view_page_num = page_num
 			
+	def autofill_param(self, combo, widgets) :
+		for param in self.meta.parameters :
+			if combo.child.get_text() == param["name"] :
+				widgets[2].set_text(param["content"]["default"])
+
+	def autofill_op(self, combo, widgets, combo_name) :			
+		if combo_name == "name" :
+			for op in self.meta.actions :
+				if combo.child.get_text() == op["name"] :
+					widgets[2].set_text(op.get("description", ""))
+					widgets[3].set_text(op.get("interval", ""))
+					widgets[4].set_text(op.get("timeout", ""))
+					widgets[5].set_text(op.get("start-delay", ""))
+					widgets[6].child.set_text(op.get("disabled", ""))
+					widgets[7].child.set_text(op.get("role", ""))
+					widgets[8].child.set_text(op.get("prereq", ""))
+					widgets[9].child.set_text(op.get("on-fail", ""))
+					break
+		elif combo_name == "role" :
+			for op in self.meta.actions :
+				if widgets[1].child.get_text() == op["name"] and combo.child.get_text() == op.get("role", "") :
+					widgets[2].set_text(op.get("description", ""))
+					widgets[3].set_text(op.get("interval", ""))
+					widgets[4].set_text(op.get("timeout", ""))
+					widgets[5].set_text(op.get("start-delay", ""))
+					widgets[6].child.set_text(op.get("disabled", ""))
+					widgets[8].child.set_text(op.get("prereq", ""))
+					widgets[9].child.set_text(op.get("on-fail", ""))
+					break
+
+
 	def __init__(self, rsc) :
 		View.__init__(self, rsc)
 		global last_rsc_view_page_num
@@ -1027,11 +1069,13 @@ class RscView(View) :
 		
 		(attrs, running_on, params, ops) = manager.get_rsc_info(self.param)
 		meta = manager.get_rsc_meta(attrs["class"], attrs["type"], attrs["provider"])
+		self.meta = meta
 		param_options = None
-		op_options = None
+		op_options = []
 		if meta != None :
 			param_options = [f["name"] for f in meta.parameters]
-			op_options = [f["name"] for f in meta.actions]
+			for f in meta.actions :
+				if not f["name"] in op_options : op_options.append(f["name"])
 			
 		self.param_list = ListWithAddDel(glade.get_widget("parameters"),
 					    glade.get_widget("addparam"),
@@ -1040,7 +1084,8 @@ class RscView(View) :
 					    [Field("id", _("ID"), "", None, False, auto_gen=True),
 			  		     Field("name", _("Name"), "", param_options, False),
 					     Field("value", _("Value"), "", None, True)],
-					    self.on_changed)
+					    self.on_changed,
+						self.autofill_param)
 				      
 		self.op_list = ListWithAddDel(glade.get_widget("operations"),
 					 glade.get_widget("addop"),
@@ -1056,12 +1101,14 @@ class RscView(View) :
 					     Field("role", _("Role"),"Started",["Master","Slave","Started","Stopped"],True),
 					     Field("prereq", _("Prereq"), "", ["nothing","quorum","fencing"], True),
 					     Field("on_fail", _("On Fail"), "",["ignore","block","stop","restart","fence"], True)],
-					 self.on_changed)
+					 self.on_changed,
+					 self.autofill_op)
 		
 		options_dict = {"is_managed":["default","true","false"],
 			"restart_type":["ignore","restart"],
 			"multiple_active":["stop_start","stop_only","block"],
 			"resource_stickiness":[],
+            "resource_failure_stickiness":[],            
 			"description":[]}
 		self.attr_list = NVList(glade.get_widget("attributes"),
 					glade.get_widget("addattr"), 
@@ -1143,6 +1190,7 @@ class CompoundRscView(View) :
 			"globally_unique":["true","false"],
 			"interleave":["false","true"],
 			"resource_stickiness":[],
+            "resource_failure_stickiness":[],
 			"description":[]}
 		
 		self.attr_list = NVList(glade.get_widget("attributes"),
@@ -1176,6 +1224,9 @@ class AddNativeDlg :
 			  Field("value", _("Value"), "", None, True),
 			  Field("shortdesc", _("Description"), "", param_descs, False,False)]
 		glade = self.glade	  
+		glade.get_widget("is_master").set_active(False)
+		glade.get_widget("is_clone").set_active(False)
+
 		param_list = ListWithAddDel(glade.get_widget("parameters"),
 				       glade.get_widget("addparam"),
 				       glade.get_widget("delparam"),
@@ -1186,6 +1237,17 @@ class AddNativeDlg :
 		self.param_list = param_list
 		if meta != None :
 			for param in meta.parameters :
+				if param["name"] in [ "master_node_max", "master_max" ] and param["required"] == "1" :
+					if not glade.get_widget("is_master").get_active() :
+						glade.get_widget("is_master").set_active(True)
+					glade.get_widget(param["name"]).set_text(param["value"])
+					continue
+				if param["name"] in [ "clone_max", "clone_node_max" ] and param["required"] == "1":
+					if not glade.get_widget("is_master").get_active() and not glade.get_widget("is_clone").get_active():
+						glade.get_widget("is_clone").set_active(True)
+					glade.get_widget(param["name"]).set_text(param["value"])
+					continue
+
 				if param["required"] == "1" :
 					param["id"] = uuid()
 					self.param_list.insert(param)
@@ -1341,19 +1403,24 @@ class AddNativeDlg :
 				passed = check_entry_value(glade, "id",_("ID"))
 
 				if glade.get_widget("is_clone").get_active() :
-					passed = check_entry_value(glade, "advance_id",_("ID"))
-					passed = check_entry_value(glade, "clone_max")
-					passed = check_entry_value(glade, "clone_node_max")
+					if not check_entry_value(glade, "advance_id",_("ID")): passed = False
+					if not check_entry_value(glade, "clone_max"): passed = False
+					if not check_entry_value(glade, "clone_node_max"): passed = False
 				if glade.get_widget("is_master").get_active() :
-					passed = check_entry_value(glade, "advance_id",_("ID"))
-					passed = check_entry_value(glade, "clone_max")
-					passed = check_entry_value(glade, "clone_node_max")
-					passed = check_entry_value(glade, "master_max")
-					passed = check_entry_value(glade, "master_node_max")
+					if not check_entry_value(glade, "advance_id",_("ID")): passed = False
+					if not check_entry_value(glade, "clone_max"): passed = False
+					if not check_entry_value(glade, "clone_node_max"): passed = False
+					if not check_entry_value(glade, "master_max"): passed = False
+					if not check_entry_value(glade, "master_node_max"): passed = False
 				if manager.rsc_exists(glade.get_widget("id").get_text()) :
 					msgbox(_("the ID already exists"))
 					passed = False
-				
+
+				group_ = glade.get_widget("group").child.get_text()
+				if group_ != "" and manager.rsc_exists(group_) and manager.get_rsc_type(group_) != "group":
+					msgbox(_("the Group Name is exists"))
+					passed = False
+
 				if passed :
 					rsc = {}
 					rsc["id"] = glade.get_widget("id").get_text()
@@ -1384,7 +1451,7 @@ class AddNativeDlg :
 
 class MainWindow :
 	'''
-	Main UI window to show information to user and get user's input
+	Main UI window to show information to user and get users input
 	'''
 	win_widget = None
 	actiongroup = None
@@ -1595,7 +1662,10 @@ class MainWindow :
 			elif self.cur_type == _("native") :
 				if self.cur_name not in manager.parent :
 					manager.do_cmd("del_rsc\n"+self.cur_name)
-				parent = manager.parent[self.cur_name] 
+				try :	
+					parent = manager.parent[self.cur_name] 
+				except KeyError : # the self.cur_name does not exist in manager.parent
+					parent = self.cur_name
 				if len(manager.get_rsc_sub_rsc(parent)) == 1 :
 					manager.do_cmd("del_rsc\n"+parent)
 				else :
@@ -1623,6 +1693,9 @@ class MainWindow :
 			if param["name"] == "target_role" and param["value"] == target_role :
 				return
 		manager.do_cmd("set_target_role\n%s\n%s"%(self.cur_name,target_role))
+		if target_role in ["started", "#default"] :
+			for subrsc in manager.get_rsc_sub_rsc(self.cur_name) :
+				manager.do_cmd("set_target_role\n%s\n%s"%(subrsc,target_role))
 	
 	def on_item_move(self, action) :
 		if action.get_name() == "uprsc" :
@@ -1790,6 +1863,7 @@ class Manager :
 	connected = False
 	window = None
 	selected_type = None
+	server = None
 	username = None
 	password = None
 	cache = {}
@@ -1849,8 +1923,8 @@ class Manager :
 		
 	def login(self, server, username, password) :
 		# connect to one of the cluster
-		
 		self.failed_reason = ""
+		self.server = server
 		port = None
 		if string.find(server, ":") != -1 :
 			server,port = string.split(server,":")
@@ -1927,7 +2001,7 @@ class Manager :
 			window.statusbar.pop(1)
 			return False
 		for server in self.all_nodes :
-			if self.login(server, self.username, self.password) :
+			if self.login(self.server, self.username, self.password) :
 				return False
 		return True
 
@@ -1942,7 +2016,7 @@ class Manager :
 		elif event == None or event == "evt:disconnected" :
 			self.logout()
 			for server in self.active_nodes :
-				if self.login(server, self.username, self.password) :
+				if self.login(self.server, self.username, self.password) :
 					break
 			else :
 				window.statusbar.push(1,_("Reconnecting..."))
@@ -2097,7 +2171,8 @@ class Manager :
 	def get_rsc_info(self, rsc) :
 		rsc_attr_names = ["id", "description", "class", "provider", 
 				"type", "is_managed","restart_type",
-				"multiple_active","resource_stickiness"]
+				"multiple_active","resource_stickiness",
+                "resource_failure_stickiness"]
 				
 		op_attr_names = ["id", "name","description","interval","timeout",
 				 "start_delay","disabled","role","prereq","on_fail"]
@@ -2127,12 +2202,15 @@ class Manager :
 	def get_rsc_attrs(self, rsc) :
 		rsc_attr_names = ["id", "description", "class", "provider",
 				"type", "is_managed","restart_type",
-				"multiple_active","resource_stickiness"]
+				"multiple_active","resource_stickiness",
+                "resource_failure_stickiness"]
 		grp_attr_names = ["id", "description", "is_managed","restart_type",
 				"multiple_active","resource_stickiness",
+                "resource_failure_stickiness",
 				"ordered", "collocated"]
 		clone_attr_names = ["id", "description", "is_managed","restart_type",
 				"multiple_active","resource_stickiness",
+                "resource_failure_stickiness", 
 				"notify", "globally_unique", "ordered",
 				"interleave"]
 		attr_list = self.query("rsc_attrs\n%s"%rsc)
@@ -2154,8 +2232,14 @@ class Manager :
 		desc_match = ""
 		
 		(lang, encode) = locale.getlocale()
-		lang = string.lower(lang)
-		encode = string.lower(encode)
+		if lang == None:
+			lang = "en"
+		else:
+			lang = string.lower(lang)
+		if encode == None:	
+			encode = ""
+		else:	
+			encode = string.lower(encode)
 		
 		for child in node.childNodes :
 			if child.nodeType != node.ELEMENT_NODE :

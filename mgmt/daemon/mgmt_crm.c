@@ -526,13 +526,9 @@ on_cib_diff(const char *event, HA_Message *msg)
 void
 on_cib_connection_destroy(gpointer user_data)
 {
-	fire_event(EVT_DISCONNECTED);
-	cib_conn = NULL;
 	if (!in_shutdown) {
-		mgmt_log(LOG_ERR,"Connection to the CIB terminated... exiting");
-		/*cib exits abnormally, mgmtd exits too and
-		wait heartbeat	restart us in order*/
-		exit(LSB_EXIT_OK);
+		fire_event(EVT_DISCONNECTED);
+		cib_conn = NULL;
 	}
 	return;
 }
@@ -1258,6 +1254,8 @@ on_get_rsc_attrs(char* argv[], int argc)
 	value = ha_msg_value(attrs, "multiple_active");
 	ret = mgmt_msg_append(ret, value?value:"#default");
 	value = ha_msg_value(attrs, "resource_stickiness");
+	ret = mgmt_msg_append(ret, value?value:"#default");
+	value = ha_msg_value(attrs, "resource_failure_stickiness");
 	ret = mgmt_msg_append(ret, value?value:"#default");
 	
 	switch (rsc->variant) {
