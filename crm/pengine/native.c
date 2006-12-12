@@ -181,7 +181,7 @@ native_color(resource_t *rsc, pe_working_set_t *data_set)
 	slist_iter(
 		constraint, rsc_colocation_t, rsc->rsc_cons, lpc,
 
-		crm_debug_3("%s: Pre-Processing %s", rsc->id, constraint->id);		
+		crm_debug_3("%s: Pre-Processing %s", rsc->id, constraint->id);
 
 		if(rsc->provisional && constraint->rsc_rh->provisional) {
 			crm_info("Combine scores from %s and %s",
@@ -199,6 +199,12 @@ native_color(resource_t *rsc, pe_working_set_t *data_set)
 		);
 
 	print_resource(LOG_DEBUG, "Allocating: ", rsc, FALSE);
+	if(rsc->next_role == RSC_ROLE_STOPPED) {
+		crm_debug_2("Making sure %s doesn't get allocated", rsc->id);
+		/* make sure it doesnt come up again */
+		resource_location(
+			rsc, NULL, -INFINITY, "target_role", data_set);
+	}
 	
 	if(rsc->provisional && native_choose_node(rsc) ) {
 		crm_debug_3("Allocated resource %s to %s",
@@ -518,13 +524,13 @@ colocation_match(
 		node, node_t, rsc_lh->allowed_nodes, lpc,
 		tmp = g_hash_table_lookup(node->details->attrs, attribute);
 		if(do_check && safe_str_eq(tmp, value)) {
-			crm_debug("%s: %s.%s += %d", constraint->id, rsc_lh->id,
+			crm_debug_2("%s: %s.%s += %d", constraint->id, rsc_lh->id,
 				  node->details->uname, constraint->score);
 			node->weight = merge_weights(
 				constraint->score, node->weight);
 
 		} else if(do_check == FALSE || constraint->score >= INFINITY) {
-			crm_debug("%s: %s.%s = -INFINITY (%s)", constraint->id, rsc_lh->id,
+			crm_debug_2("%s: %s.%s = -INFINITY (%s)", constraint->id, rsc_lh->id,
 				  node->details->uname, do_check?"failed":"unallocated");
 			node->weight = -INFINITY;
 		}
@@ -594,7 +600,7 @@ node_list_update(GListPtr list1, GListPtr list2, int factor)
 			list2, node->details->id);
 
 		if(other_node != NULL) {
-			crm_debug_3("%s: %d + %d",
+			crm_debug_2("%s: %d + %d",
 				    node->details->uname, 
 				    node->weight, other_node->weight);
 			node->weight = merge_weights(
@@ -1254,7 +1260,7 @@ native_create_probe(resource_t *rsc, node_t *node, action_t *complete,
 		crm_free(target_rc);
 	}
 	
-	crm_notice("%s: Created probe for %s", node->details->uname, rsc->id);
+	crm_debug_2("%s: Created probe for %s", node->details->uname, rsc->id);
 	
 	custom_action_order(rsc, NULL, probe, rsc, NULL, complete,
 			    pe_ordering_manditory, data_set);

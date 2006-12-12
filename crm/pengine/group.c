@@ -55,7 +55,9 @@ int group_num_allowed_nodes(resource_t *rsc)
 node_t *
 group_color(resource_t *rsc, pe_working_set_t *data_set)
 {
+	resource_t *child = NULL;
 	node_t *group_node = NULL;
+	GListPtr child_iter = NULL;
 	group_variant_data_t *group_data = NULL;
 	get_group_variant_data(group_data, rsc);
 
@@ -74,11 +76,14 @@ group_color(resource_t *rsc, pe_working_set_t *data_set)
 		group_data->first_child->rsc_cons, rsc->rsc_cons);
 	rsc->rsc_cons = NULL;
 
-	slist_iter(
-		child_rsc, resource_t, group_data->child_list, lpc,
-		group_node = child_rsc->cmds->color(child_rsc, data_set);
-		);
-
+	/* process in reverse so that all scores are merged before allocation */
+	child_iter = g_list_last(group_data->child_list);
+	for(; child_iter != NULL; ) {
+		child = child_iter->data;
+		child_iter = g_list_previous(child_iter);
+		group_node = child->cmds->color(child, data_set);
+	}
+	
 	rsc->provisional = FALSE;
 	rsc->is_allocating = FALSE;
 
@@ -311,35 +316,18 @@ void group_rsc_colocation_rh(
 		);
 }
 
-
 void group_rsc_order_lh(resource_t *rsc, order_constraint_t *order)
 {
-	char *stop_id = NULL;
-	char *start_id = NULL;
 	group_variant_data_t *group_data = NULL;
 	get_group_variant_data(group_data, rsc);
 
-	crm_debug_3("Processing LH of ordering constraint %d", order->id);
+	crm_debug("%s->%s", order->lh_action_task, order->rh_action_task);
 
 	if(group_data->self == NULL) {
 		return;
 	}
 
-	stop_id = stop_key(group_data->self);
-	start_id = start_key(group_data->self);
-	
-	if(safe_str_eq(order->lh_action_task, start_id)) {
-		crm_free(order->lh_action_task);
-		order->lh_action_task = started_key(group_data->self);
-
-	} else if(safe_str_eq(order->lh_action_task, stop_id)) {
-		crm_free(order->lh_action_task);
-		order->lh_action_task = stopped_key(group_data->self);
-	}
-
-	crm_free(start_id);
-	crm_free(stop_id);
-	
+	convert_non_atomic_task(rsc, order);
 	group_data->self->cmds->rsc_order_lh(group_data->self, order);
 }
 
@@ -349,7 +337,7 @@ void group_rsc_order_rh(
 	group_variant_data_t *group_data = NULL;
 	get_group_variant_data(group_data, rsc);
 
-	crm_debug_3("Processing RH of ordering constraint %d", order->id);
+	crm_debug_2("%s->%s", lh_action->uuid, order->rh_action_task);
 
 	if(group_data->self == NULL) {
 		return;
