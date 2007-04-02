@@ -1469,7 +1469,7 @@ parse_xml(const char *input, size_t *offset)
 				}
 				break;
 			case '>':
-				while(our_input[lpc+1] != '<') {
+				while(lpc < max && our_input[lpc+1] != '<') {
 					lpc++;
 				}
 				break;
@@ -2543,10 +2543,18 @@ validate_with_dtd(
 	}
 	
   cleanup:
-	xmlFreeValidCtxt(cvp);
-	xmlFreeDtd(dtd);
-	xmlFreeDoc(doc);
-	crm_free(buffer);
+	if(cvp) {
+		xmlFreeValidCtxt(cvp);
+	}
+	if(dtd) {
+		xmlFreeDtd(dtd);
+	}
+	if(doc) {
+		xmlFreeDoc(doc);
+	}
+	if(buffer) {
+		crm_free(buffer);
+	}
 	
 #endif	
 	return valid;
