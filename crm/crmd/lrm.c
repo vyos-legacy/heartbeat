@@ -599,6 +599,14 @@ build_operation_update(
 	g_hash_table_foreach(op->params, hash2field, args_xml);
 	filter_action_parameters(args_xml, caller_version);
 	digest = calculate_xml_digest(args_xml, TRUE);
+	if(safe_str_eq(task, CRMD_ACTION_START)) {
+		/* info for now as this area has been problematic to debug */
+		crm_info("Digest for %s (%s) was %s\n", 
+			  crm_element_value(xml_op, XML_ATTR_TRANSITION_MAGIC),
+			  ID(xml_op), digest);
+		crm_log_xml(LOG_INFO,  "digest:source", args_xml);
+	}
+	
 	crm_xml_add(xml_op, XML_LRM_ATTR_OP_DIGEST, digest);
 	crm_free(digest);
 	if(args_parent == NULL) {
@@ -636,7 +644,7 @@ is_rsc_active(const char *rsc_id)
 
 	the_rsc = fsa_lrm_conn->lrm_ops->get_rsc(fsa_lrm_conn, rsc_id);
 
-	crm_debug_2("Processing lrm_rsc_t entry %s", rsc_id);
+	crm_debug_3("Processing lrm_rsc_t entry %s", rsc_id);
 	
 	if(the_rsc == NULL) {
 		crm_err("NULL resource returned from the LRM");
@@ -650,9 +658,9 @@ is_rsc_active(const char *rsc_id)
 	slist_iter(
 		op, lrm_op_t, op_list, llpc,
 		
-		crm_debug("Processing op %s_%d (%d) for %s (status=%d, rc=%d)", 
-			  op->op_type, op->interval, op->call_id, the_rsc->id,
-			  op->op_status, op->rc);
+		crm_debug_2("Processing op %s_%d (%d) for %s (status=%d, rc=%d)", 
+			    op->op_type, op->interval, op->call_id, the_rsc->id,
+			    op->op_status, op->rc);
 		
 		CRM_ASSERT(max_call_id <= op->call_id);			
 		if(op->rc == EXECRA_OK
@@ -709,7 +717,7 @@ build_active_RAs(crm_data_t *rsc_list)
 
 		int max_call_id = -1;
 		
-		crm_debug("Processing lrm_rsc_t entry %s", rid);
+		crm_debug_2("Processing lrm_rsc_t entry %s", rid);
 		
 		if(the_rsc == NULL) {
 			crm_err("NULL resource returned from the LRM");
