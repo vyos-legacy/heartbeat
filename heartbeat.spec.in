@@ -2555,6 +2555,12 @@ else
 fi
 
 ###########################################################
+%pre
+###########################################################
+# We made some directories into symlinks
+# RPM won't update them correctly
+rm -fr @libdir@/cts @libdir@/lrmtest @libdir@/stonithdtest 
+###########################################################
 %post
 ###########################################################
 true
