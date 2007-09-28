@@ -130,6 +130,7 @@ struct resource_s {
 
 		int	 priority; 
 		int	 stickiness; 
+		int	 sort_index; 
 		int	 fail_stickiness;
 		int	 effective_priority; 
 
@@ -142,12 +143,14 @@ struct resource_s {
 		gboolean provisional;
 		gboolean globally_unique;
 		gboolean is_allocating;
+		gboolean is_merging;
 		
 		gboolean failed;
 		gboolean start_pending;
 		
 		gboolean orphan;
 		
+		GListPtr rsc_cons_lhs;     /* rsc_colocation_t* */
 		GListPtr rsc_cons;         /* rsc_colocation_t* */
 		GListPtr rsc_location;     /* rsc_to_node_t*    */
 		GListPtr actions;	   /* action_t*         */
@@ -161,7 +164,9 @@ struct resource_s {
 		enum rsc_role_e next_role;
 
 		GHashTable *meta;	   
-		GHashTable *parameters;	   
+		GHashTable *parameters;
+
+		GListPtr children;	  /* resource_t* */	
 };
 
 struct action_s 

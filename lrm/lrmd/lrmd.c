@@ -70,7 +70,7 @@ ProcTrack_ops ManagedChildTrackOps = {
 typedef int (*msg_handler)(lrmd_client_t* client, struct ha_msg* msg);
 struct msg_map
 {
-	const char* 	msg_type;
+	const char 	*msg_type;
 	int	reply_time;
 	msg_handler	handler;
 };
@@ -82,8 +82,8 @@ struct msg_map
  */
 #define REPLY_NOW 0
 #define NO_MSG 1
-#define send_msg_now(i) \
-	(msg_maps[i].reply_time==REPLY_NOW)
+#define send_msg_now(p) \
+	(p->reply_time==REPLY_NOW)
 /* magic number, must be different from other return codes! */
 #define POSTPONED 32
 
@@ -103,6 +103,7 @@ struct msg_map msg_maps[] = {
 	{GETRSCSTATE,	NO_MSG,	on_msg_get_state},
 	{GETRSCMETA,	NO_MSG, 	on_msg_get_metadata},
 };
+#define MSG_NR sizeof(msg_maps)/sizeof(struct msg_map)
 
 GHashTable* clients		= NULL;	/* a GHashTable indexed by pid */
 GHashTable* resources 		= NULL;	/* a GHashTable indexed by rsc_id */
@@ -808,7 +809,7 @@ main(int argc, char ** argv)
 
 	cl_log_set_entity(lrm_system_name);
 	cl_log_enable_stderr(debug_level?TRUE:FALSE);
-	cl_log_set_facility(LOG_DAEMON);
+	cl_log_set_facility(HA_LOG_FACILITY);
 
 	/* Use logd if it's enabled by heartbeat */
 	cl_inherit_logging_environment(0);
@@ -1085,6 +1086,8 @@ init_start ()
 		{"RAExec", &RAExecFuncs, NULL, NULL, NULL},
 		{ NULL, NULL, NULL, NULL, NULL} };
 
+	qsort(msg_maps, MSG_NR, sizeof(struct msg_map), msg_type_cmp);
+
 	if (cl_lock_pidfile(PID_FILE) < 0) {
 		lrmd_log(LOG_ERR, "already running: [pid %d].", cl_read_pidfile(PID_FILE));
 		lrmd_log(LOG_ERR, "Startup aborted (already running).  Shutting down."); 
@@ -1268,7 +1271,6 @@ init_start ()
 	if (cl_unlock_pidfile(PID_FILE) == 0) {
 		lrmd_debug(LOG_DEBUG, "[%s] stopped", lrm_system_name);
 	}
-
 	return 0;
 }
 
@@ -1370,13 +1372,22 @@ on_connect_cbk (IPC_Channel* ch, gpointer user_data)
 	return TRUE;
 }
 
+int
+msg_type_cmp(const void *p1, const void *p2)
+{
+
+	return strncmp(
+		((const struct msg_map *)p1)->msg_type,
+		((const struct msg_map *)p2)->msg_type,
+		MAX_MSGTYPELEN);
+}
+
 gboolean
 on_receive_cmd (IPC_Channel* ch, gpointer user_data)
 {
-	int i;
+	struct msg_map *msgmap_p, in_type;
 	lrmd_client_t* client = NULL;
 	struct ha_msg* msg = NULL;
-	const char* type = NULL;
 
 	client = (lrmd_client_t*)user_data;
 
@@ -1410,34 +1421,33 @@ on_receive_cmd (IPC_Channel* ch, gpointer user_data)
 	}
 
 	/*dispatch the message*/
-	type = ha_msg_value(msg, F_LRM_TYPE);
-	if( !type ) {
+	in_type.msg_type = ha_msg_value(msg, F_LRM_TYPE);
+	if( !in_type.msg_type ) {
 		LOG_FAILED_TO_GET_FIELD(F_LRM_TYPE);
 		return TRUE;
 	}
 	lrmd_debug2(LOG_DEBUG,"dumping request: %s",msg2string(msg));
 
-	for (i=0; i<DIMOF(msg_maps); i++) {
-		if (0 == strncmp(type, msg_maps[i].msg_type, MAX_MSGTYPELEN)) {
-			int ret;
+	if (!(msgmap_p = bsearch(&in_type, msg_maps,
+			MSG_NR, sizeof(struct msg_map), msg_type_cmp)
+		)) {
 
-			strncpy(client->lastrequest, type, sizeof(client->lastrequest));
-			client->lastrequest[sizeof(client->lastrequest)-1]='\0';
-			client->lastreqstart = time(NULL);
-			/*call the handler of the message*/
-			ret = msg_maps[i].handler(client, msg);
-			client->lastreqend = time(NULL);
-
-			/*return rc to client if need*/
-			if (send_msg_now(i)) {
-				send_ret_msg(ch, ret);
-				client->lastrcsent = time(NULL);
-			}
-			break;
-		}
-	}
-	if (i == DIMOF(msg_maps)) {
 		lrmd_log(LOG_ERR, "on_receive_cmd: received an unknown msg");
+	} else {
+		int ret;
+
+		strncpy(client->lastrequest, in_type.msg_type, sizeof(client->lastrequest));
+		client->lastrequest[sizeof(client->lastrequest)-1]='\0';
+		client->lastreqstart = time(NULL);
+		/*call the handler of the message*/
+		ret = msgmap_p->handler(client, msg);
+		client->lastreqend = time(NULL);
+
+		/*return rc to client if need*/
+		if (send_msg_now(msgmap_p)) {
+			send_ret_msg(ch, ret);
+			client->lastrcsent = time(NULL);
+		}
 	}
 
 	/*delete the msg*/
@@ -2256,6 +2266,17 @@ on_msg_perform_op(lrmd_client_t* client, struct ha_msg* msg)
 	op->delay = delay;
 
 	op->msg = ha_msg_copy(msg);
+
+	if( ha_msg_value_int(msg,F_LRM_COPYPARAMS,&op->copyparams) == HA_OK
+			&& op->copyparams ) {
+		lrmd_debug(LOG_DEBUG
+			, "%s:%d: copying parameters for rsc %s"
+			, __FUNCTION__, __LINE__,rsc->id);
+		if (rsc->params) {
+			free_str_table(rsc->params);
+		}
+		rsc->params = ha_msg_value_str_table(msg, F_LRM_PARAM);
+	}
 	
 	lrmd_debug2(LOG_DEBUG
 	, "%s: client [%d] want to add an operation %s on resource %s."
@@ -2746,7 +2767,7 @@ perform_op(lrmd_rsc_t* rsc)
 	if (rsc_frozen(rsc)) {
 		lrmd_log(LOG_DEBUG,"%s: resource %s is frozen, "
 		"no ops allowed to run"
-		, __FUNCTION__, lrm_str(op->rsc_id));
+		, __FUNCTION__, rsc->id);
 		return HA_OK;
 	}
 
@@ -2897,6 +2918,10 @@ perform_ra_op(lrmd_op_t* op)
 		return HA_FAIL;
 	}
 
+	op_type = ha_msg_value(op->msg, F_LRM_OP);
+	if (!op->interval) { /* log non-repeating ops */
+		lrmd_log(LOG_INFO,"rsc:%s: %s",rsc->id,op_type);
+	}
 	op_params = ha_msg_value_str_table(op->msg, F_LRM_PARAM);
 	params = merge_str_tables(rsc->params,op_params);
 	ha_msg_mod_str_table(op->msg, F_LRM_PARAM, params);
@@ -2988,7 +3013,6 @@ perform_ra_op(lrmd_op_t* op)
 				lrmd_log(LOG_ERR,"perform_ra_op: can not find RAExec");
 				exit(EXECRA_EXEC_UNKNOWN_ERROR);
 			}
-			op_type = ha_msg_value(op->msg, F_LRM_OP);
 			/*should we use logging daemon or not in script*/
 			setenv(HALOGD, cl_log_get_uselogd()?"yes":"no",1);
 

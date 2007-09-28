@@ -40,8 +40,8 @@ resource_object_functions_t resource_class_functions[] = {
 	},
 	{
 		group_unpack,
-		group_find_child,
-		group_children,
+		native_find_child,
+		native_children,
 		native_parameter,
 		group_print,
 		group_active,
@@ -50,8 +50,8 @@ resource_object_functions_t resource_class_functions[] = {
 	},
 	{
 		clone_unpack,
-		clone_find_child,
-		clone_children,
+		native_find_child,
+		native_children,
 		native_parameter,
 		clone_print,
 		clone_active,
@@ -60,8 +60,8 @@ resource_object_functions_t resource_class_functions[] = {
 	},
 	{
 		master_unpack,
-		clone_find_child,
-		clone_children,
+		native_find_child,
+		native_children,
 		native_parameter,
 		clone_print,
 		clone_active,
@@ -288,6 +288,78 @@ common_unpack(crm_data_t * xml_obj, resource_t **rsc,
 }
 
 
+void common_update_score(resource_t *rsc, const char *id, int score) 
+{
+    node_t *node = NULL;
+    node = pe_find_node_id(rsc->allowed_nodes, id);
+    if(node != NULL) {
+	crm_debug_2("Updating score for %s on %s: %d + %d",
+		    rsc->id, id, node->weight, score);
+	node->weight = merge_weights(node->weight, score);
+    }
+
+    if(rsc->children) {
+	slist_iter(
+	    child_rsc, resource_t, rsc->children, lpc,
+	    common_update_score(child_rsc, id, score);
+	    );
+    }
+}
+
+void
+common_apply_stickiness(resource_t *rsc, node_t *node, pe_working_set_t *data_set) 
+{
+	int fail_count = 0;
+	char *fail_attr = NULL;
+	const char *value = NULL;
+	GHashTable *meta_hash = NULL;
+
+	if(rsc->children) {
+	    slist_iter(
+		child_rsc, resource_t, rsc->children, lpc,
+		common_apply_stickiness(child_rsc, node, data_set);
+		);
+	    return;
+	}
+	
+	meta_hash = g_hash_table_new_full(
+		g_str_hash, g_str_equal,
+		g_hash_destroy_str, g_hash_destroy_str);
+	get_meta_attributes(meta_hash, rsc, node, data_set);
+
+	/* update resource preferences that relate to the current node */	    
+	value = g_hash_table_lookup(meta_hash, "resource_stickiness");
+	if(value != NULL && safe_str_neq("default", value)) {
+		rsc->stickiness = char2score(value);
+	} else {
+		rsc->stickiness = data_set->default_resource_stickiness;
+	}
+
+	value = g_hash_table_lookup(meta_hash, XML_RSC_ATTR_FAIL_STICKINESS);
+	if(value != NULL && safe_str_neq("default", value)) {
+		rsc->fail_stickiness = char2score(value);
+	} else {
+		rsc->fail_stickiness = data_set->default_resource_fail_stickiness;
+	}
+
+	/* process failure stickiness */
+	fail_attr = crm_concat("fail-count", rsc->id, '-');
+	value = g_hash_table_lookup(node->details->attrs, fail_attr);
+	if(value != NULL) {
+		crm_debug("%s: %s", fail_attr, value);
+		fail_count = crm_parse_int(value, "0");
+	}
+	crm_free(fail_attr);
+	
+	if(fail_count > 0 && rsc->fail_stickiness != 0) {
+		resource_location(rsc, node, fail_count * rsc->fail_stickiness,
+				  "fail_stickiness", data_set);
+		crm_info("Setting failure stickiness for %s on %s: %d",
+			  rsc->id, node->details->uname,
+			  fail_count * rsc->fail_stickiness);
+	}
+	g_hash_table_destroy(meta_hash);
+}
 
 void common_free(resource_t *rsc)
 {
@@ -297,7 +369,9 @@ void common_free(resource_t *rsc)
 	
 	crm_debug_5("Freeing %s %d", rsc->id, rsc->variant);
 
- 	pe_free_shallow(rsc->rsc_cons);
+  	pe_free_shallow(rsc->rsc_cons);
+	g_list_free(rsc->rsc_cons_lhs);
+
 	if(rsc->parameters != NULL) {
 		g_hash_table_destroy(rsc->parameters);
 	}
