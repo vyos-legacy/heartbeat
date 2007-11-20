@@ -850,7 +850,7 @@ initialize_heartbeat()
 		
 		ourproc = procinfo->nprocs;
 		
-		if (mp->vf->open(mp) != HA_OK){
+		if ((mp->vf->mopen)(mp) != HA_OK){
 			cl_log(LOG_ERR, "cannot open %s %s",
 			       mp->type,
 			       mp->name);
@@ -1416,7 +1416,9 @@ master_control_process(void)
 		G_main_setmaxdispatchdelay((GSource*)s, config->heartbeat_ms/4);
 		G_main_setmaxdispatchtime((GSource*)s, 50);
 		G_main_setdescription((GSource*)s, "write child");
-
+		/* Ensure that a hanging write process does not livelock
+		 * the MCP */
+		sysmedia[j]->wchan[P_WRITEFD]->should_send_block = FALSE;
 		
 		/* Connect up the read child IPC channel... */
 		s = G_main_add_IPC_Channel(PRI_READPKT
