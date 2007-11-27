@@ -72,7 +72,7 @@ This program is a work-in-progress, but for many CIBs it's probably useful now.
 
 It currently looks for a number of classes of possible errors, including these:
   - Non-unique 'id' strings for the given <tag>
-  - 'id' strings which are not globally unique
+  - 'id' strings (outside the status section) which are not globally unique
   - Incorrect <nvpair> 'name's or 'value's
   - Duplicate <nvpair> 'name's in a list
   - Incorrect XML attribute names or values
@@ -98,7 +98,7 @@ global CIBADMIN, HA_LIBHBDIR, URLBASE, LRMADMIN
 HA_LIBHBDIR = "@HA_LIBHBDIR@"
 CIBADMIN="@sbindir@/cibadmin"
 URLBASE="@HA_URLBASE@" + "ciblint/"
-LRMADMIN="sudo @HA_LIBHBDIR@" + "/lrmadmin"
+LRMADMIN="sudo " + HA_LIBHBDIR + "/lrmadmin"
 
 global note_non_default_values, note_metadata_errors, wikiformat, outlinelen
 note_non_default_values = 1
@@ -473,7 +473,7 @@ class OCFParameterMetadata:
         if default != "":
           self.default=default
       else:
-        print "ERROR: Don't know how to deal with funky child of <%s>" % xmlnode.tagName
+        print "Metadata ERROR: Don't know how to deal with funky child of <%s>" % xmlnode.tagName
         print "Funky child: " + node2str(child)
 
   def shortdesc(self, lang="en"):
@@ -516,6 +516,7 @@ class OCFMetadata:
       if topchild.nodeType != topchild.ELEMENT_NODE:
         continue
       if topchild.tagName != "resource-agent":
+         print "ERROR: Unexpected nesting of %s inside <%s>" % (node2str(topchild), xmlnode.tagName)
          continue
       self.name = topchild.getAttribute("name")
       self.longdescs=OCFLangString(topchild,"longdesc", self.name)
@@ -526,7 +527,7 @@ class OCFMetadata:
           continue
 
 	# Short Description
-        elif child.tagName == "shortdesc" or child.tagName == "longdesc" \
+        if child.tagName == "shortdesc" or child.tagName == "longdesc" \
         or child.tagName == "version":
           continue
 
@@ -539,6 +540,8 @@ class OCFMetadata:
             if gchild.tagName == "parameter":
               p = OCFParameterMetadata(gchild)
               self.Parameters[p.name] = p
+            else:
+              print "ERROR: Unexpected nesting of %s inside <%s>" % (node2str(gchild), child.tagName)
 
 	# Actions
         elif child.tagName == "actions":
@@ -550,13 +553,13 @@ class OCFMetadata:
               # Good enough to get us started...
               self.Operations[gchild.getAttribute("name")] = 1
             else:
-              print "ERROR: Don't know how to deal with funky child of <%s>" % child.tagName
-              print "Funky child: " + node2str(gchild)
+              print "ERROR: Unexpected nesting of %s inside <%s>" % (node2str(gchild), child.tagName)
+        elif child.tagName == "special":
+          continue
         else:
-          print "ERROR: Don't know how to deal with funky child of <%s>" % topchild.tagName
-          print "Funky child: " + node2str(child)
-        self=None
-        return
+          print "ERROR: Unexpected nesting of %s inside <%s>" % (node2str(child), topchild.tagName)
+          self=None
+          return
 
   def shortdesc(self, lang="en"):
     return self.shortdescs.text(lang)
@@ -607,6 +610,7 @@ class OCFMetadata:
 	item.shortdesc(lang)), outlinelen, "    ", "")
       print_wrap(item.longdesc(lang), outlinelen, "    ", "    ")
       if item.type.validtypevals != None:
+        print_wrap("Legal Values:", outlinelen, "\t    ", "\t")
         for enumval in item.type.validtypevals.keys():
           descs= item.type.validtypevals[enumval]
           shortd=descs[0].text(lang)
@@ -626,8 +630,9 @@ class OCFMetadata:
         deflt=": default=%s" % item.default
       print "'''%s''' [%s%s]: ''%s''[[BR]]" % (key, item.typename, deflt,\
       	self.Parameters[key].shortdesc(lang))
-      print "%s" % (self.Parameters[key].longdesc(lang))
+      print "%s[[BR]]" % (self.Parameters[key].longdesc(lang))
       if item.type.validtypevals != None:
+        print "''''Legal Values:''''"
         for enumval in item.type.validtypevals.keys():
           descs=item.type.validtypevals[enumval]
           print " * '''%s:''' %s[[BR]]%s" % (enumval, descs[0].text(lang), descs[1].text(lang))
@@ -992,17 +997,17 @@ crm_config_section=None
 # unique for the tag and (preferably) also globally unique.
 #
 
-def CheckXMLNodeUniqueness(xmlnode):
+def CheckXMLNodeUniqueness(xmlnode,globallyunique=1):
     CheckAttributes(xmlnode)
     if hasattr(xmlnode, "tagName"):
       id = xmlnode.getAttribute("id")
       if id == "":
         print "ERROR: Tag <%s/> requires an 'id' attribute" % xmlnode.tagName
         return None
-      return CheckIdUniqueness(xmlnode.tagName, id)
+      return CheckIdUniqueness(xmlnode.tagName, id, globallyunique=globallyunique)
     return 1
 
-def CheckIdUniqueness(tag, id):
+def CheckIdUniqueness(tag, id,globallyunique=1):
     global GlobalIdSet
     global GlobalTagIDSet
     ret = 1
@@ -1014,7 +1019,7 @@ def CheckIdUniqueness(tag, id):
       ret = None
     else:
       GlobalTagIDSet[tag][id] = id
-    if GlobalIDSet.has_key(id):
+    if globallyunique and GlobalIDSet.has_key(id):
       print "NOTE: '%s' not globally unique among all 'id's" % id
     else:
       GlobalIDSet[id] = id
@@ -1490,20 +1495,20 @@ def ValidateResource(rscname):
     rsplit=rscname.split(":",1)
     rname=rsplit[0]
     if not AllResources.has_key(rname):
-      return 0
+      return None
     if len(rsplit) > 1:
       if not AllResources[rname].inclone:
         print "ERROR: Resource [%s] referenced as [%s] is not a clone resource" \
         %		(rname, rscname)
-        return 0
+        return None
       elif not IntegerMetadataType.validate(rsplit[1]):
         print "ERROR: Clone number [%s] in resource name [%s] is not an integer." \
         %		(rsplit[1], rscname)
-        return 0
+        return None
       else:
          # FIXME - validate clone number against clone_max for clone resource
          None
-    return 1
+    return AllResources[rname]
     
   
 #
@@ -1737,12 +1742,136 @@ class RuleTag:
         self=None
         return
 
+class OpStatus:
+  def __init__(self, xmlnode, rsc):
+	self.rsc = rsc
+	self.operation = xmlnode.getAttribute("operation")
+	self.call_id = xmlnode.getAttribute("call_id")
+	self.rc_code = xmlnode.getAttribute("rc_code")
+	self.op_status = xmlnode.getAttribute("op_status")
+#
+# A class for processing the <lrm_resource> tag
+#
+class LrmResourceTag:
+  def __init__(self, xmlnode, clusternode):
+    #CheckXMLNodeUniqueness(xmlnode, globallyunique=0)
+    # Although this has an 'id' tag, it's the id if the resource this points to
+    # and is not unique among all <lrm_resource> tags
+    self.rscid = xmlnode.getAttribute("id")
+    #print "GOT <%s id=\"%s\">" % (xmlnode.tagName, self.rscid)
+    self.resource = ValidateResource(self.rscid)
+    if self.resource == None:
+      print "ERROR: <lrm_resource id=\"%s\"> tag without corresponding resource" % id
+      self=None
+      return
+    if self.resource.rsctype != "primitive":
+      print "ERROR: <lrm_resource id=\"%s\"> tag refers to <%s> resource" % (id, self.resource.rsctype)
+      self=None
+      return
+      
+    for child in xmlnode.childNodes:
+      if child.nodeType != child.ELEMENT_NODE:
+        continue
+      if child.tagName == "lrm_rsc_op":
+        pieces=self.rscid.split(":")
+        if len(pieces) > 1 and not self.resource.inclone:
+          print "ERROR: name <%s> indicates a clone resource but <%s> is not a clone"\
+          %	(self.rscid, self.resource.name)
+          self=None
+          return
+        if self.resource.inclone and len(pieces) < 2:
+          print "ERROR: <%s> is a clone resource but <%s> is not a clone reference"\
+          %	(self.resource.name, self.rscid)
+          self=None
+          return
+
+        if not self.resource.inclone:
+          # Non-clone case
+          if not hasattr(self.resource,"LRMresources"):
+            self.resource.LRMresources = {}
+          if not self.resource.LRMresources.has_key(clusternode):
+            self.resource.LRMresources[clusternode] = []
+          self.resource.LRMresources[clusternode].append(OpStatus(child, self.resource))
+        else:
+          # Clone case
+          cloneno = Integer(pieces[1])
+          if not self.resource.hasattr("LRMclones"):
+            self.resource.LRMclones = {}
+          if not self.resource.LRMclones.has_key(cloneno):
+            self.resource.LRMclones[cloneno] = {}
+          if not self.resource.LRMclones[cloneno].has_key(clusternode):
+            self.resource.LRMclones[cloneno][clusternode] = []
+          self.resource.LRMclones[cloneno][clusternode].append(OpStatus(child, self.resource))
+          # What about master-slave resources?
+      else:
+        print "ERROR: Unexpected nesting of %s inside <%s>" % (node2str(child), xmlnode.tagName)
+  # End of __init__() 
+     
+
+class LrmResourcesTag:
+  def __init__(self, xmlnode, clusternode):
+    #print "GOT <%s>" % (xmlnode.tagName)
+    CheckAttributes(xmlnode)
+    self.resources=[]
+    for child in xmlnode.childNodes:
+      if child.nodeType != child.ELEMENT_NODE:
+        continue
+      if child.tagName == "lrm_resource":
+        self.resources.append(LrmResourceTag(child, clusternode))
+      else:
+        print "ERROR: Unexpected nesting of %s inside <%s>" % (node2str(child), xmlnode.tagName)
+
+class LrmTag:
+  def __init__(self, xmlnode, clusternode):
+    self.id = xmlnode.getAttribute("id")
+    CheckXMLNodeUniqueness(xmlnode, globallyunique=0)
+    #print "GOT <%s id=\"%s\">" % (xmlnode.tagName, self.id)
+    for child in xmlnode.childNodes:
+      if child.nodeType != child.ELEMENT_NODE:
+        continue
+      if child.tagName == "lrm_resources":
+        self.resources = LrmResourcesTag(child, clusternode)
+      else:
+        print "ERROR: Unexpected nesting of %s inside <%s>" % (node2str(child), xmlnode.tagName)
+
+class NodeStateTag:
+  def __init__(self, xmlnode):
+    CheckXMLNodeUniqueness(xmlnode, globallyunique=0)
+    self.id = xmlnode.getAttribute("id")
+    #print "GOT <%s id=\"%s\">" % (xmlnode.tagName, self.id)
+    self.uname = xmlnode.getAttribute("uname")
+    self.attributes = xmlnode.attributes
+    self.id = xmlnode.getAttribute("id")
+    for child in xmlnode.childNodes:
+      if child.nodeType != child.ELEMENT_NODE:
+        continue
+      if child.tagName == "lrm":
+        self.lrmstate = LrmTag(child, self.uname)
+      elif child.tagName == "transient_attributes":
+        descend(child)
+      else:
+        print "ERROR: Unexpected nesting of %s inside <%s>" % (node2str(child), xmlnode.tagName)
+
+class StatusTag:
+  def __init__(self, xmlnode):
+    #print "GOT <%s>" % (xmlnode.tagName)
+    CheckAttributes(xmlnode)
+    self.nodestates = []
+    for child in xmlnode.childNodes:
+      if child.nodeType != child.ELEMENT_NODE:
+        continue
+      if child.tagName == "node_state":
+        self.nodestates.append(NodeStateTag(child))
+      else:
+        print "ERROR: Unexpected nesting of %s inside <%s>" % (node2str(child), xmlnode.tagName)
 
 def descend(xmlnode):
   if xmlnode.nodeType == xmlnode.ELEMENT_NODE:
     CheckAttributes(xmlnode)
     if xmlnode.tagName == "crm_config":
       return CRMConfigTag(xmlnode)
+    if xmlnode.tagName == "status":
+      return StatusTag(xmlnode)
     if xmlnode.tagName == "cluster_property_set":
       return ClusterPropertySetTag(xmlnode)
     if xmlnode.tagName == "meta_attributes":
@@ -1753,6 +1882,8 @@ def descend(xmlnode):
       return AttributesTag(xmlnode)
     if xmlnode.tagName == "nodes":
       return NodesTag(xmlnode)
+    if xmlnode.tagName == "node_state":
+      return NodeStateTag(xmlnode)
     if xmlnode.tagName == "expression":
       return ExpressionTag(xmlnode)
     if xmlnode.tagName == "primitive":
@@ -1803,7 +1934,7 @@ def analyze_CIB(doc):
       print "ERROR:  STONITH enabled, but No STONITH resources configured.  STONITH is NOT available."
   else:
     stonithwarn=1
-    print "WARNING:  STONITH disabled (%s=%s).  STONITH is STRONGLY recommended."\
+    print "WARNING:  STONITH disabled <nvpair name=\"%s\" value=\"%s\">.  STONITH is STRONGLY recommended."\
     %	(stonithtag, enableval)
     if stonith_resource_count == 0:
       print "WARNING:  No STONITH resources configured.  STONITH is not available."
