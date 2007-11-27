@@ -101,10 +101,14 @@ URLBASE="@HA_URLBASE@" + "ciblint/"
 LRMADMIN="sudo " + HA_LIBHBDIR + "/lrmadmin"
 
 global note_non_default_values, note_metadata_errors, wikiformat, outlinelen
+global stonithresourcecount, allow_global_nonuniques, stonith_remarks
 note_non_default_values = 1
-note_metadata_errors = 1
+note_metadata_errors = 0
 wikiformat=0
+stonithresourcecount=0
+stonithremarks=1
 outlinelen=70
+allow_global_nonuniques=1
 global LRMclasses, LRMresources
 LRMclasses = {}
 LRMresources = {}
@@ -248,7 +252,8 @@ class MetadataValueType:
          j=j+1
        if j <= 0:
          return None
-       units=value[j+1:len(value)-1]
+       units=value[j:]
+       #print "time: %s: %d [%s]/[%s]" % (value, j, value[0:j], units)
        if len(units) == 0:
          return 1
        return MetadataValueType.TimeUnits.has_key(units)
@@ -577,17 +582,19 @@ class OCFMetadata:
       return None
     return self.Parameters[p].validate(v)
 
-  def validate_nvpairs(self, nvpairs):
+  def validate_nvpairs(self, nvpairs, context=None):
     ret=1
+    if context == None:
+      context="inside <%s> tag" % self.name
     for p in nvpairs.keys():
       if not self.Parameters.has_key(p):
-        print "ERROR: <nvpair name=\"%s\" ...> \"%s\" is not a legal nvpair name inside <%s> tag" \
-	%	(p, p, self.name)
+        print "ERROR: <nvpair name=\"%s\" ...> \"%s\" is not a legal nvpair name %s" \
+	%	(p, p, context)
         ret=0
         continue
       if not self.Parameters[p].validate(nvpairs[p]):
-        print "ERROR: <nvpair name=\"%s\" value=\"%s\">: \"%s\" is not a legal value for name %s inside <%s> tag" \
-	%	(p, nvpairs[p], nvpairs[p], p, self.name)
+        print "ERROR: <nvpair name=\"%s\" value=\"%s\">: \"%s\" is not a legal value for name %s %s" \
+	%	(p, nvpairs[p], nvpairs[p], p, context)
         ret=0
     return ret
  
@@ -658,6 +665,16 @@ class CRMMetadata:
       <shortdesc lang="en">last LRM refresh</shortdesc>
       <longdesc lang="en">you can't set this yourself</longdesc>
       <content type="integer"/>
+    </parameter>
+    <parameter name="dc-version" unique="0">
+      <shortdesc lang="en">Version of Heartbeat the DC is running</shortdesc>
+      <longdesc lang="en">you can't set this yourself</longdesc>
+      <content type="string"/>
+    </parameter>
+    <parameter name="shutdown-escalation" unique="0">
+      <shortdesc lang="en">time before shutdown escalation</shortdesc>
+      <longdesc lang="en">time before normal shutdown is replaced by ungraceful escalated shutdown</longdesc>
+      <content type="string"/>
     </parameter>
   </parameters>
 </resource-agent>
@@ -938,6 +955,12 @@ MetaAttributeMetadata_string =\
       <content type="boolean" default="false"/>
     </parameter>
 
+    <parameter name="allow_migrate" unique="0">
+      <shortdesc lang="en">"true" means this resource migratable</shortdesc>
+      <longdesc lang="en">see short description.</longdesc>
+      <content type="boolean" default="false"/>
+    </parameter>
+
     <parameter name="notify" unique="0">
       <content type="boolean" default="0"/>
       <shortdesc lang="en">notify clone resource agent of changes in state</shortdesc>
@@ -1010,6 +1033,7 @@ def CheckXMLNodeUniqueness(xmlnode,globallyunique=1):
 def CheckIdUniqueness(tag, id,globallyunique=1):
     global GlobalIdSet
     global GlobalTagIDSet
+    global allow_global_nonuniques
     ret = 1
     if not GlobalTagIDSet.has_key(tag):
       GlobalTagIDSet[tag] = {}
@@ -1019,7 +1043,7 @@ def CheckIdUniqueness(tag, id,globallyunique=1):
       ret = None
     else:
       GlobalTagIDSet[tag][id] = id
-    if globallyunique and GlobalIDSet.has_key(id):
+    if not allow_global_nonuniques and globallyunique and GlobalIDSet.has_key(id):
       print "NOTE: '%s' not globally unique among all 'id's" % id
     else:
       GlobalIDSet[id] = id
@@ -1046,6 +1070,7 @@ HaStatusMetadataType = MetadataValueType("enum", {"active":1, "init":1, "dead":0
 LrmOpMetadataType = MetadataValueType("enum", {"start":1, "stop":1,"reload":1,"monitor":1, "migrate":1})
 LrmClassMetadataType = MetadataValueType("enum", {"stonith":1, "ocf":1,"heartbeat":1,"lsb":1})
 BooleanOpMetadataType = MetadataValueType("enum", {"and":1, "or":1})
+PrereqMetadataType = MetadataValueType("enum", {"fence":1, "quorum":1, "nothing":1})
 			
 # Could eventually do something fancier for these...
 ResourceMetadataType = StringMetadataType
@@ -1063,6 +1088,7 @@ AttributeKeys = {
 	"op": {		"timeout": TimeMetadataType, "start_delay": TimeMetadataType, 
 			"interval": TimeMetadataType,
 			"disabled": BooleanMetadataType, "role": RoleMetadataType,
+			"prereq": PrereqMetadataType,
 			"id": StringMetadataType, "name": StringMetadataType},
 	"primitive":{	"class": StringMetadataType, "provider": StringMetadataType,
 			"type": StringMetadataType, "id": StringMetadataType,
@@ -1070,6 +1096,10 @@ AttributeKeys = {
 			"is_managed": BoolDefaultMetadatatype,
 			"restart_type": RestartMetadataType,
 			"multiple_active": StopStartMetadataType},
+	"clone":	{"globally_unique":BooleanMetadataType, "id": StringMetadataType,
+			 "ordered":BooleanMetadataType, "interleave": BooleanMetadataType},
+	"master_slave":	{"globally_unique":BooleanMetadataType, "id": StringMetadataType,
+			 "ordered":BooleanMetadataType, "interleave": BooleanMetadataType},
 	"nvpair": {	"name": StringMetadataType, "id": StringMetadataType, "value": StringMetadataType},
 	"cluster_property_set": idonly,
 	"cib": {	"admin_epoch":IntegerMetadataType, "have_quorum":BooleanMetadataType,
@@ -1080,6 +1110,7 @@ AttributeKeys = {
 			"epoch":IntegerMetadataType,
 			"ccm_transition":IntegerMetadataType,
 			"dc_uuid":UuidMetadataType,
+			"cib-last-written":StringMetadataType,
 			"num_updates":IntegerMetadataType},
 	"node": {	"uname": StringMetadataType, "id": UuidMetadataType, "type": NodeMetadataType},
 	"group": {	"id": StringMetadataType, "ordered": BooleanMetadataType,
@@ -1134,7 +1165,7 @@ AttributeKeys = {
       			"node_attribute":StringMetadataType,
 
 	"status":	{},
-	"node_state":	{"shutdown":BooleanMetadataType,
+	"node_state":	{"shutdown":IntegerMetadataType,
 			"in_ccm":BooleanMetadataType,
 			"uname":StringMetadataType,
 			"crmd":CrmStatusMetadataType,
@@ -1197,7 +1228,7 @@ def validate_nvpairs(context, type, nvpairs):
           print "ERROR: <nvpair name=\"%s\" value=\"%s\"...>: [%s] is not a legal %s value"\
           % (key, nvpairs[key], nvpairs[key], NVPairValidKeys[context][key])
       else:
-        print "ERROR: <nvpair name=\"%s\"...>: [%s] is not a legal name in <%s> tag" \
+        print "ERROR: <nvpair name=\"%s\"...>: [%s] is not a legal nvpair name in %s" \
         %	(key, key, context)
   elif type != None:
     for key in nvpairs.keys():
@@ -1446,7 +1477,6 @@ class OperationsTag(UserDict):
 
 global AllPrimitives, AllGroups, AllMasterSlave, AllClones
 global AllResourceLocations, AllResourceCoLocations
-global stonith_resource_count
 AllPrimitives = {}
 AllGroups = {}
 AllMasterSlave = {}
@@ -1454,7 +1484,6 @@ AllClones = {}
 AllResources = {}
 AllResourceLocations = []
 AllResourceCoLocations = []
-stonith_resource_count = 0
 
 #
 # Base class for all of our Resource Types (PrimitiveTag, GroupTag, etc.)
@@ -1495,6 +1524,7 @@ def ValidateResource(rscname):
     rsplit=rscname.split(":",1)
     rname=rsplit[0]
     if not AllResources.has_key(rname):
+      print "Cant find [%s] of [%s]" % (rname, rscname)
       return None
     if len(rsplit) > 1:
       if not AllResources[rname].inclone:
@@ -1516,7 +1546,7 @@ def ValidateResource(rscname):
 #
 class PrimitiveTag(ResourceType):
   def __init__(self, xmlnode, inclone=0, ingroup=0, parent=None):
-    ResourceType.__init__(self,xmlnode, inclone=inclone, ingroup=ingroup,parent=parent)
+    ResourceType.__init__(self, xmlnode, inclone=inclone, ingroup=ingroup, parent=parent)
     self.operations = None
     self.instance_attributes = []
     self.meta_attributes = []
@@ -1525,8 +1555,9 @@ class PrimitiveTag(ResourceType):
     self.provider = xmlnode.getAttribute("provider")
     self.type = xmlnode.getAttribute("type")
     if self.rscclass == "stonith":
+      global stonithresourcecount
       stonithresourcecount=stonithresourcecount+1
-      if self.type=="ssh" or self.type == "external/ssh":
+      if stonithremarks and (self.type=="ssh" or self.type == "external/ssh"):
         print "WARNING: %s STONITH resource NOT approved for production" % (self.type)
     children = xmlnode.childNodes
     for child in children:
@@ -1538,7 +1569,7 @@ class PrimitiveTag(ResourceType):
         metadata = metaDataCache.RAmetadata(self.rscclass, self.type, self.provider)
         if metadata != None:
           #print "Validating nvpairs for resource %s" % (self.name)
-          metadata.validate_nvpairs(iattr.attributes.nvpairs)
+          metadata.validate_nvpairs(iattr.attributes.nvpairs, context="for resource <primitive type=\"%s\" class=\"%s\">" % (self.type, self.rscclass))
       elif child.tagName == "meta_attributes":
         self.meta_attributes.append(MetaAttributesTag(child))
       elif child.tagName == "operations":
@@ -1551,14 +1582,6 @@ class PrimitiveTag(ResourceType):
         print "Funky child: " + node2str(child)
         self=None
         return
-    AllPrimitives[self.name]= self
-    AllResources[self.name]= self
-    if AllGroups.has_key(self.name):
-      print "WARNING: A <group> exists with the same id as this primitive [%s]" % self.name
-    if AllMasterSlave.has_key(self.name):
-      print "WARNING: A <master_slave> exists with the same id as this primitive [%s]" % self.name
-    if AllClones.has_key(self.name):
-      print "WARNING: A <clone> exists with the same id as this primitive [%s]" % self.name
 
 
 #
@@ -1566,14 +1589,14 @@ class PrimitiveTag(ResourceType):
 #
 class GroupTag(ResourceType):
   def __init__(self, xmlnode, inclone=0,ingroup=0, parent=None):
-    ResourceType.__init__(self,xmlnode, inclone=inclone, ingroup=ingroup, parent=parent)
+    ResourceType.__init__(self, xmlnode, inclone=inclone, ingroup=ingroup, parent=parent)
     self.childrscs = []
     children = xmlnode.childNodes
     for child in children:
       if child.nodeType != child.ELEMENT_NODE:
         continue
       if child.tagName == "primitive":
-        self.childrscs.append(PrimitiveTag(child, inclone=inclone, parent=self, ingroup=1))
+        self.childrscs.append(PrimitiveTag(child, inclone=0, parent=self, ingroup=1))
       else:
         print "ERROR: Don't know how to deal with funky child of <%s>" % xmlnode.tagName
         print "Funky child: " + node2str(child)
@@ -1584,10 +1607,10 @@ class GroupTag(ResourceType):
 # A class for processing the <clone> tag
 #
 class CloneTag(ResourceType):
-  def __init__(self, xmlnode):
-    ResourceType.__init__(self,xmlnode, inclone=inclone, ingroup=ingroup, parent=parent)
+  def __init__(self, xmlnode, inclone=0,ingroup=0, parent=None):
+    ResourceType.__init__(self, xmlnode, inclone=inclone, ingroup=ingroup, parent=parent)
     self.childrscs = []
-    CheckXMLNodeUniqueness(xmlnode)
+    self.instance_attributes = []
     self.name = xmlnode.getAttribute("id")
     children = xmlnode.childNodes
     for child in children:
@@ -1597,6 +1620,9 @@ class CloneTag(ResourceType):
         self.childrscs.append(PrimitiveTag(child, inclone=1, ingroup=ingroup, parent=self))
       elif child.tagName == "group":
         self.childrscs.append(GroupTag(child, inclone=1, ingroup=ingroup, parent=self))
+      elif child.tagName == "instance_attributes":
+        iattr = InstanceAttributesTag(child)
+        self.instance_attributes.append(iattr)
       else:
         print "ERROR: Don't know how to deal with funky child of <%s>" % xmlnode.tagName
         print "Funky child: " + node2str(child)
@@ -1607,17 +1633,21 @@ class CloneTag(ResourceType):
 # A class for processing the <master_slave> tag
 #
 class MasterSlaveTag(ResourceType):
-  def __init__(self, xmlnode):
-    ResourceType.__init__(self,xmlnode, inclone=inclone, ingroup=ingroup, parent=parent)
+  def __init__(self, xmlnode, inclone=0,ingroup=0, parent=None):
+    ResourceType.__init__(self, xmlnode, inclone=inclone, ingroup=ingroup, parent=parent)
     self.childrscs = []
+    self.instance_attributes = []
     children = xmlnode.childNodes
     for child in children:
       if child.nodeType != child.ELEMENT_NODE:
         continue
       if child.tagName == "primitive":
-        self.childrscs.append(PrimitiveTag(child), inclone=1, ingroup=ingroup, parent=self)
+        self.childrscs.append(PrimitiveTag(child, inclone=1, ingroup=ingroup, parent=self))
       elif child.tagName == "group":
-        self.childrscs.append(GroupTag(child), inclone=1, ingroup=ingroup, parent=self)
+        self.childrscs.append(GroupTag(child, inclone=1, ingroup=ingroup, parent=self))
+      elif child.tagName == "instance_attributes":
+        iattr = InstanceAttributesTag(child)
+        self.instance_attributes.append(iattr)
       else:
         print "ERROR: Don't know how to deal with funky child of <%s>" % xmlnode.tagName
         print "Funky child: " + node2str(child)
@@ -1761,7 +1791,7 @@ class LrmResourceTag:
     #print "GOT <%s id=\"%s\">" % (xmlnode.tagName, self.rscid)
     self.resource = ValidateResource(self.rscid)
     if self.resource == None:
-      print "ERROR: <lrm_resource id=\"%s\"> tag without corresponding resource" % id
+      print "ERROR: <lrm_resource id=\"%s\"> tag without corresponding resource" % self.rscid
       self=None
       return
     if self.resource.rsctype != "primitive":
@@ -1794,8 +1824,8 @@ class LrmResourceTag:
           self.resource.LRMresources[clusternode].append(OpStatus(child, self.resource))
         else:
           # Clone case
-          cloneno = Integer(pieces[1])
-          if not self.resource.hasattr("LRMclones"):
+          cloneno = int(pieces[1])
+          if not hasattr(self.resource, "LRMclones"):
             self.resource.LRMclones = {}
           if not self.resource.LRMclones.has_key(cloneno):
             self.resource.LRMclones[cloneno] = {}
@@ -1928,15 +1958,15 @@ def analyze_CIB(doc):
     if pset.attributes.nvpairs.has_key(stonithtag):
       enableval=pset.attributes.nvpairs[stonithtag]
       stonith_enabled = MetadataValueType.BooleanStrings[enableval]
-  if stonith_enabled:
-    if stonith_resource_count == 0:
+  if stonith_enabled and stonithremarks:
+    if stonithresourcecount == 0:
       stonithwarn=1
       print "ERROR:  STONITH enabled, but No STONITH resources configured.  STONITH is NOT available."
-  else:
+  elif stonithremarks:
     stonithwarn=1
     print "WARNING:  STONITH disabled <nvpair name=\"%s\" value=\"%s\">.  STONITH is STRONGLY recommended."\
     %	(stonithtag, enableval)
-    if stonith_resource_count == 0:
+    if stonithresourcecount == 0:
       print "WARNING:  No STONITH resources configured.  STONITH is not available."
   if stonithwarn:
     URLinfo("stonith")
