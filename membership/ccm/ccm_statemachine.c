@@ -2976,8 +2976,8 @@ switchstatement:
 			
 		default:
 			ccm_log(LOG_ERR, "%s: dropping message "
-			       "of type %s. Is this a Byzantine failure?", 
-			       __FUNCTION__, ccm_type2string(ccm_msg_type));
+			       "of type %s from %s. Is this a Byzantine failure?", 
+			       __FUNCTION__, ccm_type2string(ccm_msg_type), orig);
 			/* nothing to do. Just forget the message */
 			break;
 	}

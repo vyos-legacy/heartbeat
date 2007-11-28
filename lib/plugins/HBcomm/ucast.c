@@ -298,8 +298,8 @@ ucast_new(const char *intf, const char *addr)
 			(__LINE__ - 2) );
 		FREE(ipi->interface);
 		FREE(ipi);
-	}
-	else {
+	} else {
+		memset(ret, 0, sizeof(*ret));
 		ret->pd = (void*)ipi;
 		if (!(name = STRDUP(intf))) {
 			PILCallLog(LOG, PIL_CRIT,

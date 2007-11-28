@@ -245,6 +245,7 @@ serial_new (const char * port)
 	ret = (struct hb_media*)MALLOC(sizeof(struct hb_media));
 	if (ret != NULL) {
 		struct serial_private * sp;
+		memset(ret, 0, sizeof(*ret));
 		sp = (struct serial_private*)
 			MALLOC(sizeof(struct serial_private));
 		if (sp != NULL)  {

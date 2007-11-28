@@ -173,6 +173,7 @@ openais_new(const char * intf)
 			   __FUNCTION__);
 		return NULL;
 	}
+	memset(ret, 0, sizeof(*ret));
 	ais->interface = (char*) STRDUP(intf);
 	if (ais->interface == NULL){
 		PILCallLog(LOG, PIL_CRIT, "%s: STRDUP failed",

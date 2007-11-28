@@ -311,6 +311,7 @@ mcast_new(const char * intf, const char *mcast, u_short port,
 	ret = (struct hb_media*) MALLOC(sizeof(struct hb_media));
 	if (ret != NULL) {
 		char * name;
+		memset(ret, 0, sizeof(*ret));
 		ret->pd = (void*)mcp;
 		name = STRDUP(intf);
 		if (name != NULL) {

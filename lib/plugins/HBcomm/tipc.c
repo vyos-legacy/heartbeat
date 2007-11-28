@@ -137,6 +137,7 @@ tipc_new(unsigned int name_type,
                            "%s: malloc failed for hb_media", __FUNCTION__);
                 return NULL;
         }
+	memset(mp, 0, sizeof(*mp));
 
         tipc = MALLOC(sizeof(struct tipc_private));
         if ( tipc == NULL ){

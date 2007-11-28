@@ -287,10 +287,11 @@ ping_group_new(const char *name)
 	priv->ident = getpid() & 0xFFFF;
 
 	media = (struct hb_media *) MALLOC(sizeof(struct hb_media));
-	if(!media) {
+	if (!media) {
 		FREE(priv);
 		return(NULL);
 	}
+	memset(media, 0, sizeof(*media));
 
 	media->pd = (void*)priv;
 	tmp = STRDUP(name);

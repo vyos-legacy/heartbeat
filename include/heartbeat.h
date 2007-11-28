@@ -290,6 +290,10 @@ struct sys_config {
 	GList*		last_client;/* Last in client_list */
 };
 
+typedef enum {
+	MEDIA_OK = 0,
+	MEDIA_INRECOVERY=1,
+}media_recov_t;
 
 struct hb_media {
 	void *		pd;		/* Private Data */
@@ -297,6 +301,7 @@ struct hb_media {
 	char*		type;		/* Medium type */
 	char*		description;	/* Medium description */
 	const struct hb_media_fns*vf;	/* Virtual Functions */
+	media_recov_t	recovery_state;	/* What's up with media? */
 	IPC_Channel*	wchan[2];
 		/* Read by the write child processes.  */
 	IPC_Channel*	rchan[2];

@@ -708,6 +708,120 @@ SetupFifoChild(void) {
 	return HA_OK;
 }
 
+static int
+make_io_childpair(int medianum, int ourproc)
+{
+
+	struct hb_media*	mp = sysmedia[medianum];
+	int			j;
+	int			pid;
+
+	if (mp->recovery_state != MEDIA_OK) {
+		cl_log(LOG_ERR, "Attempt to start read/write children while in recovery");
+	}
+
+	for (j=0; j < 2; ++j) {
+		if (mp->wchan[j] != NULL) {
+			mp->wchan[j]->ops->disconnect(mp->wchan[j]);
+			mp->wchan[j]->ops->destroy(mp->wchan[j]);
+			mp->wchan[j] = NULL;
+		}
+		if (mp->rchan[j] != NULL) {
+			mp->rchan[j]->ops->disconnect(mp->rchan[j]);
+			mp->rchan[j]->ops->destroy(mp->rchan[j]);
+			mp->rchan[j] = NULL;
+		}
+	}
+
+	if (ipc_channel_pair(mp->wchan) != IPC_OK) {
+		cl_perror("cannot create hb write channel IPC");
+		return HA_FAIL;
+	}
+	if (ipc_channel_pair(mp->rchan) != IPC_OK) {
+		cl_perror("cannot create hb read channel IPC");
+		return HA_FAIL;
+	}
+	if (ANYDEBUG) {
+		cl_log(LOG_DEBUG, "opening %s %s (%s)", mp->type
+		,	mp->name, mp->description);
+	}
+	if ((mp->vf->mopen)(mp) != HA_OK){
+		cl_log(LOG_ERR, "cannot open %s %s",
+		       mp->type,
+		       mp->name);
+		return HA_FAIL;
+	}
+
+	switch ((pid=fork())) {
+		case -1:	cl_perror("Can't fork write proc.");
+				return HA_FAIL;
+				break;
+
+		case 0:		/* Child */
+				close(watchdogfd);
+				curproc = &procinfo->info[ourproc];
+				cl_malloc_setstats(&curproc->memstats);
+				cl_msg_setstats(&curproc->msgstats);
+				curproc->type = PROC_HBWRITE;
+				while (curproc->pid != getpid()) {
+					sleep(1);
+				}
+				write_child(mp);
+				cl_perror("write process exiting");
+				cleanexit(1);
+		default:
+			mp->wchan[P_WRITEFD]->farside_pid = pid;
+
+
+	}
+	NewTrackedProc(pid, 0, PT_LOGVERBOSE
+	,	GINT_TO_POINTER(ourproc)
+	,	&CoreProcessTrackOps);
+
+
+	if (ANYDEBUG) {
+		cl_log(LOG_DEBUG, "write process pid: %d", pid);
+	}
+
+	/* ourproc = procinfo->nprocs; */
+	ourproc++;
+
+	switch ((pid=fork())) {
+		case -1:	cl_perror("Can't fork read process");
+				return HA_FAIL;
+				break;
+
+		case 0:		/* Child */
+				close(watchdogfd);
+				curproc = &procinfo->info[ourproc];
+				cl_malloc_setstats(&curproc->memstats);
+				cl_msg_setstats(&curproc->msgstats);
+				curproc->type = PROC_HBREAD;
+				while (curproc->pid != getpid()) {
+					sleep(1);
+				}
+				read_child(mp);
+				cl_perror("read_child() exiting");
+				cleanexit(1);
+		default:
+				mp->rchan[P_WRITEFD]->farside_pid = pid;
+	}
+	if (ANYDEBUG) {
+		cl_log(LOG_DEBUG, "read child process pid: %d", pid);
+	}
+	NewTrackedProc(pid, 0, PT_LOGVERBOSE, GINT_TO_POINTER(ourproc)
+	,	&CoreProcessTrackOps);
+
+
+	if (mp->vf->close(mp) != HA_OK){
+		cl_log(LOG_ERR, "cannot close %s %s",
+		       mp->type,
+		       mp->name);
+		return HA_FAIL;
+	}
+	return HA_OK;
+}
+
 /*
  *	This routine starts everything up and kicks off the heartbeat
  *	process.
@@ -728,7 +842,6 @@ initialize_heartbeat()
 
 	int		j;
 	struct stat	buf;
-	int		pid;
 	int		ourproc = 0;
 	int	(*getgen)(seqno_t * generation) = IncrGeneration;
 
@@ -794,25 +907,6 @@ initialize_heartbeat()
 	|	S_IRGRP|S_IWGRP|S_IXGRP	
 	|	S_IROTH|S_IWOTH|S_IXOTH	|	S_ISVTX /* sticky bit */);
 
-	/* Open all our heartbeat channels */
-
-	for (j=0; j < nummedia; ++j) {
-		struct hb_media* smj = sysmedia[j];
-
-		if (ipc_channel_pair(smj->wchan) != IPC_OK) {
-			cl_perror("cannot create hb write channel IPC");
-			return HA_FAIL;
-		}
-		if (ipc_channel_pair(smj->rchan) != IPC_OK) {
-			cl_perror("cannot create hb read channel IPC");
-			return HA_FAIL;
-		}
-		if (ANYDEBUG) {
-			cl_log(LOG_DEBUG, "opening %s %s (%s)", smj->type
-			,	smj->name, smj->description);
-		}
-		
-	}
 
  	PILSetDebugLevel(PluginLoadingSystem, NULL, NULL, debug_level);
 	CoreProcessCount = 0;
@@ -843,88 +937,14 @@ initialize_heartbeat()
 
 	SetupFifoChild();
 
-	ourproc = procinfo->nprocs;
+
+	/* Start up all read/write children */
 
 	for (j=0; j < nummedia; ++j) {
-		struct hb_media* mp = sysmedia[j];
-		
-		ourproc = procinfo->nprocs;
-		
-		if ((mp->vf->mopen)(mp) != HA_OK){
-			cl_log(LOG_ERR, "cannot open %s %s",
-			       mp->type,
-			       mp->name);
-			return HA_FAIL;
-		}
-
-		switch ((pid=fork())) {
-			case -1:	cl_perror("Can't fork write proc.");
-					return HA_FAIL;
-					break;
-
-			case 0:		/* Child */
-					close(watchdogfd);
-					curproc = &procinfo->info[ourproc];
-					cl_malloc_setstats(&curproc->memstats);
-					cl_msg_setstats(&curproc->msgstats);
-					curproc->type = PROC_HBWRITE;
-					while (curproc->pid != getpid()) {
-						sleep(1);
-					}
-					write_child(mp);
-					cl_perror("write process exiting");
-					cleanexit(1);
-			default:
-				mp->wchan[P_WRITEFD]->farside_pid = pid;
-				
-
-		}
-		NewTrackedProc(pid, 0, PT_LOGVERBOSE
-		,	GINT_TO_POINTER(ourproc)
-		,	&CoreProcessTrackOps);
-
-		ourproc = procinfo->nprocs;
-
-		if (ANYDEBUG) {
-			cl_log(LOG_DEBUG, "write process pid: %d", pid);
-		}
-
-		switch ((pid=fork())) {
-			case -1:	cl_perror("Can't fork read process");
-					return HA_FAIL;
-					break;
-
-			case 0:		/* Child */
-					close(watchdogfd);
-					curproc = &procinfo->info[ourproc];
-					cl_malloc_setstats(&curproc->memstats);
-					cl_msg_setstats(&curproc->msgstats);
-					curproc->type = PROC_HBREAD;
-					while (curproc->pid != getpid()) {
-						sleep(1);
-					}
-					read_child(mp);
-					cl_perror("read_child() exiting");
-					cleanexit(1);
-			default:
-					mp->rchan[P_WRITEFD]->farside_pid = pid;
-		}
-		if (ANYDEBUG) {
-			cl_log(LOG_DEBUG, "read child process pid: %d", pid);
-		}
-		NewTrackedProc(pid, 0, PT_LOGVERBOSE, GINT_TO_POINTER(ourproc)
-		,	&CoreProcessTrackOps);
-
-		
-		if (mp->vf->close(mp) != HA_OK){
-			cl_log(LOG_ERR, "cannot close %s %s",
-			       mp->type,
-			       mp->name);
+		if (make_io_childpair(j, procinfo->nprocs) != HA_OK) {
 			return HA_FAIL;
 		}
 	}
-
-
 
 
 	ourproc = procinfo->nprocs;
@@ -937,6 +957,7 @@ initialize_heartbeat()
 	/*NOTREACHED*/
 	return HA_FAIL;
 }
+
 
 /* Create a read child process (to read messages from hb medium) */
 static void

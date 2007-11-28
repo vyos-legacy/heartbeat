@@ -248,6 +248,7 @@ ping_new(const char * host)
 		FREE(ipi); ipi = NULL;
 		return(NULL);
 	}
+	memset(ret, 0, sizeof(*ret));
 
 	ret->pd = (void*)ipi;
 	name = STRDUP(host);
