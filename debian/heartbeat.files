@@ -278,7 +278,8 @@ usr/share/doc/heartbeat/HardwareGuide.html
 usr/share/doc/heartbeat/HardwareGuide.txt
 usr/share/doc/heartbeat/README
 usr/share/doc/heartbeat/README.cts
-usr/share/doc/heartbeat/README.hb_report
+usr/share/doc/heartbeat/hb_report.txt
+usr/share/doc/heartbeat/hb_report.html
 usr/share/doc/heartbeat/README.lrm_regression_tests
 usr/share/doc/heartbeat/Requirements.html
 usr/share/doc/heartbeat/Requirements.txt

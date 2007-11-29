@@ -33,7 +33,7 @@ gliblib			= @GLIBLIB@
 
 habin_PROGRAMS		= cl_status cl_respawn 
 halib_SCRIPTS		= haresources2cib.py
-hanoarch_DATA		= utillib.sh README.hb_report
+hanoarch_DATA		= utillib.sh
 sbin_SCRIPTS		= ciblint hb_report ocf-tester
 
 if CRM_BUILD

@@ -25,6 +25,7 @@ htmlfiles		= HardwareGuide.html	\
 			GettingStarted.html	\
 			Requirements.html	\
 			faqntips.html		\
+			hb_report.html	\
 			heartbeat_api.html	\
 			rsync.html
 
@@ -53,6 +54,8 @@ ChangeLog: $(SPECSRC)
 	rm -fr ChangeLog
 	sed -e '1,/^%changelog/d' -e '/^%/,$$d' < $(SPECSRC) > $@
 
+hb_report.txt: hb_report.html
+    @true : in this case .txt is the master source
 
 %.txt: %.html
 	if [ "X$(HTML2TXT)" = "X" ]; then echo "Lynx or w3m or user-defined HTML2TXT required to convert $< to $@" >$@ ; else $(HTML2TXT) -dump $< >$@ ; fi
