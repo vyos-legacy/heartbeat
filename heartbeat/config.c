@@ -581,6 +581,94 @@ init_node_link_info(struct node_info *   node)
 	}
 }
 
+#if 0
+/*
+ * This code does _not_ (permanently) affect the value of nummedia
+ * This can be seen as an advantage, or a disadvantage ;-)
+ * This 
+ */
+
+static int
+create_medium(const char * directive, const char * optionstring, int mediaslot)
+{
+	struct hb_media* mp = NULL;
+	int			retval=1;
+	char*			type;
+	char*			descr;
+	struct hb_media_fns*	funs;
+
+	/* Load the medium plugin if its not already loaded... */
+
+	if ((funs=g_hash_table_lookup(CommFunctions, directive)) == NULL) {
+		if (PILPluginExists(PluginLoadingSystem
+		,	HB_COMM_TYPE_S, directive) == PIL_OK) {
+			PIL_rc rc;
+			if ((rc = PILLoadPlugin(PluginLoadingSystem
+			,	HB_COMM_TYPE_S, directive, NULL))
+			!=	PIL_OK) {
+				ha_log(LOG_ERR, "Cannot load comm"
+				" plugin %s [%s]", directive
+				,	PIL_strerror(rc));
+			}
+
+			funs=g_hash_table_lookup(CommFunctions
+			,	directive);
+		}
+	}else{
+		PILIncrIFRefCount(PluginLoadingSystem
+		,	HB_COMM_TYPE_S, directive, +1);
+	}
+	if ((funs=g_hash_table_lookup(CommFunctions, directive)) == NULL) {
+		return -1;
+	}
+
+	if (funs->new != NULL) {
+		mp = funs->new(optionstring);
+		if (mp) {
+			sysmedia[mediaslot]=mp;
+		}
+	}else if (funs->parse)  {
+		int	savenummedia = nummedia;
+		nummedia=mediaslot;
+		if (funs->parse(optionstring) == HA_OK) {
+			mp=NULL;
+		}else{
+			mp=sysmedia[mediaslot];
+			nummedia=savenummedia;
+			retval = (nummedia > mediaslot)? 1 : -1;
+		}
+	}
+
+	funs->descr(&descr);
+	funs->mtype(&type);
+
+	if (mp == NULL) {
+		ha_log(LOG_ERR, "Illegal %s [%s] in config file [%s]"
+		,	type, descr, optionstring);
+		PILIncrIFRefCount(PluginLoadingSystem
+		,	HB_COMM_TYPE_S, directive, -1);
+		/* By default, PILS modules use g_malloc and g_free */
+		g_free(descr); descr = NULL;
+		g_free(type);  type = NULL;
+		return -1;
+	}
+	mp->vf =		funs;
+	mp->type =		type;
+	mp->description =	descr;
+	g_assert(mp->type);
+	g_assert(mp->description);
+	g_assert(mp->type[0] != '(');
+	g_assert(mp->description[0] != '(');
+
+	if (!mp->name) {
+		mp->name = cl_strdup(directive);
+	}
+	PILIncrIFRefCount(PluginLoadingSystem
+	,	HB_COMM_TYPE_S, directive, +1);
+}
+#endif
+
+
 /*
  *	Parse the configuration file and stash away the data
  */
@@ -636,12 +724,12 @@ parse_config(const char * cfgfile, char *nodename)
 
 		/* Skip over white space */
 		bp += strspn(bp, WHITESPACE);
-		
+
 		/* Zap comments on the line */
 		if ((cp = strchr(bp, COMMENTCHAR)) != NULL)  {
 			*cp = EOS;
 		}
-		
+
 		/* Strip '\n' and '\r' chars */
 		if ((cp = strpbrk(bp, CRLF)) != NULL) {
 			*cp = EOS;

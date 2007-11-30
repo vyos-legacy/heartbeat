@@ -273,10 +273,12 @@ tipc_close(struct hb_media * mp)
 
         if ( tipc->recvfd >= 0 ) {
                 close(tipc->recvfd);
+                tipc->recvfd = -1;
         }
 
         if ( tipc->sendfd >= 0 ) {
                 close(tipc->sendfd);
+                tipc->sendfd = -1;
         }
 
         PILCallLog(LOG, PIL_INFO, "%s: tipc closed", __FUNCTION__);
@@ -336,8 +338,10 @@ tipc_write(struct hb_media * mp, void * msg, int len)
         if ( (numbytes = sendto(tipc->sendfd, msg, len, 0, 
                                 (struct sockaddr *)&tipc->maddr, 
                                 sizeof(struct sockaddr_tipc))) < 0 ){
-                PILCallLog(LOG, PIL_CRIT, "%s: Unable to send message: %s", 
+		if (!mp->suppresserrs) {
+                	PILCallLog(LOG, PIL_CRIT, "%s: Unable to send message: %s", 
                            __FUNCTION__, strerror(errno));
+		}
                 return HA_FAIL;
         }
 

@@ -54,6 +54,7 @@
 #include <clplumbing/ipc.h>
 #include <clplumbing/proctrack.h>
 #include <clplumbing/cl_malloc.h>
+#include <clplumbing/GSource.h>
 #define index FooIndex
 #define time FooTime
 #include <glib.h>
@@ -293,6 +294,7 @@ struct sys_config {
 typedef enum {
 	MEDIA_OK = 0,
 	MEDIA_INRECOVERY=1,
+	MEDIA_DELAYEDRECOVERY=2
 }media_recov_t;
 
 struct hb_media {
@@ -302,10 +304,14 @@ struct hb_media {
 	char*		description;	/* Medium description */
 	const struct hb_media_fns*vf;	/* Virtual Functions */
 	media_recov_t	recovery_state;	/* What's up with media? */
+	gboolean	suppresserrs;	/* TRUE if errors shouldn't be logged */
+	int		ourproc;	/* Value of ourproc for 1st process */
 	IPC_Channel*	wchan[2];
 		/* Read by the write child processes.  */
 	IPC_Channel*	rchan[2];
 		/* Written to by the read child processes.  */
+	GCHSource*	readsource;
+	GCHSource*	writesource;
 };
 
 int parse_authfile(void);

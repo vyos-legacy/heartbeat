@@ -344,9 +344,19 @@ mcast_open(struct hb_media* hbm)
 	if ((mcp->wsocket = mcast_make_send_sock(hbm)) < 0) {
 		return(HA_FAIL);
 	}
+	if (Debug) {
+		PILCallLog(LOG, PIL_DEBUG
+		,	"%s: write socket: %d"
+	    	,	__FUNCTION__, mcp->wsocket);
+	}
 	if ((mcp->rsocket = mcast_make_receive_sock(hbm)) < 0) {
 		mcast_close(hbm);
 		return(HA_FAIL);
+	}
+	if (Debug) {
+		PILCallLog(LOG, PIL_DEBUG
+		,	"%s: read socket: %d"
+	   	,	__FUNCTION__, mcp->rsocket);
 	}
 
 	PILCallLog(LOG, PIL_INFO, "UDP multicast heartbeat started for group %s "
@@ -369,14 +379,27 @@ mcast_close(struct hb_media* hbm)
 	mcp = (struct mcast_private *) hbm->pd;
 
 	if (mcp->rsocket >= 0) {
+		if (Debug) {
+			PILCallLog(LOG, PIL_DEBUG
+			,	"%s: Closing socket %d"
+		    	,	__FUNCTION__, mcp->rsocket);
+		}
 		if (close(mcp->rsocket) < 0) {
 			rc = HA_FAIL;
 		}
+		mcp->rsocket = -1;
+		
 	}
 	if (mcp->wsocket >= 0) {
+		if (Debug) {
+			PILCallLog(LOG, PIL_DEBUG
+			,	"%s: Closing socket %d"
+		    	,	__FUNCTION__, mcp->wsocket);
+		}
 		if (close(mcp->wsocket) < 0) {
 			rc = HA_FAIL;
 		}
+		mcp->rsocket = -1;
 	}
 	return(rc);
 }
@@ -437,8 +460,11 @@ mcast_write(struct hb_media* hbm, void *pkt, int len)
 	if ((rc=sendto(mcp->wsocket, pkt, len, 0
 	,	(struct sockaddr *)&mcp->addr
 	,	sizeof(struct sockaddr))) != len) {
-		PILCallLog(LOG, PIL_CRIT, "Unable to send mcast packet [%d]: %s"
-		,	rc, strerror(errno));
+		if (!hbm->suppresserrs) {
+			PILCallLog(LOG, PIL_CRIT
+			,	"%s: Unable to send mcast packet [%d]: %s"
+			,	__FUNCTION__, rc, strerror(errno));
+		}
 		return(HA_FAIL);
 	}
 	
@@ -495,7 +521,6 @@ mcast_make_send_sock(struct hb_media * hbm)
 static int
 mcast_make_receive_sock(struct hb_media * hbm)
 {
-
 	struct mcast_private * mcp;
 	int	sockfd;
 	int	bindtries;
@@ -584,6 +609,7 @@ new_mcast_private(const char *ifn, const char *mcast, u_short port,
 	if (mcp == NULL)  {
 		return NULL;
 	}
+	memset(mcp, 0, sizeof(*mcp));
 
 	mcp->interface = (char *)STRDUP(ifn);
 	if(mcp->interface == NULL) {
@@ -599,7 +625,6 @@ new_mcast_private(const char *ifn, const char *mcast, u_short port,
 		return NULL;
 	}
 
-	memset(&mcp->addr, 0, sizeof(mcp->addr));	/* zero the struct */
 	mcp->addr.sin_family = AF_INET;		/* host byte order */
 	mcp->addr.sin_port = htons(port);	/* short, network byte order */
 	mcp->addr.sin_addr = mcp->mcast;

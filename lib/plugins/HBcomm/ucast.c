@@ -208,8 +208,9 @@ static int ucast_parse(const char *line)
 			  dev);
 			return HA_FAIL;
 		}
-		if (!(mp = ucast_new(dev, ucast)))
+		if (!(mp = ucast_new(dev, ucast))) {
 			return HA_FAIL;
+		}
 
 		sysmedia[nummedia++] = mp;
 	}
@@ -353,12 +354,16 @@ static int ucast_close(struct hb_media* mp)
 	ei = (struct ip_private*)mp->pd;
 
 	if (ei->rsocket >= 0) {
-		if (close(ei->rsocket) < 0)
+		if (close(ei->rsocket) < 0) {
 			rc = HA_FAIL;
+		}
+		ei->rsocket = -1;
 	}
 	if (ei->wsocket >= 0) {
-		if (close(ei->wsocket) < 0)
+		if (close(ei->wsocket) < 0) {
 			rc = HA_FAIL;
+		}
+		ei->wsocket = -1;
 	}
 	return rc;
 }
@@ -428,8 +433,10 @@ ucast_write(struct hb_media* mp, void *pkt, int len)
 	if ((rc = sendto(ei->wsocket, pkt, len, 0
 	,		(struct sockaddr *)&ei->addr
 	,		 sizeof(struct sockaddr))) != len) {
-		PILCallLog(LOG, PIL_CRIT, "Unable to send [%d] ucast packet: %s"
-		,	rc, strerror(errno));
+		if (!mp->suppresserrs) {
+			PILCallLog(LOG, PIL_CRIT, "Unable to send [%d] ucast packet: %s"
+			,	rc, strerror(errno));
+		}
 		return HA_FAIL;
 	}
 	
@@ -644,7 +651,7 @@ static struct ip_private* new_ip_interface(const char *ifn,
 		return NULL;
 	}
 	
-	bzero(&ep->addr, sizeof(ep->addr));	/* zero the struct */
+	memset(&ep->addr, 0, sizeof(ep->addr));	/* zero the struct */
 	ep->addr.sin_family = AF_INET;		/* host byte order */
 	ep->addr.sin_port = htons(port);	/* short, network byte order */
 	ep->port = port;

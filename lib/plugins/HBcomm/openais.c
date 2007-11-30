@@ -250,13 +250,16 @@ openais_close(struct hb_media* mp)
 	OPENAISASSERT(mp);
 	ais = (struct ais_private *) mp->pd;
 	
-	if (evs_finalize(ais->handle) != EVS_OK){
-		PILCallLog(LOG,PIL_CRIT, 
-			   "%s: evs_finalize failed",
-			   __FUNCTION__);
-		
-		return HA_FAIL;
+	if (ais->handle >= 0) {
+		if (evs_finalize(ais->handle) != EVS_OK){
+			PILCallLog(LOG,PIL_CRIT, 
+			   	"%s: evs_finalize failed",
+			   	__FUNCTION__);
+			return HA_FAIL;
+		}
+		ais_handle=-1;
 	}
+
 	
 	return HA_OK;
 }
@@ -340,8 +343,10 @@ openais_write(struct hb_media* mp, void *pkt, int len)
 
 	if (evs_mcast_joined(ais->handle, EVS_TYPE_AGREED, &iov, 1)
 	    != EVS_OK){
-		PILCallLog(LOG, PIL_CRIT,  "%s: evs_mcast_joined failed",
-			   __FUNCTION__);
+		if (!mp->suppresserrs) {
+			PILCallLog(LOG, PIL_CRIT,  "%s: evs_mcast_joined failed",
+			   	__FUNCTION__);
+		}
 		return HA_FAIL;
 	}
 	

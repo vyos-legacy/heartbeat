@@ -39,7 +39,8 @@ enum process_type {
 
 enum process_status { 
 	FORKED=1,	/* This process is forked, but not yet really running */
-	RUNNING=2	/* This process is fully active, and open for business*/
+	RUNNING=2,	/* This process is fully active, and open for business*/
+	PROCDEAD=3,	/* This process has died, perhaps been respawned */
 };
 
 
@@ -47,6 +48,7 @@ struct process_info {
 	enum process_type	type;		/* Type of process */
 	enum process_status	pstat;		/* Is it running yet? */
 	pid_t			pid;		/* Process' PID */
+	int			medianum;	/* Which media index does this process go with? */
 	hb_msg_stats_t		msgstats;
 	cl_mem_stats_t		memstats;
 };
