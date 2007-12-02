@@ -216,6 +216,7 @@ main(int argc, char ** argv)
 
 	if(hb_conn) {
 		hb_conn->llc_ops->delete(hb_conn);
+		hb_conn=NULL;
 	}
 	
 	crm_info("Done");
@@ -527,6 +528,8 @@ cib_register_ha(ll_cluster_t *hb_cluster, const char *client_name)
 void
 cib_ha_connection_destroy(gpointer user_data)
 {
+	ll_cluster_t *hb_cluster = (ll_cluster_t*) user_data;
+
 	if(cib_shutdown_flag) {
 		crm_info("Heartbeat disconnection complete... exiting");
 	} else {
@@ -534,6 +537,11 @@ cib_ha_connection_destroy(gpointer user_data)
 	}
 		
 	uninitializeCib();
+
+	if (hb_conn) {
+		hb_conn = NULL;
+		hb_cluster->llc_ops->delete(hb_cluster);
+	}
 
 	if (mainloop != NULL && g_main_is_running(mainloop)) {
 		g_main_quit(mainloop);

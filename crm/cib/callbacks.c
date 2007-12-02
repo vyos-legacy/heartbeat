@@ -1940,8 +1940,6 @@ terminate_ha_connection(const char *caller)
 	if(hb_conn != NULL) {
 		crm_info("%s: Disconnecting heartbeat", caller);
 		hb_conn->llc_ops->signoff(hb_conn, FALSE);
-		hb_conn=NULL;
-		
 	} else {
 		crm_err("%s: No heartbeat connection", caller);
 		exit(LSB_EXIT_OK);

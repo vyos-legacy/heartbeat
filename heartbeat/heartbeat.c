@@ -1788,10 +1788,15 @@ send_to_all_media(const char * smsg, int len)
 		outmsg->msg_ch = wch;
 		wrc=wch->ops->send(wch, outmsg);
 		if (wrc != IPC_OK) {
-			cl_perror("Cannot write to media pipe %d", j);
-			if (mp->recovery_state == MEDIA_OK) {
-				cl_perror("Killing and restarting communications processes.");
-				shutdown_io_childpair(j);
+			if (!shutdown_in_progress) {
+				/* Lower the priority of this if we're killing procs. */
+				cl_log(LOG_INFO, "Cannot write to media pipe %d during shutdown", j);
+			}else{
+				cl_perror("Cannot write to media pipe %d", j);
+				if (mp->recovery_state == MEDIA_OK) {
+					cl_perror("Killing and restarting communications processes.");
+					shutdown_io_childpair(j);
+				}
 			}
 		}else if (!mp->vf->isping()) {
 			++numwrites;
@@ -3793,8 +3798,19 @@ CoreProcessDied(ProcTrack* p, int status, int signo
 	}
 
 
+	/* Was it the fifo process that died?  */
+	if (pi->type == PROC_HBFIFO) {
+		p->privatedata = NULL;
+		cl_log(LOG_WARNING
+		,	"Restarting %s process.", core_proc_name(pi->type));
+		if (SetupFifoChild() != HA_OK) {
+			cl_log(LOG_ERR, "%s restart failed.  Restarting heartbeat."
+			,	core_proc_name(pi->type));
+			goto restart;
+		}
+		return;
 	/* Was it an I/O child that died? */
-	if (pi->type == PROC_HBREAD || pi->type == PROC_HBWRITE) {
+	}else if (pi->type == PROC_HBREAD || pi->type == PROC_HBWRITE) {
 		int	medianum = pi->medianum;
 		struct hb_media*	mp;
 
