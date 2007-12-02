@@ -133,7 +133,7 @@ cib_prepare_common(HA_Message *root, const char *section)
 	}
 
 	crm_log_xml_debug_4(root, "cib:input");
-	return data;
+	return copy_xml(data);
 }
 
 static gboolean
@@ -172,9 +172,11 @@ cib_prepare_none(HA_Message *request, HA_Message **data, const char **section)
 static enum cib_errors
 cib_prepare_data(HA_Message *request, HA_Message **data, const char **section)
 {
-	HA_Message *input_fragment = cl_get_struct(request, F_CIB_CALLDATA);
+	HA_Message *input_fragment = get_message_xml(request, F_CIB_CALLDATA);
 	*section = cl_get_string(request, F_CIB_SECTION);
 	*data = cib_prepare_common(input_fragment, *section);
+	free_xml(input_fragment);
+	
 	if(verify_section(*section) == FALSE) {
 		return cib_bad_section;
 	}
@@ -202,15 +204,15 @@ cib_prepare_diff(HA_Message *request, HA_Message **data, const char **section)
 	*section = NULL;
 
 	if(crm_is_true(update)) {
-		input_fragment = cl_get_struct(request,F_CIB_UPDATE_DIFF);
+	    input_fragment = get_message_xml(request, F_CIB_UPDATE_DIFF);  
 		
 	} else {
-		input_fragment = cl_get_struct(request, F_CIB_CALLDATA);
+	    input_fragment = get_message_xml(request, F_CIB_CALLDATA); 
 	}
 
 	CRM_CHECK(input_fragment != NULL,crm_log_message(LOG_WARNING, request));
 	*data = cib_prepare_common(input_fragment, NULL);
-
+	free_xml(input_fragment);
 	return cib_ok;
 }
 
@@ -218,6 +220,14 @@ static enum cib_errors
 cib_cleanup_query(const char *op, HA_Message **data, HA_Message **output) 
 {
 	CRM_DEV_ASSERT(*data == NULL);
+	return cib_ok;
+}
+
+static enum cib_errors
+cib_cleanup_data(const char *op, HA_Message **data, HA_Message **output) 
+{
+	free_xml(*output);
+	free_xml(*data);
 	return cib_ok;
 }
 
@@ -264,19 +274,19 @@ typedef struct cib_operation_s
 cib_operation_t cib_server_ops[] = {
 	{NULL,		   FALSE, FALSE, FALSE, cib_prepare_none, cib_cleanup_none,   cib_process_default},
 	{CIB_OP_QUERY,     FALSE, FALSE, FALSE, cib_prepare_none, cib_cleanup_query,  cib_process_query},
-	{CIB_OP_MODIFY,    TRUE,  TRUE,  TRUE,  cib_prepare_data, cib_cleanup_output, cib_process_modify},
-	{CIB_OP_UPDATE,    TRUE,  TRUE,  TRUE,  cib_prepare_data, cib_cleanup_output, cib_process_change},
-	{CIB_OP_APPLY_DIFF,TRUE,  TRUE,  TRUE,  cib_prepare_diff, cib_cleanup_sync,   cib_process_diff},
+	{CIB_OP_MODIFY,    TRUE,  TRUE,  TRUE,  cib_prepare_data, cib_cleanup_data,   cib_process_modify},
+	{CIB_OP_UPDATE,    TRUE,  TRUE,  TRUE,  cib_prepare_data, cib_cleanup_data,   cib_process_change},
+	{CIB_OP_APPLY_DIFF,TRUE,  TRUE,  TRUE,  cib_prepare_diff, cib_cleanup_data,   cib_process_diff},
 	{CIB_OP_SLAVE,     FALSE, TRUE,  FALSE, cib_prepare_none, cib_cleanup_none,   cib_process_readwrite},
 	{CIB_OP_SLAVEALL,  FALSE, TRUE,  FALSE, cib_prepare_none, cib_cleanup_none,   cib_process_readwrite},
 	{CIB_OP_SYNC_ONE,  FALSE, TRUE,  FALSE, cib_prepare_sync, cib_cleanup_sync,   cib_process_sync_one},
 	{CIB_OP_MASTER,    FALSE, TRUE,  FALSE, cib_prepare_none, cib_cleanup_none,   cib_process_readwrite},
 	{CIB_OP_ISMASTER,  FALSE, TRUE,  FALSE, cib_prepare_none, cib_cleanup_none,   cib_process_readwrite},
 	{CIB_OP_BUMP,      TRUE,  TRUE,  TRUE,  cib_prepare_none, cib_cleanup_output, cib_process_bump},
-	{CIB_OP_REPLACE,   TRUE,  TRUE,  TRUE,  cib_prepare_data, cib_cleanup_output, cib_process_replace},
-	{CIB_OP_CREATE,    TRUE,  TRUE,  TRUE,  cib_prepare_data, cib_cleanup_output, cib_process_change},
-	{CIB_OP_DELETE,    TRUE,  TRUE,  TRUE,  cib_prepare_data, cib_cleanup_output, cib_process_delete},
-	{CIB_OP_DELETE_ALT,TRUE,  TRUE,  TRUE,  cib_prepare_data, cib_cleanup_output, cib_process_change},
+	{CIB_OP_REPLACE,   TRUE,  TRUE,  TRUE,  cib_prepare_data, cib_cleanup_data,   cib_process_replace},
+	{CIB_OP_CREATE,    TRUE,  TRUE,  TRUE,  cib_prepare_data, cib_cleanup_data,   cib_process_change},
+	{CIB_OP_DELETE,    TRUE,  TRUE,  TRUE,  cib_prepare_data, cib_cleanup_data,   cib_process_delete},
+	{CIB_OP_DELETE_ALT,TRUE,  TRUE,  TRUE,  cib_prepare_data, cib_cleanup_data,   cib_process_change},
 	{CIB_OP_SYNC,      FALSE, TRUE,  FALSE, cib_prepare_sync, cib_cleanup_sync,   cib_process_sync},
 	{CRM_OP_QUIT,	   FALSE, TRUE,  FALSE, cib_prepare_none, cib_cleanup_none,   cib_process_quit},
 	{CRM_OP_PING,	   FALSE, FALSE, FALSE, cib_prepare_none, cib_cleanup_output, cib_process_ping},
@@ -1647,7 +1657,7 @@ cib_msg_copy(HA_Message *msg, gboolean with_data)
 	int lpc = 0;
 	const char *field = NULL;
 	const char *value = NULL;
-	const HA_Message *value_struct = NULL;
+	HA_Message *value_struct = NULL;
 
 	static const char *field_list[] = {
 		F_TYPE		,
@@ -1696,10 +1706,11 @@ cib_msg_copy(HA_Message *msg, gboolean with_data)
 	}
 	for(lpc = 0; with_data && lpc < DIMOF(data_list); lpc++) {
 		field = data_list[lpc];
-		value_struct = cl_get_struct(msg, field);
+		value_struct = get_message_xml(msg, field);
 		if(value_struct != NULL) {
 			add_message_xml(copy, field, value_struct);
 		}
+		free_xml(value_struct);
 	}
 	return copy;
 }

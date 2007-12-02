@@ -215,6 +215,7 @@ usr/lib/ocf/resource.d/heartbeat/db2
 usr/lib/ocf/resource.d/heartbeat/drbd
 usr/lib/ocf/resource.d/heartbeat/eDir88
 usr/lib/ocf/resource.d/heartbeat/ids
+usr/lib/ocf/resource.d/heartbeat/iscsi
 usr/lib/ocf/resource.d/heartbeat/mysql
 usr/lib/ocf/resource.d/heartbeat/o2cb
 usr/lib/ocf/resource.d/heartbeat/oracle
@@ -277,7 +278,8 @@ usr/share/doc/heartbeat/HardwareGuide.html
 usr/share/doc/heartbeat/HardwareGuide.txt
 usr/share/doc/heartbeat/README
 usr/share/doc/heartbeat/README.cts
-usr/share/doc/heartbeat/README.hb_report
+usr/share/doc/heartbeat/hb_report.txt
+usr/share/doc/heartbeat/hb_report.html
 usr/share/doc/heartbeat/README.lrm_regression_tests
 usr/share/doc/heartbeat/Requirements.html
 usr/share/doc/heartbeat/Requirements.txt
