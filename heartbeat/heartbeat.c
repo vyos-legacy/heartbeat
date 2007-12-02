@@ -315,7 +315,8 @@ char *				watchdogdev = NULL;
 static int			watchdogfd = -1;
 static int			watchdog_timeout_ms = 0L;
 
-int				shutdown_in_progress = FALSE;
+gboolean			shutdown_in_progress = FALSE;
+gboolean			shutting_down_comm=FALSE;
 int				startup_complete = FALSE;
 int				WeAreRestarting = FALSE;
 enum comm_state			heartbeat_comm_state = COMM_STARTING;
@@ -1788,10 +1789,7 @@ send_to_all_media(const char * smsg, int len)
 		outmsg->msg_ch = wch;
 		wrc=wch->ops->send(wch, outmsg);
 		if (wrc != IPC_OK) {
-			if (!shutdown_in_progress) {
-				/* Lower the priority of this if we're killing procs. */
-				cl_log(LOG_INFO, "Cannot write to media pipe %d during shutdown", j);
-			}else{
+			if (!shutting_down_comm) {
 				cl_perror("Cannot write to media pipe %d", j);
 				if (mp->recovery_state == MEDIA_OK) {
 					cl_perror("Killing and restarting communications processes.");
@@ -1807,9 +1805,8 @@ send_to_all_media(const char * smsg, int len)
 		/* Decrement reference count */
 		hb_del_ipcmsg(outmsg);
 	}
-	if (numwrites == 0) {
-		cl_log(LOG_CRIT
-		,	"%s: No working comm channels to write to."
+	if (numwrites == 0 && !shutting_down_comm) {
+		cl_log(LOG_CRIT, "%s: No working comm channels to write to."
 		,	__FUNCTION__);
 	}
 }
@@ -2173,6 +2170,7 @@ hb_mcp_final_shutdown(gpointer p)
 
 	case 2: /* From 1-second delay above */
 		shutdown_phase = 3;
+		shutting_down_comm=TRUE;
 		if (procinfo->giveup_resources) {
 			/* THIS IS RESOURCE WORK!  FIXME */
 			/* Shouldn't *really* need this either ;-) */
