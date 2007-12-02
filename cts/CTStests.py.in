@@ -1796,7 +1796,7 @@ class ComponentFail(CTSTest):
           if chosen.triggersreboot:
             # Sometimes this won't be in the log...
             self.okerrpatterns.append("%s heartbeat.*%s.*killed by signal 9" %(node, chosen.name))
-            self.okerrpatterns.append("%s heartbeat.*Respawning client.*%s" %(node, chosen.name))
+            self.okerrpatterns.append("%s heartbeat.*Respawning client " % (node)
             self.okerrpatterns.append("ERROR: Client .* exited with return code")
           else:
             self.patterns.append("%s heartbeat.*%s.*killed by signal 9" %(node, chosen.name))
