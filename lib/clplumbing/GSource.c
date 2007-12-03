@@ -374,6 +374,7 @@ G_main_IPC_Channel_constructor(GSource* source, IPC_Channel* ch
 	chp->maxdispatchdelayms = DEFAULT_MAXDELAY;
 	chp->maxdispatchms = DEFAULT_MAXDISPATCH;
 	lc_store((chp->detecttime), zero_longclock);
+	ch->refcount++;
 	chp->ch = ch;
 	chp->udata=userdata;
 	chp->dnotify = notify;
@@ -384,6 +385,9 @@ G_main_IPC_Channel_constructor(GSource* source, IPC_Channel* ch
 	
 	chp->fd_fdx = (rfd == wfd);
 	
+	if (debug_level > 1) {
+		cl_log(LOG_DEBUG, "%s(sock=%d,%d)",__FUNCTION__, rfd,wfd);
+	}
 	chp->infd.fd      = rfd;
 	chp->infd.events  = DEF_EVENTS;
 	g_source_add_poll(source, &chp->infd);
@@ -469,12 +473,16 @@ G_main_del_IPC_Channel(GCHSource* chp)
 {
 	GSource* source = (GSource*) chp;
 
-	if (chp->gsourceid <= 0) {
+	if (chp == NULL || chp->gsourceid <= 0) {
 		return FALSE;
 	}
 
+	if (debug_level > 1) {
+		cl_log(LOG_DEBUG, "%s(sock=%d)",__FUNCTION__, chp->infd.fd);
+	}
 	g_source_remove(chp->gsourceid);
 	chp->gsourceid = 0;
+	/* chp should (may) now be undefined */
 	g_source_unref(source);
 	
 	return TRUE;
@@ -635,19 +643,45 @@ G_CH_dispatch_int(GSource * source,
 /*
  *	Free up our data, and notify the user process...
  */
+int	ch_destroy_debug_me = 0;
 void
 G_CH_destroy_int(GSource* source)
 {
 	GCHSource* chp = (GCHSource*)source;
 	
-	chp->gsourceid = 0;
 	g_assert(IS_CHSOURCE(chp));
+	if (debug_level > 1) {
+		cl_log(LOG_DEBUG, "%s(chp=0x%lx, sock=%d) {", __FUNCTION__
+		,	(unsigned long)chp, chp->infd.fd);
+	}
 	
 	if (chp->dnotify) {
+		if (debug_level > 1) {
+			cl_log(LOG_DEBUG
+			,	"%s: Calling dnotify(sock=%d, arg=0x%lx) function"
+			,	__FUNCTION__, chp->infd.fd, (unsigned long)chp->udata);
+		}
 		chp->dnotify(chp->udata);
-	}	
-	chp->ch->ops->destroy(chp->ch);
-	
+	}else{
+		if (debug_level > 1) {
+			cl_log(LOG_DEBUG
+			,	"%s: NOT calling dnotify(sock=%d) function"
+			,	__FUNCTION__, chp->infd.fd);
+		}
+	}
+	if (chp->ch) {
+		if (debug_level > 1) {
+			cl_log(LOG_DEBUG
+			,	"%s: calling IPC destroy (chp->ch=0x%lx, sock=%d)"
+			,	__FUNCTION__ ,	(unsigned long)chp->ch, chp->infd.fd);
+		}
+		chp->ch->ops->destroy(chp->ch);
+		chp->ch = NULL;
+	}
+	/*chp->gsourceid = 0; ?*/
+	if (debug_level > 1) {
+		cl_log(LOG_DEBUG, "}/*%s(sock=%d)*/", __FUNCTION__, chp->infd.fd);
+	}
 }
 
 
@@ -796,6 +830,11 @@ G_WC_dispatch(GSource* source,
         while(1) {
 		ch = wcp->wch->ops->accept_connection(wcp->wch, wcp->auth_info);
 		if (ch == NULL) {
+			if (errno == EBADF) {
+				cl_perror("%s: Stopping accepting connections(socket=%d)!!"
+				,	__FUNCTION__, wcp->gpfd.fd);
+				rc = FALSE;
+			}
 			break;
 	  	}
 		++count;
@@ -1178,13 +1217,13 @@ child_death_dispatch(int sig, gpointer notused)
 }
 
 void
-set_sigchld_proctrack(int priority)
+set_sigchld_proctrack(int priority, unsigned long maxdisptime)
 {
 	GSIGSource* src = G_main_add_SignalHandler(priority, SIGCHLD
 	,	child_death_dispatch, NULL, NULL);
 
 	G_main_setmaxdispatchdelay((GSource*) src, 100);
-	G_main_setmaxdispatchtime((GSource*) src, 30);
+	G_main_setmaxdispatchtime((GSource*) src, maxdisptime);
 	G_main_setdescription((GSource*)src, "SIGCHLD");
 	return;
 }
@@ -1665,6 +1704,11 @@ TempProcessDied(ProcTrack* p, int status, int signo, int exitcode
 	struct tempproc_track *	pt = p->privatedata;
  
 	if (pt->complete) {
+		if (debug_level > 1) {
+			cl_log(LOG_DEBUG
+			,	"%s: Calling 'complete' for temp process %s"
+			,	__FUNCTION__, pt->procname);
+		}
 		pt->complete(pt->userdata, status, signo, exitcode);
 	}
 
@@ -1712,7 +1756,15 @@ TempProcessTrigger(gpointer ginfo)
 	info->isrunning = TRUE;
 
 	if (info->prefork) {
+		if (debug_level > 1) {
+			cl_log(LOG_DEBUG
+			,	"%s: Calling prefork for temp process %s"
+			,	__FUNCTION__, info->procname);
+		}
 		info->prefork(info->userdata);
+	}
+	if (ANYDEBUG) {
+		cl_log(LOG_DEBUG, "Forking temp process %s", info->procname);
 	}
 	switch ((pid=fork())) {
 		int		rc;
@@ -1736,10 +1788,16 @@ TempProcessTrigger(gpointer ginfo)
 
 	}
 	if (pid > 0) {
-		NewTrackedProc(pid,0,PT_LOGNORMAL,ginfo,&TempProcessTrackOps);
-	}
-	if (info->postfork) {
-		info->postfork(info->userdata);
+		NewTrackedProc(pid, 0, (ANYDEBUG? PT_LOGVERBOSE : PT_LOGNORMAL)
+		,	ginfo, &TempProcessTrackOps);
+		if (info->postfork) {
+			if (debug_level > 1) {
+				cl_log(LOG_DEBUG
+				,	"%s: Calling postfork for temp process %s"
+				,	__FUNCTION__, info->procname);
+			}
+			info->postfork(info->userdata);
+		}
 	}
 	return TRUE;
 }

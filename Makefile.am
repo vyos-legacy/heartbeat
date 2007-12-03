@@ -29,7 +29,7 @@ EXTRA_DIST              = bootstrap rc.config.heartbeat 	\
 
 RPMREL			= @RPMREL@
 RPM			= @RPM@
-RPMFLAGS		= -ta --nodeps
+RPMFLAGS		= -ta
 TARFILE			= @TARFILE@
 AM_TAR			= tar
 RPMDIR=$(HOME)/rpms
@@ -75,10 +75,10 @@ if LDIRECTORD_BUILD
 LDIRECTORD_DIR = ldirectord
 endif
 
-SUBDIRS	= $(LIBLTDL_DIR) debian pkg port replace include lib                 \
-          heartbeat membership telecom contrib resources lrm $(CRM_DIR)	     \
-          fencing logd $(SNMP_SUBAGENT_DIR) tools doc cts $(MGMT_DIR)        \
-          $(CIM_PROVIDER_DIR) $(LDIRECTORD_DIR) config $(TSA_PLUGIN_DIR)
+SUBDIRS	= $(LIBLTDL_DIR) debian pkg port replace include lib            \
+          heartbeat membership telecom resources lrm $(CRM_DIR)		\
+          fencing logd $(SNMP_SUBAGENT_DIR) tools doc cts $(MGMT_DIR)   \
+          $(CIM_PROVIDER_DIR) $(LDIRECTORD_DIR) config $(TSA_PLUGIN_DIR) contrib 
 
 HANDY_DOCS = doc/ChangeLog doc/GettingStarted.html doc/DirectoryMap.txt
 HBDOCS = doc/heartbeat_api.html
@@ -87,7 +87,7 @@ HBDOCS = doc/heartbeat_api.html
 DISTCHECK_CONFIGURE_FLAGS = --with-initdir=prefix
 
 rpm:		dist
-		$(RPM) --nodeps $(RPMFLAGS) $(TARFILE) </dev/null;
+		$(RPM) $(RPMFLAGS) $(TARFILE) </dev/null;
 
 deb:		dist
 		rm -rf $(distdir)
@@ -96,18 +96,18 @@ deb:		dist
 		rm -rf $(distdir)
 
 install-exec-local:
-	-test -p $(DESTDIR)$(coredir) || mkdir -p $(DESTDIR)$(coredir)
+	test -p $(DESTDIR)$(coredir) || mkdir -p $(DESTDIR)$(coredir)
 	-chown root $(DESTDIR)$(coredir)
-	-chmod 755 $(DESTDIR)$(coredir)
-	-test -p $(DESTDIR)$(coredir)/root || mkdir -p $(DESTDIR)$(coredir)/root
+	chmod 755 $(DESTDIR)$(coredir)
+	mkdir -p $(DESTDIR)$(coredir)/root
 	-chown root $(DESTDIR)$(coredir)/root
-	-chmod 700 $(DESTDIR)$(coredir)/root
-	-test -p $(DESTDIR)$(coredir)/nobody || mkdir -p $(DESTDIR)$(coredir)/nobody
+	chmod 700 $(DESTDIR)$(coredir)/root
+	mkdir -p $(DESTDIR)$(coredir)/nobody
 	-chown nobody $(DESTDIR)$(coredir)/nobody
-	-chmod 700 $(DESTDIR)$(coredir)/nobody
-	-test -p $(DESTDIR)$(coredir)/$(hauser) || mkdir -p $(DESTDIR)$(coredir)/$(hauser)
+	chmod 700 $(DESTDIR)$(coredir)/nobody
+	mkdir -p $(DESTDIR)$(coredir)/$(hauser)
 	-chown $(hauser) $(DESTDIR)$(coredir)/$(hauser)
-	-chmod 700 $(DESTDIR)$(coredir)/$(hauser)
+	chmod 700 $(DESTDIR)$(coredir)/$(hauser)
 	cd $(DESTDIR)@HA_LIBHBDIR@;				\
 	for file in `ls $(DESTDIR)$(HBSHAREDIR)`;			\
 	do if [  -d $$file ]; then continue; fi;	\
@@ -118,6 +118,12 @@ if MGMT_BUILD
 	rm -f $(DESTDIR)@bindir@/hb_gui && ln -s $(SHAREDIR)/heartbeat-gui/haclient.py $(DESTDIR)@bindir@/hb_gui 
 endif
 
+dist-clean-local:
+	rm -f autoconf automake autoheader $(PACKAGE)-*.tar.gz
+
+maintainer-clean-local:
+	rm -f libltdl.tar
+
 # "pkg" format for Solaris etc.
 pkg:
 		(cd pkg && $(MAKE) PWD=`pwd` pkg)
@@ -125,11 +131,6 @@ pkg:
 # "port" format for BSD
 portfile:	dist
 		( cd port && $(MAKE) PWD=`pwd` portfile)
-
-clean-generic: am_config_clean
-
-am_config_clean:
-		rm -fr $(PACKAGE)-*.tar.gz libltdl.tar
 
 drpm:		dist
 		$(RPM) --nodeps $(RPMFLAGS) $(TARFILE) </dev/null;

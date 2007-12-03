@@ -182,8 +182,8 @@ cluster_option(GHashTable* options, gboolean(*validate)(const char*),
 	}
 
 	if(value == NULL) {
-		crm_notice("Using default value '%s' for cluster option '%s'",
-			   def_value, name);
+		crm_debug("Using default value '%s' for cluster option '%s'",
+			  def_value, name);
 
 		if(options == NULL) {
 			return def_value;
@@ -423,7 +423,9 @@ crm_itoa(int an_int)
 extern int LogToLoggingDaemon(int priority, const char * buf, int bstrlen, gboolean use_pri_str);
 
 gboolean
-crm_log_init(const char *entity, gboolean coredir) 
+crm_log_init(
+    const char *entity, int level, gboolean coredir, gboolean to_stderr,
+    int argc, char **argv)
 {
 /* 	const char *test = "Testing log daemon connection"; */
 	/* Redirect messages from glib functions to our handler */
@@ -439,14 +441,18 @@ crm_log_init(const char *entity, gboolean coredir)
 	g_log_set_always_fatal((GLogLevelFlags)0); /*value out of range*/
 	
 	cl_log_set_entity(entity);
-	cl_log_set_facility(LOG_LOCAL7);
+	cl_log_set_facility(HA_LOG_FACILITY);
 
 	if(coredir) {
 		cl_set_corerootdir(HA_COREDIR);
 		cl_cdtocoredir();
 	}
 	
+	set_crm_log_level(level);
 	crm_set_env_options();
+
+	cl_log_args(argc, argv);
+	cl_log_enable_stderr(to_stderr);
 
 	CL_SIGNAL(DEBUG_INC, alter_debug);
 	CL_SIGNAL(DEBUG_DEC, alter_debug);
@@ -489,12 +495,32 @@ crm_log_message_adv(int level, const char *prefix, const HA_Message *msg)
 	}
 }
 
+static int
+crm_version_helper(const char *text, char **end_text)
+{
+	int atoi_result = -1;
+	CRM_ASSERT(end_text != NULL);
+
+	errno = 0;
+	
+	if(text != NULL && text[0] != 0) {
+	    atoi_result = (int)strtol(text, end_text, 10);
+		
+	    if(errno == EINVAL) {
+		crm_err("Conversion of '%s' %c failed", text, text[0]);
+		atoi_result = -1;
+	    }
+	}
+	return atoi_result;
+}
+
+
 int
 compare_version(const char *version1, const char *version2)
 {
 	int rc = 0;
 	int lpc = 0;
-	char *step1 = NULL, *step2 = NULL;
+	char *ver1_copy = NULL, *ver2_copy = NULL;
 	char *rest1 = NULL, *rest2 = NULL;
 
 	if(version1 == NULL && version2 == NULL) {
@@ -505,75 +531,66 @@ compare_version(const char *version1, const char *version2)
 		return 1;
 	}
 	
-	rest1 = crm_strdup(version1);
-	rest2 = crm_strdup(version2);
+	ver1_copy = crm_strdup(version1);
+	ver2_copy = crm_strdup(version2);
+	rest1 = ver1_copy;
+	rest2 = ver2_copy;
 
 	while(1) {
-		int cmp = 0;
-		int step1_i = 0;
-		int step2_i = 0;
-		char *tmp1 = NULL, *tmp2 = NULL;
-		
-		decodeNVpair(rest1, '.', &step1, &tmp1);
-		decodeNVpair(rest2, '.', &step2, &tmp2);
+		int digit1 = 0;
+		int digit2 = 0;
 
-		if(step1 == NULL && step2 == NULL) {
-			CRM_CHECK(tmp1 == tmp2 && tmp1 == NULL,
-				  crm_err("Leftover data: %s, %s",
-					  crm_str(tmp1), crm_str(tmp2)));
-			crm_free(tmp1);
-			crm_free(tmp2);
-			break;
+		lpc++;
+
+		if(rest1 == rest2) {
+		    break;
 		}
 		
-		if(step1 != NULL) {
-			step1_i = crm_parse_int(step1, NULL);
-		}
-		if(step2 != NULL) {
-			step2_i = crm_parse_int(step2, NULL);
+		if(rest1 != NULL) {
+		    digit1 = crm_version_helper(rest1, &rest1);
 		}
 
-		if(step1_i < step2_i){
-			cmp = -1;
-		} else if (step1_i > step2_i){
-			cmp = 1;
+		if(rest2 != NULL) {
+		    digit2 = crm_version_helper(rest2, &rest2);
 		}
 
-		crm_debug_4("compare[%d (%d)]: %d(%s)  %d(%s)",
-			  lpc++, cmp,
-			  step1_i, crm_str(step1),
-			  step2_i, crm_str(step2));
-
-		crm_free(rest1);
-		crm_free(rest2);
-
-		crm_free(step1);
-		crm_free(step2);
-
-		rest1 = tmp1;
-		rest2 = tmp2;
-		
-		if(cmp < 0) {
+		if(digit1 < digit2){
 			rc = -1;
+			crm_debug_5("%d < %d", digit1, digit2);
 			break;
 			
-		} else if(cmp > 0) {
+		} else if (digit1 > digit2){
 			rc = 1;
+			crm_debug_5("%d > %d", digit1, digit2);
 			break;
+		}
+
+		if(rest1 != NULL && rest1[0] == '.') {
+		    rest1++;
+		}
+		if(rest1 != NULL && rest1[0] == 0) {
+		    rest1 = NULL;
+		}
+
+		if(rest2 != NULL && rest2[0] == '.') {
+		    rest2++;
+		}
+		if(rest2 != NULL && rest2[0] == 0) {
+		    rest2 = NULL;
 		}
 	}
 	
-	crm_free(rest1);
-	crm_free(rest2);
+	crm_free(ver1_copy);
+	crm_free(ver2_copy);
 
 	if(rc == 0) {
-		crm_debug_3("%s == %s", version1, version2);
+	    crm_debug_3("%s == %s (%d)", version1, version2, lpc);
 	} else if(rc < 0) {
-		crm_debug_3("%s < %s", version1, version2);
+	    crm_debug_3("%s < %s (%d)", version1, version2, lpc);
 	} else if(rc > 0) {
-		crm_debug_3("%s > %s", version1, version2);
+	    crm_debug_3("%s > %s (%d)", version1, version2, lpc);
 	}
-	
+
 	return rc;
 }
 
@@ -836,80 +853,12 @@ set_uuid(ll_cluster_t *hb,crm_data_t *node,const char *attr,const char *uname)
 void
 crm_set_env_options(void) 
 {
-	char *param_val = NULL;
-	const char *param_name = NULL;
+	cl_inherit_logging_environment(500);
+	cl_log_set_logd_channel_source(NULL, NULL);
 
-	/* apparently we're not allowed to free the result of getenv */
-	
-	param_name = ENV_PREFIX "" KEY_DEBUGLEVEL;
-	param_val = getenv(param_name);
-	if(param_val != NULL) {
-		int debug_level = crm_parse_int(param_val, NULL);
-		if(debug_level > 0 && (debug_level+LOG_INFO) > (int)crm_log_level) {
-			set_crm_log_level(LOG_INFO + debug_level);
-		}
-		crm_debug("%s = %s", param_name, param_val);
-		param_val = NULL;
+	if(debug_level > 0 && (debug_level+LOG_INFO) > (int)crm_log_level) {
+	    set_crm_log_level(LOG_INFO + debug_level);
 	}
-
-	param_name = ENV_PREFIX "" KEY_FACILITY;
-	param_val = getenv(param_name);
-	crm_debug("%s = %s", param_name, param_val);
-	if(param_val != NULL) {
-		int facility = cl_syslogfac_str2int(param_val);
-		if(facility >= 0) {
-			cl_log_set_facility(facility);
-		}
-		param_val = NULL;
-	}
-
-	param_name = ENV_PREFIX "" KEY_LOGFILE;
-	param_val = getenv(param_name);
-	crm_debug("%s = %s", param_name, param_val);
-	if(param_val != NULL) {
-		if(safe_str_eq("/dev/null", param_val)) {
-			param_val = NULL;
-		}
-		cl_log_set_logfile(param_val);
-		param_val = NULL;
-	}
-	
-	param_name = ENV_PREFIX "" KEY_DBGFILE;
-	param_val = getenv(param_name);
-	crm_debug("%s = %s", param_name, param_val);
-	if(param_val != NULL) {
-		if(safe_str_eq("/dev/null", param_val)) {
-			param_val = NULL;
-		}
-		cl_log_set_debugfile(param_val);
-		param_val = NULL;
-	}
-	
-	param_name = ENV_PREFIX "" KEY_LOGDAEMON;
-	param_val = getenv(param_name);
-	crm_debug("%s = %s", param_name, param_val);
-	if(param_val != NULL) {
-		int uselogd;
-		cl_str_to_boolean(param_val, &uselogd);
-		cl_log_set_uselogd(uselogd);
-		if(uselogd) {
-			cl_set_logging_wqueue_maxlen(500);
-			cl_log_set_logd_channel_source(NULL, NULL);
-		}
-		param_val = NULL;
-	}
-
-	param_name = ENV_PREFIX "" KEY_CONNINTVAL;
-	param_val = getenv(param_name);
-	crm_debug("%s = %s", param_name, param_val);
-	if(param_val != NULL) {
-		int logdtime;
-		logdtime = crm_get_msec(param_val);
-		cl_log_set_logdtime(logdtime);
-		param_val = NULL;
-	}
-	
-	inherit_compress();
 }
 
 gboolean
@@ -1012,7 +961,8 @@ crm_get_msec(const char * input)
 gboolean
 ccm_have_quorum(oc_ed_t event)
 {
-	if(event==OC_EV_MS_NEW_MEMBERSHIP) {
+	if(event==OC_EV_MS_NEW_MEMBERSHIP
+	    || event==OC_EV_MS_PRIMARY_RESTORED) {
 		return TRUE;
 	}
 	return FALSE;
@@ -1305,8 +1255,8 @@ decode_transition_key(
 void
 filter_action_parameters(crm_data_t *param_set, const char *version) 
 {
-	const char *timeout = NULL;
-	const char *interval = NULL;
+	char *timeout = NULL;
+	char *interval = NULL;
 #if CRM_DEPRECATED_SINCE_2_0_5
 	const char *filter_205[] = {
 		XML_ATTR_TE_TARGET_RC,
@@ -1382,8 +1332,8 @@ filter_action_parameters(crm_data_t *param_set, const char *version)
 		xml_remove_prop(param_set, attr_filter[lpc]); 
 	}
 	
-	timeout = crm_element_value(param_set, CRM_META"_timeout");
-	interval = crm_element_value(param_set, CRM_META"_interval");
+	timeout = crm_element_value_copy(param_set, CRM_META"_timeout");
+	interval = crm_element_value_copy(param_set, CRM_META"_interval");
 
 	xml_prop_iter(param_set, prop_name, prop_value,      
 		      do_delete = FALSE;
@@ -1405,6 +1355,9 @@ filter_action_parameters(crm_data_t *param_set, const char *version)
 			crm_xml_add(param_set, CRM_META"_timeout", timeout);
 		}
 	}
+
+	crm_free(interval);
+	crm_free(timeout);
 }
 
 void
@@ -1441,25 +1394,25 @@ filter_reload_parameters(crm_data_t *param_set, const char *restart_string)
 
 void
 crm_abort(const char *file, const char *function, int line,
-	  const char *assert_condition, gboolean do_fork)
+	  const char *assert_condition, gboolean do_core, gboolean do_fork)
 {
 	int rc = 0;
 	int pid = 0;
 	int status = 0;
 
-	if(do_fork == FALSE) {
-		do_crm_log(LOG_ERR, 
-			   "%s: Triggered fatal assert at %s:%d : %s",
-			   function, file, line, assert_condition);
+	if(do_core == FALSE) {
+	    do_crm_log(LOG_ERR, "%s: Triggered assert at %s:%d : %s",
+		       function, file, line, assert_condition);
+	    return;
 
-	} else if(crm_log_level < LOG_DEBUG) {
-		do_crm_log(LOG_ERR, 
-			   "%s: Triggered non-fatal assert at %s:%d : %s",
-			   function, file, line, assert_condition);
-		return;
+	} else if(do_fork) {
+	    do_crm_log(LOG_ERR, "%s: Triggered non-fatal assert at %s:%d : %s",
+		       function, file, line, assert_condition);
+	    pid=fork();
 
 	} else {
-		pid=fork();
+	    do_crm_log(LOG_ERR, "%s: Triggered non-fatal assert at %s:%d : %s",
+		       function, file, line, assert_condition);
 	}
 	
 	switch(pid) {
@@ -1725,4 +1678,55 @@ crm_is_writable(const char *dir, const char *file,
   out:
 	crm_free(full_file);
 	return pass;
+}
+
+static unsigned long long crm_bit_filter = 0; /* 0x00000002ULL; */
+static unsigned int bit_log_level = LOG_DEBUG_5;
+
+long long
+crm_clear_bit(const char *function, long long word, long long bit)
+{
+	unsigned int level = bit_log_level;
+	if(bit & crm_bit_filter) {
+	    level = LOG_ERR;
+	}
+
+	do_crm_log(level, "Bit 0x%.16llx cleared by %s", bit, function);
+	word &= ~bit;
+
+	return word;
+}
+
+long long
+crm_set_bit(const char *function, long long word, long long bit)
+{
+	unsigned int level = bit_log_level;
+	if(bit & crm_bit_filter) {
+	    level = LOG_ERR;
+	}
+
+	do_crm_log(level, "Bit 0x%.16llx set by %s", bit, function);
+	word |= bit;
+	return word;
+}
+
+gboolean
+is_not_set(long long word, long long bit)
+{
+	crm_debug_5("Checking bit\t%.16llx in %.16llx", bit, word);
+	return ((word & bit) == 0);
+}
+
+gboolean
+is_set(long long word, long long bit)
+{
+	crm_debug_5("Checking bit\t%.16llx in %.16llx", bit, word);
+	return ((word & bit) == bit);
+}
+
+gboolean
+is_set_any(long long word, long long bit)
+{
+	crm_debug_5("Checking bit\t%.16llx in %.16llx", bit, word);
+	return ((word & bit) != 0);
 }

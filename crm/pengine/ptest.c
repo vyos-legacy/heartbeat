@@ -35,7 +35,7 @@
 
 #include <crm/cib.h>
 
-#define OPTARGS	"V?X:D:G:I:Lwxd:a"
+#define OPTARGS	"V?X:D:G:I:Lwxd:aS"
 
 #ifdef HAVE_GETOPT_H
 #  include <getopt.h>
@@ -49,6 +49,7 @@
 #endif
 
 gboolean use_stdin = FALSE;
+gboolean do_simulation = FALSE;
 gboolean inhibit_exit = FALSE;
 gboolean all_actions = FALSE;
 extern crm_data_t * do_calculations(
@@ -149,6 +150,7 @@ main(int argc, char **argv)
 	gboolean optional = FALSE;
 	pe_working_set_t data_set;
 	
+	const char *source = NULL;
 	const char *xml_file = NULL;
 	const char *dot_file = NULL;
 	const char *graph_file = NULL;
@@ -170,6 +172,7 @@ main(int argc, char **argv)
 			{"xml-stream",  0, 0, 'x'},
 			{"xml-file",    1, 0, 'X'},
 
+			{"simulate",    0, 0, 'S'},
 			{"save-graph",  1, 0, 'G'},
 			{"save-dotfile",1, 0, 'D'},
 			{"save-input",  1, 0, 'I'},
@@ -197,6 +200,9 @@ main(int argc, char **argv)
     
 				break;
 #endif
+			case 'S':
+				do_simulation = TRUE;
+				break;
 			case 'a':
 				all_actions = TRUE;
 				break;
@@ -259,6 +265,7 @@ main(int argc, char **argv)
 
 	if(USE_LIVE_CIB) {
 		int rc = cib_ok;
+		source = "live cib";
 		cib_conn = cib_new();
 		rc = cib_conn->cmds->signon(
 			cib_conn, "ptest", cib_command_synchronous);
@@ -279,6 +286,7 @@ main(int argc, char **argv)
 		
 	} else if(xml_file != NULL) {
 		FILE *xml_strm = fopen(xml_file, "r");
+		source = xml_file;
 		if(xml_strm == NULL) {
 			cl_perror("Could not open %s for reading", xml_file);
 			
@@ -293,18 +301,23 @@ main(int argc, char **argv)
 		}
 		
 	} else if(use_stdin) {
+		source = "stdin";
 		cib_object = stdin2xml();
-
-	} else {
-		usage("ptest", 1);
 	}
 
- 	CRM_CHECK(cib_object != NULL, return 4);
+ 	if(cib_object == NULL && source) {
+	    fprintf(stderr, "Could not parse configuration input from: %s\n", source);
+	    return 4;
 
+ 	} else if(cib_object == NULL) {
+	    fprintf(stderr, "Not configuration specified\n");
+	    usage("ptest", 1);
+	}
+	
 	crm_notice("Required feature set: %s", feature_set(cib_object));
  	do_id_check(cib_object, NULL, FALSE, FALSE);
 	if(!validate_with_dtd(cib_object,FALSE,HA_NOARCHDATAHBDIR"/crm.dtd")) {
-		crm_crit("%s is not a valid configuration", xml_file?xml_file:"stding");
+		crm_crit("%s does not contain a valid configuration", xml_file?xml_file:"<stdin>");
  		all_good = FALSE;
 	}
 	
@@ -358,6 +371,10 @@ main(int argc, char **argv)
 		}
 	}
 
+	if(dot_strm == NULL) {
+	    goto simulate;
+	}
+	
 	init_dotfile();
 	slist_iter(
 		action, action_t, data_set.actions, lpc,
@@ -373,28 +390,30 @@ main(int argc, char **argv)
 			font = "orange";
 		}
 		
+		style = "dashed";
 		if(action->dumped) {
 			style = "bold";
 			color = "green";
 			
-		} else if(action->rsc != NULL && action->rsc->is_managed == FALSE) {
-			fill = "purple";
+		} else if(action->rsc != NULL
+			  && is_not_set(action->rsc->flags, pe_rsc_managed)) {
+			color = "purple";
 			if(all_actions == FALSE) {
 				goto dont_write;
 			}			
 			
 		} else if(action->optional) {
-			style = "dashed";
 			color = "blue";
 			if(all_actions == FALSE) {
 				goto dont_write;
 			}			
 				
 		} else {
-			fill = "red";
+			color = "red";
 			CRM_CHECK(action->runnable == FALSE, ;);	
 		}
-		
+
+		action->dumped = TRUE;
 		dot_write("\"%s\" [ style=%s color=\"%s\" fontcolor=\"%s\"  %s%s]",
 			  action_name, style, color, font, fill?"fillcolor=":"", fill?fill:"");
 	  dont_write:
@@ -404,33 +423,32 @@ main(int argc, char **argv)
 
 	slist_iter(
 		action, action_t, data_set.actions, lpc,
-		int last_action = -1;
 		slist_iter(
 			before, action_wrapper_t, action->actions_before, lpc2,
 			char *before_name = NULL;
 			char *after_name = NULL;
-			optional = FALSE;
-			if(last_action == before->action->id) {
-				continue;
+			const char *style = "dashed";
+			optional = TRUE;
+			if(before->state == pe_link_dumped) {
+			    optional = FALSE;
+			    style = "bold";
+			} else if(action->pseudo
+				  && (before->type & pe_order_stonith_stop)) {
+			    continue;
+			} else if(before->state == pe_link_dup) {
+			    continue;
+			} else if(action->dumped && before->action->dumped) {
+			    optional = FALSE;
 			}
-			last_action = before->action->id;
-			if(action->dumped && before->action->dumped) {
-			} else if(action->optional || before->action->optional) {
-				optional = TRUE;
-			} else if(before->action->runnable == FALSE
- 				  && before->action->pseudo == FALSE
-				  && before->type == pe_order_optional) {
- 				optional = TRUE;
-			}
-			before_name = create_action_name(before->action);
-			after_name = create_action_name(action);
+
 			if(all_actions || optional == FALSE) {
-				dot_write("\"%s\" -> \"%s\" [ style = %s]",
-					  before_name, after_name,
-					  optional?"dashed":"bold");
+			    before_name = create_action_name(before->action);
+			    after_name = create_action_name(action);
+			    dot_write("\"%s\" -> \"%s\" [ style = %s]",
+				      before_name, after_name, style);
+			    crm_free(before_name);
+			    crm_free(after_name);
 			}
-			crm_free(before_name);
-			crm_free(after_name);
 			);
 		);
 	dot_write("}");
@@ -438,8 +456,16 @@ main(int argc, char **argv)
 		fflush(dot_strm);
 		fclose(dot_strm);
 	}
+
+  simulate:
+	
+	if(do_simulation == FALSE) {
+	    goto cleanup;
+	}
 	
 	transition = unpack_graph(data_set.graph);
+	transition->batch_limit = 0;
+	
 	print_graph(LOG_DEBUG, transition);
 	do {
 		graph_rc = run_graph(transition);
@@ -450,10 +476,12 @@ main(int argc, char **argv)
 		crm_crit("Transition failed: %s", transition_status(graph_rc));
 		print_graph(LOG_ERR, transition);
 	}
-	cleanup_alloc_calculations(&data_set);
 	destroy_graph(transition);
-	
 	CRM_CHECK(graph_rc == transition_complete, all_good = FALSE; crm_err("An invalid transition was produced"));
+
+  cleanup:
+	cleanup_alloc_calculations(&data_set);
+	
 
 #if HAVE_LIBXML2
 	xmlCleanupParser();

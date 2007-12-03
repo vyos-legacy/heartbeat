@@ -227,7 +227,7 @@ main(int argc, char **argv)
 		cmdname = tmp_cmdname;
 	}
 	cl_log_set_entity(cmdname);
-	cl_log_set_facility(LOG_DAEMON);
+	cl_log_set_facility(HA_LOG_FACILITY);
 	while ((flag = getopt(argc, argv, OPTARGS)) != EOF) {
 		switch(flag) {
 		case 'v':		/* Debug mode, more logs*/
@@ -246,9 +246,7 @@ main(int argc, char **argv)
 	CL_SIGNAL(SIGUSR2, usr_signal_handler);
 	CL_IGNORE_SIG(SIGPIPE);
 	
-	cl_inherit_use_logd(ENV_PREFIX ""KEY_LOGDAEMON, 256);
-	
-	inherit_logconfig_from_environment();
+	cl_inherit_logging_environment(0);
 
 	/* initialize the client tracking system */
 	client_init();

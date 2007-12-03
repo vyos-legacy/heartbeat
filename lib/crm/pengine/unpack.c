@@ -147,6 +147,11 @@ unpack_config(crm_data_t *config, pe_working_set_t *data_set)
 	crm_debug_2("By default resources are %smanaged",
 		    data_set->is_managed_default?"":"not ");
 
+	value = pe_pref(data_set->config_hash, "start-failure-is-fatal");
+	cl_str_to_boolean(value, &data_set->start_failure_fatal);
+	crm_debug_2("Start failures are %s",
+		    data_set->start_failure_fatal?"always fatal":"handled by failcount");
+	
 	return TRUE;
 }
 
@@ -184,6 +189,11 @@ unpack_nodes(crm_data_t * xml_nodes, pe_working_set_t *data_set)
 			crm_config_err("Must specify type tag in <node>");
 			continue;
 		}
+		if(pe_find_node(data_set->nodes, uname) != NULL) {
+		    crm_config_warn("Detected multiple node entries with uname=%s"
+				    " - this is rarely intended", uname);
+		}
+
 		crm_malloc0(new_node, sizeof(node_t));
 		if(new_node == NULL) {
 			return FALSE;
@@ -520,23 +530,26 @@ determine_online_status(
 	return online;
 }
 
-#define set_char(x) last_rsc_id[len] = x; complete = TRUE;
+#define set_char(x) last_rsc_id[lpc] = x; complete = TRUE;
 
-static void
+static char *
 increment_clone(char *last_rsc_id)
 {
-	gboolean complete = FALSE;
+	int lpc = 0;
 	int len = 0;
+	char *tmp = NULL;
+	gboolean complete = FALSE;
 
-	CRM_CHECK(last_rsc_id != NULL, return);
+	CRM_CHECK(last_rsc_id != NULL, return NULL);
 	if(last_rsc_id != NULL) {
 		len = strlen(last_rsc_id);
 	}
-	len--;
-	while(complete == FALSE && len > 0) {
-		switch (last_rsc_id[len]) {
+	
+	lpc = len-1;
+	while(complete == FALSE && lpc > 0) {
+		switch (last_rsc_id[lpc]) {
 			case 0:
-				len--;
+				lpc--;
 				break;
 			case '0':
 				set_char('1');
@@ -566,15 +579,26 @@ increment_clone(char *last_rsc_id)
 				set_char('9');
 				break;
 			case '9':
+				last_rsc_id[lpc] = '0';
+				lpc--;
+				break;
+			case ':':
+				tmp = last_rsc_id;
+				crm_malloc0(last_rsc_id, len + 2);
+				memcpy(last_rsc_id, tmp, len);
+				last_rsc_id[++lpc] = '1';
 				last_rsc_id[len] = '0';
-				len--;
+				last_rsc_id[len+1] = 0;
+				complete = TRUE;
+				crm_free(tmp);
 				break;
 			default:
 				crm_err("Unexpected char: %c (%d)",
-					last_rsc_id[len], len);
+					last_rsc_id[lpc], lpc);
 				break;
 		}
 	}
+	return last_rsc_id;
 }
 
 static resource_t *
@@ -582,12 +606,12 @@ create_fake_resource(const char *rsc_id, crm_data_t *rsc_entry, pe_working_set_t
 {
 	resource_t *rsc = NULL;
 	crm_data_t *xml_rsc  = create_xml_node(NULL, XML_CIB_TAG_RESOURCE);
-	crm_log_xml_info(rsc_entry, "Orphan resource");
 	copy_in_properties(xml_rsc, rsc_entry);
 	crm_xml_add(xml_rsc, XML_ATTR_ID, rsc_id);
+	crm_log_xml_info(xml_rsc, "Orphan resource");
 	
 	common_unpack(xml_rsc, &rsc, NULL, data_set);
-	rsc->orphan = TRUE;
+	set_bit(rsc->flags, pe_rsc_orphan);
 	
 	data_set->resources = g_list_append(data_set->resources, rsc);
 	return rsc;
@@ -622,7 +646,7 @@ unpack_find_resource(
 			break;
 			
 			/* always unique */
-		} else if(rsc->globally_unique) {
+		} else if(is_set(rsc->flags, pe_rsc_unique)) {
 			crm_debug_3("unique");
 			break;
 			
@@ -630,10 +654,10 @@ unpack_find_resource(
 			 *   find another clone instead
 			 */
 		} else {
-			crm_debug_2("find another one");
+			crm_debug_3("find another one");
 			rsc = NULL;
 			is_duped_clone = TRUE;
-			increment_clone(alt_rsc_id);
+			alt_rsc_id = increment_clone(alt_rsc_id);
 		}
 	}
 	crm_free(alt_rsc_id);
@@ -663,7 +687,7 @@ process_orphan_resource(crm_data_t *rsc_entry, node_t *node, pe_working_set_t *d
 	rsc = create_fake_resource(rsc_id, rsc_entry, data_set);
 	
 	if(data_set->stop_rsc_orphans == FALSE) {
-		rsc->is_managed = FALSE;
+	    clear_bit(rsc->flags, pe_rsc_managed);
 		
 	} else {
 		crm_info("Making sure orphan %s is stopped", rsc_id);
@@ -682,11 +706,6 @@ process_rsc_state(resource_t *rsc, node_t *node,
 		  crm_data_t *migrate_op,
 		  pe_working_set_t *data_set) 
 {
-	int fail_count = 0;
-	char *fail_attr = NULL;
-	const char *value = NULL;
-	GHashTable *meta_hash = NULL;
-
 	if(on_fail == action_migrate_failure) {
 		node_t *from = NULL;
 		const char *uuid = NULL;
@@ -700,43 +719,6 @@ process_rsc_state(resource_t *rsc, node_t *node,
 		    rsc->id, role2text(rsc->role),
 		    node->details->uname);
 
-	meta_hash = g_hash_table_new_full(
-		g_str_hash, g_str_equal,
-		g_hash_destroy_str, g_hash_destroy_str);
-	get_meta_attributes(meta_hash, rsc, node, data_set);
-
-	/* update resource preferences that relate to the current node */
-	value = g_hash_table_lookup(meta_hash, "resource_stickiness");
-	if(value != NULL && safe_str_neq("default", value)) {
-		rsc->stickiness = char2score(value);
-	} else {
-		rsc->stickiness = data_set->default_resource_stickiness;
-	}
-	
-	value = g_hash_table_lookup(meta_hash, XML_RSC_ATTR_FAIL_STICKINESS);
-	if(value != NULL && safe_str_neq("default", value)) {
-		rsc->fail_stickiness = char2score(value);
-	} else {
-		rsc->fail_stickiness = data_set->default_resource_fail_stickiness;
-	}
-
-	/* process failure stickiness */
-	fail_attr = crm_concat("fail-count", rsc->id, '-');
-	value = g_hash_table_lookup(node->details->attrs, fail_attr);
-	if(value != NULL) {
-		crm_debug("%s: %s", fail_attr, value);
-		fail_count = crm_parse_int(value, "0");
-	}
-	crm_free(fail_attr);
-	
-	if(fail_count > 0 && rsc->fail_stickiness != 0) {
-		resource_location(rsc, node, fail_count * rsc->fail_stickiness,
-				  "fail_stickiness", data_set);
-		crm_debug("Setting failure stickiness for %s on %s: %d",
-			  rsc->id, node->details->uname,
-			  fail_count * rsc->fail_stickiness);
-	}
-
 	/* process current state */
 	if(rsc->role != RSC_ROLE_UNKNOWN) { 
 		rsc->known_on = g_list_append(rsc->known_on, node);
@@ -745,13 +727,13 @@ process_rsc_state(resource_t *rsc, node_t *node,
 	if(rsc->role != RSC_ROLE_STOPPED
 		&& rsc->role != RSC_ROLE_UNKNOWN) { 
 		if(on_fail != action_fail_ignore) {
-			rsc->failed = TRUE;
-			crm_debug_2("Force stop");
+		    set_bit(rsc->flags, pe_rsc_failed);
+		    crm_debug_2("Force stop");
 		}
 
 		native_add_running(rsc, node, data_set);
 
-		if(rsc->is_managed && rsc->stickiness != 0) {
+		if(is_set(rsc->flags, pe_rsc_managed) && rsc->stickiness != 0) {
 			resource_location(rsc, node, rsc->stickiness,
 					  "stickiness", data_set);
 			crm_debug_2("Resource %s: preferring current location"
@@ -775,7 +757,7 @@ process_rsc_state(resource_t *rsc, node_t *node,
 			/* is_managed == FALSE will prevent any
 			 * actions being sent for the resource
 			 */
-			rsc->is_managed = FALSE;
+		    clear_bit(rsc->flags, pe_rsc_managed);
 				
 		} else if(on_fail == action_fail_migrate) {
 			stop_action(rsc, node, FALSE);
@@ -804,7 +786,6 @@ process_rsc_state(resource_t *rsc, node_t *node,
 			);
 		crm_free(key);
 	}
-	g_hash_table_destroy(meta_hash);
 }
 
 /* create active recurring operations as optional */ 
@@ -993,6 +974,11 @@ unpack_lrm_resources(node_t *node, crm_data_t * lrm_rsc_list, pe_working_set_t *
 	CRM_CHECK(node != NULL, return FALSE);
 
 	crm_debug_3("Unpacking resources on %s", node->details->uname);
+
+	slist_iter(
+	    rsc, resource_t, data_set->resources, lpc,
+	    common_apply_stickiness(rsc, node, data_set);
+	    );
 	
 	xml_child_iter_filter(
 		lrm_rsc_list, rsc_entry, XML_LRM_TAG_RESOURCE,
@@ -1017,6 +1003,7 @@ unpack_rsc_op(resource_t *rsc, node_t *node, crm_data_t *xml_op,
 	const char *task_status = NULL;
 	const char *interval_s  = NULL;
 	const char *op_digest   = NULL;
+	const char *op_version  = NULL;
 
 	int interval = 0;
 	int task_id_i = -1;
@@ -1036,6 +1023,7 @@ unpack_rsc_op(resource_t *rsc, node_t *node, crm_data_t *xml_op,
  	task_id     = crm_element_value(xml_op, XML_LRM_ATTR_CALLID);
 	task_status = crm_element_value(xml_op, XML_LRM_ATTR_OPSTATUS);
 	op_digest   = crm_element_value(xml_op, XML_LRM_ATTR_OP_DIGEST);
+	op_version  = crm_element_value(xml_op, XML_ATTR_CRM_VERSION);
 
 	CRM_CHECK(id != NULL, return FALSE);
 	CRM_CHECK(task != NULL, return FALSE);
@@ -1158,7 +1146,7 @@ unpack_rsc_op(resource_t *rsc, node_t *node, crm_data_t *xml_op,
 	switch(task_status_i) {
 		case LRM_OP_PENDING:
 			if(safe_str_eq(task, CRMD_ACTION_START)) {
-				rsc->start_pending = TRUE;
+				set_bit(rsc->flags, pe_rsc_start_pending);
 				rsc->role = RSC_ROLE_STARTED;
 				
 			} else if(safe_str_eq(task, CRMD_ACTION_PROMOTE)) {
@@ -1193,25 +1181,30 @@ unpack_rsc_op(resource_t *rsc, node_t *node, crm_data_t *xml_op,
 		case LRM_OP_ERROR:
 		case LRM_OP_TIMEOUT:
 		case LRM_OP_NOTSUPPORTED:
-			crm_warn("Processing failed op (%s) on %s",
-				 id, node->details->uname);
+			crm_warn("Processing failed op %s on %s: %s",
+				 id, node->details->uname,
+				 op_status2text(task_status_i));
 			crm_xml_add(xml_op, XML_ATTR_UNAME, node->details->uname);
 			add_node_copy(data_set->failed, xml_op);
 
 			if(*on_fail < action->on_fail) {
 				*on_fail = action->on_fail;
 			}
-			
-			if(task_status_i == LRM_OP_NOTSUPPORTED
-			   || is_stop_action
-			   || safe_str_eq(task, CRMD_ACTION_START) ) {
-				crm_warn("Handling failed %s for %s on %s",
-					 task, rsc->id, node->details->uname);
-				resource_location(rsc, node, -INFINITY,
-					  "__dont_run__failed_stopstart__",
-					  data_set);
+
+			if(task_status_i == LRM_OP_NOTSUPPORTED) {
+			    resource_location(
+				rsc, node, -INFINITY, "__not_supported__", data_set);
+
+			} else if(data_set->start_failure_fatal
+				  || compare_version("2.0", op_version)) {			    
+			    if(is_stop_action || safe_str_eq(task, CRMD_ACTION_START)) {
+				crm_warn("Compatability handling for failed op %s on %s",
+					 id, node->details->uname);
+				resource_location(
+				    rsc, node, -INFINITY, "__legacy_stopstart__", data_set);
+			    }
 			}
-			
+
 			if(safe_str_eq(task, CRMD_ACTION_PROMOTE)) {
 				rsc->role = RSC_ROLE_MASTER;
 

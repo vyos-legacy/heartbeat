@@ -205,8 +205,7 @@ ccm_configure_timeout(ll_cluster_t *hb, ccm_info_t *info)
 {
 	long keepalive = hb->llc_ops->get_keepalive(hb);
 
-	ccm_debug2(LOG_DEBUG, "ccm_configure_timeout  "
-			"keepalive=%ld", keepalive);
+	ccm_debug2(LOG_DEBUG, "%s: keepalive=%ld", __FUNCTION__, keepalive);
 
 	CCM_TMOUT_SET_U(info, 5*keepalive);
 	CCM_TMOUT_SET_LU(info, 30*keepalive);
@@ -373,7 +372,7 @@ static void
 report_mbrs(ccm_info_t *info)
 {
 	int i;
-	char *nodename;
+	const char *nodename;
 
 	static struct born_s  {
 		int index;
@@ -679,13 +678,25 @@ ccm_already_joined(ccm_info_t *info)
  * members showing interest in acquiring the initial context. 
  */
 static void 
-ccm_add_new_joiner(ccm_info_t *info, const char *orig)
+ccm_add_new_joiner(ccm_info_t *info, const char *orig, struct ha_msg* msg)
 {
 	llm_info_t* llm = &info->llm;
 	
 	int idx = llm_get_index(&info->llm, orig);
 	
-	llm_set_joinrequest(llm, idx, TRUE);
+	const char* major_trans = 0;
+	int trans_val;
+	
+	/* get the major transition version */
+	if ((major_trans = ha_msg_value(msg, CCM_MAJORTRANS)) == NULL) { 
+	  ccm_debug(LOG_WARNING, "ccm_state_version_request: "
+		    "no protocol information");
+	  return;
+	}
+	
+	trans_val = atoi(major_trans);
+	
+	llm_set_joinrequest(llm, idx, TRUE, trans_val);
 	
 	return;
 }
@@ -717,7 +728,7 @@ ccm_reset_all_join_request(ccm_info_t* info)
 	size_t i;
 	
 	for (i = 0 ; i < llm->nodecount; i++){
-		llm_set_joinrequest(llm, i, FALSE);
+	  llm_set_joinrequest(llm, i, FALSE, 0);
 	}	
 }
 
@@ -730,13 +741,23 @@ ccm_am_i_highest_joiner(ccm_info_t *info)
 	int		total_nodes =llm->nodecount;
 	int		my_indx = llm->myindex;
 	int		i;
-
-	for (i = my_indx + 1 ; i < total_nodes; i++){
-		if (llm_get_joinrequest(llm,i)){
-			return FALSE;
-		}
-	}
 	
+	for (i =0; i < total_nodes;i++){
+	  if (i == my_indx) continue;
+	  if ( llm_get_joinrequest(llm, i)){
+	    int major_trans =llm_get_joinrequest_majortrans(llm, i);
+	    int my_major_trans = CCM_GET_MAJORTRANS(info);
+	    if (major_trans > my_major_trans ){
+	      return FALSE;
+	    }else if (major_trans == my_major_trans){
+	      if (i > my_indx){
+		return FALSE;
+	      }
+	    }
+	  }
+
+	}
+
 	return TRUE;
 }
 
@@ -746,7 +767,7 @@ ccm_remove_new_joiner(ccm_info_t *info, const char *orig)
 	llm_info_t* llm = &info->llm;
 	int index = llm_get_index(llm, orig);
 	
-	llm_set_joinrequest(llm, index, FALSE);
+	llm_set_joinrequest(llm, index, FALSE, 0);
 	
 	return;
 }
@@ -768,7 +789,7 @@ ccm_send_join_reply(ll_cluster_t *hb, ccm_info_t *info)
 		}
 		if (llm_get_joinrequest(llm, i)){
 			ccm_send_one_join_reply(hb,info, llm->nodes[i].nodename);
-			llm_set_joinrequest(llm, i, FALSE);
+			llm_set_joinrequest(llm, i, FALSE, 0);
 		}
 	}
 }
@@ -823,8 +844,7 @@ ccm_compute_and_send_final_memlist(ll_cluster_t *hb, ccm_info_t *info)
 					!= HA_OK) {
 		if(repeat < REPEAT_TIMES){
 			ccm_log(LOG_ERR,
-				"ccm_compute_and_send_final_memlist: failure "
-				"to send finalmemlist");
+				"%s: failure to send finalmemlist", __FUNCTION__);
 			cl_shortsleep();
 			repeat++;
 		}else{
@@ -844,8 +864,7 @@ ccm_compute_and_send_final_memlist(ll_cluster_t *hb, ccm_info_t *info)
 	/* if cookie has changed update it.
 	 */
 	if (cookie) {
-		ccm_debug2(LOG_DEBUG, "ccm_compute_and_send_final_list: "
-				"cookie changed ");
+		ccm_debug2(LOG_DEBUG, "%s: cookie changed ", __FUNCTION__);
 		CCM_SET_COOKIE(info, cookie); 
 		ccm_free_random_cookie(cookie);
 	}
@@ -884,7 +903,8 @@ ccm_send_cl_reply(ll_cluster_t *hb, ccm_info_t *info)
 {
 	int ret=FALSE, bitmap_strlen;
 	char memlist[MAX_MEMLIST_STRING];
-	char *cl, *cl_tmp;
+	const char* cl;
+	const char* cl_tmp;
 	void *cltrack;
 	uint  trans;
 	int repeat;
@@ -1023,8 +1043,7 @@ ccm_joining_to_joined(ll_cluster_t *hb, ccm_info_t *info)
 	/* if cookie has changed update it.
 	 */
 	if (cookie) {
-		ccm_debug2(LOG_DEBUG, "ccm_joining_to_joined: "
-				"cookie changed ");
+		ccm_debug2(LOG_DEBUG, "%s: cookie changed ", __FUNCTION__);
 		CCM_SET_COOKIE(info, cookie); 
 		ccm_free_random_cookie(cookie);
 	}
@@ -1069,7 +1088,7 @@ ccm_init_to_joined(ccm_info_t *info)
 	
 	llm_set_uptime(llm, llm_get_myindex(llm), 1);
 
-	CCM_SET_MAJORTRANS(info, 1);
+	CCM_SET_MAJORTRANS(info, CCM_GET_MAJORTRANS(info)+1);
 	CCM_SET_MINORTRANS(info, 0);
 	cookie = ccm_generate_random_cookie();
 	CCM_SET_COOKIE(info, cookie);
@@ -1170,14 +1189,13 @@ ccm_state_version_request(enum ccm_type ccm_msg_type,
 	
 	/* who sent this message */
 	if ((orig = ha_msg_value(reply, F_ORIG)) == NULL) {
-		ccm_debug(LOG_WARNING, "ccm_state_version_request: "
-			"received message from unknown");
+		ccm_debug(LOG_WARNING, "%s: received message from unknown", __FUNCTION__);
 		return;
 	}
 
 	if(!llm_is_valid_node(CCM_GET_LLM(info), orig)) { 
-		ccm_debug(LOG_WARNING, "ccm_state_version_request: "
-			"received message from unknown host %s", orig);
+		ccm_debug(LOG_WARNING, "%s: received message from unknown host %s",
+		__FUNCTION__, orig);
 		return;
 	}
 
@@ -1187,15 +1205,13 @@ ccm_state_version_request(enum ccm_type ccm_msg_type,
 
 		/* get the protocol version */
 		if ((proto = ha_msg_value(reply, CCM_PROTOCOL)) == NULL) {
-			ccm_debug(LOG_WARNING, "ccm_state_version_request: "
-					"no protocol information");
+			ccm_debug(LOG_WARNING, "%s: no protocol information", __FUNCTION__);
 			return;
 		}
 
 		proto_val = atoi(proto); /*TOBEDONE*/
 		if (proto_val >= CCM_VER_LAST) {
-			ccm_debug(LOG_WARNING, "ccm_state_version_request: "
-					"unknown protocol value");
+			ccm_debug(LOG_WARNING, "%s: unknown protocol value", __FUNCTION__);
 			ccm_reset(info);
 			return;
 		}
@@ -1208,8 +1224,7 @@ ccm_state_version_request(enum ccm_type ccm_msg_type,
 		 */
 		if(resp_can_i_drop()) {
 			if ((clsize = ha_msg_value(reply, CCM_CLSIZE)) == NULL){
-				ccm_debug(LOG_WARNING, "ccm_state_version_request: "
-						" no cookie information");
+				ccm_debug(LOG_WARNING, "%s:  no cookie information", __FUNCTION__);
 				return;
 			}
 			clsize_val = atoi(clsize);
@@ -1233,15 +1248,13 @@ ccm_state_version_request(enum ccm_type ccm_msg_type,
 
 		/* get the cookie string */
 		if ((cookie = ha_msg_value(reply, CCM_COOKIE)) == NULL) {
-			ccm_debug(LOG_WARNING, "ccm_state_version_request: no cookie "
-							"information");
+			ccm_debug(LOG_WARNING, "%s: no cookie information", __FUNCTION__);
 			return;
 		}
 
 		/* get the major transition version */
 		if ((trans = ha_msg_value(reply, CCM_MAJORTRANS)) == NULL) { 
-			ccm_debug(LOG_WARNING, "ccm_state_version_request: "
-					"no protocol information");
+			ccm_debug(LOG_WARNING, "%s: no protocol information", __FUNCTION__);
 			return;
 		}
 
@@ -1257,8 +1270,7 @@ ccm_state_version_request(enum ccm_type ccm_msg_type,
 		repeat = 0;
 		while(ccm_send_alive_msg(hb, info) != HA_OK){
 			if(repeat < REPEAT_TIMES){
-				ccm_debug(LOG_WARNING, 
-				"ccm_state_version_request: failure to send alive");
+				ccm_debug(LOG_WARNING, "%s: failure to send alive", __FUNCTION__);
 				cl_shortsleep();
 				repeat++;
 			}else{
@@ -1308,7 +1320,8 @@ ccm_state_version_request(enum ccm_type ccm_msg_type,
 		 * somebody else also wanted to join the group.
 		 * we will restart the join.
 		 */
-		ccm_add_new_joiner(info, orig);
+
+		ccm_add_new_joiner(info, orig, reply);
 		if (ccm_get_all_active_join_request(info)
 		    && ccm_am_i_highest_joiner(info)){
 			ccm_init_to_joined(info);
@@ -1364,14 +1377,14 @@ ccm_state_joined(enum ccm_type ccm_msg_type,
 	uint  trans_majorval=0, trans_minorval=0, uptime_val;
 	int repeat;
 	if ((orig = ha_msg_value(reply, F_ORIG)) == NULL) {
-		ccm_debug(LOG_WARNING, "ccm_state_joined: received message "
-							"from unknown");
+		ccm_debug(LOG_WARNING, "%s: received message from unknown"
+		,	__FUNCTION__);
 		return;
 	}
 	
 	if(!llm_is_valid_node(CCM_GET_LLM(info), orig)) {
-		ccm_debug(LOG_WARNING, "ccm_state_joined: received message "
-				"from unknown host %s", orig);
+		ccm_debug(LOG_WARNING, "%s: received message "
+				"from unknown host %s", __FUNCTION__, orig);
 		return;
 	}
 	
@@ -1384,8 +1397,8 @@ ccm_state_joined(enum ccm_type ccm_msg_type,
 		}
 		if(strncmp(CCM_GET_COOKIE(info), 
 			ha_msg_value(reply, CCM_COOKIE), COOKIESIZE) != 0){
-			ccm_debug(LOG_WARNING, "ccm_state_joined: received message "
-			       "with unknown cookie, just dropping");
+			ccm_debug(LOG_WARNING, "%s: received message "
+			       "with unknown cookie, just dropping", __FUNCTION__);
 			dump_mbrs(info);
 			return;
 		}
@@ -1394,8 +1407,8 @@ ccm_state_joined(enum ccm_type ccm_msg_type,
 
 		/* get the major transition version */
 		if ((trans = ha_msg_value(reply, CCM_MAJORTRANS)) == NULL) { 
-			ccm_debug(LOG_WARNING, "ccm_state_joined: no transition major "
-				"information");
+			ccm_debug(LOG_WARNING, "%s: no transition major "
+				"information", __FUNCTION__);
 			return;
 		}
 		trans_majorval = atoi(trans);
@@ -1403,10 +1416,10 @@ ccm_state_joined(enum ccm_type ccm_msg_type,
 	 	/*drop the message if it has lower major transition number */
 		if (CCM_TRANS_EARLIER(trans_majorval,  
 					CCM_GET_MAJORTRANS(info))) {
-			ccm_debug(LOG_WARNING, "ccm_state_joined: received "
+			ccm_debug(LOG_WARNING, "%s: received "
 				"%s message with "
 				"a earlier major transition number "
-				"recv_trans=%d, mytrans=%d",
+				"recv_trans=%d, mytrans=%d", __FUNCTION__,
 				ccm_type2string(ccm_msg_type), trans_majorval, 
 				CCM_GET_MAJORTRANS(info));
 			return;
@@ -1415,8 +1428,8 @@ ccm_state_joined(enum ccm_type ccm_msg_type,
 
 		/* get the minor transition version */
 		if ((trans = ha_msg_value(reply, CCM_MINORTRANS)) == NULL) { 
-			ccm_debug(LOG_WARNING, "ccm_state_joined: no transition minor "
-					"information");
+			ccm_debug(LOG_WARNING, "%s: no transition minor "
+					"information", __FUNCTION__);
 			return;
 		}
 
@@ -1426,9 +1439,9 @@ ccm_state_joined(enum ccm_type ccm_msg_type,
 	switch (ccm_msg_type)  {
 
 		case CCM_TYPE_PROTOVERSION_RESP:
-			ccm_debug(LOG_WARNING, "ccm_state_joined: dropping message "
+			ccm_debug(LOG_WARNING, "%s: dropping message "
 				"of type %s.  Is this a Byzantine failure?", 
-					ccm_type2string(ccm_msg_type));
+					__FUNCTION__, ccm_type2string(ccm_msg_type));
 
 			break;
 
@@ -1442,8 +1455,7 @@ ccm_state_joined(enum ccm_type ccm_msg_type,
 						!= HA_OK) {
 					if(repeat < REPEAT_TIMES){
 						ccm_debug(LOG_WARNING,
-						"ccm_state_joined: "
-						"failure to send join reply");
+						"%s: failure to send join reply", __FUNCTION__);
 						cl_shortsleep();
 						repeat++;
 					}else{
@@ -1456,8 +1468,8 @@ ccm_state_joined(enum ccm_type ccm_msg_type,
 		case CCM_TYPE_JOIN:
 			/* get the update value */
 			if ((uptime = ha_msg_value(reply, CCM_UPTIME)) == NULL){
-				ccm_debug(LOG_WARNING, "ccm_state_joined: no update "
-						"information");
+				ccm_debug(LOG_WARNING, "%s: no update "
+						"information", __FUNCTION__);
 				return;
 			}
 			uptime_val = atoi(uptime);
@@ -1475,8 +1487,7 @@ ccm_state_joined(enum ccm_type ccm_msg_type,
 			while (ccm_send_join(hb, info) != HA_OK) {
 				if(repeat < REPEAT_TIMES){
 					ccm_debug(LOG_WARNING,
-						"ccm_state_joined: failure "
-						"to send join");
+						"%s: failure to send join", __FUNCTION__);
 					cl_shortsleep();
 					repeat++;
 				}else{
@@ -1502,8 +1513,7 @@ ccm_state_joined(enum ccm_type ccm_msg_type,
 				while (ccm_send_join(hb, info) != HA_OK) {
 					if(repeat < REPEAT_TIMES){
 						ccm_debug(LOG_WARNING,
-						"ccm_state_joined:"
-						" failure to send join");
+						"%s: failure to send join", __FUNCTION__);
 						cl_shortsleep();
 						repeat++;
 					}else{
@@ -1571,8 +1581,8 @@ ccm_state_joined(enum ccm_type ccm_msg_type,
 		}
 		case CCM_TYPE_NODE_LEAVE:
 			if ((uptime = ha_msg_value(reply, CCM_UPTIME)) == NULL){
-				ccm_debug(LOG_WARNING, "ccm_state_joined: no update "
-						"information");
+				ccm_debug(LOG_WARNING, "%s: no update "
+						"information", __FUNCTION__);
 				return;
 			}
 			uptime_val = atoi(uptime);
@@ -1635,8 +1645,8 @@ ccm_state_joined(enum ccm_type ccm_msg_type,
 
 		case CCM_TYPE_NEW_NODE:
 			if ((uptime = ha_msg_value(reply, CCM_UPTIME)) == NULL){
-				ccm_debug(LOG_WARNING, "ccm_state_joined: no update "
-						"information");
+				ccm_debug(LOG_WARNING, "%s: no update "
+						"information", __FUNCTION__);
 				return;
 			}
 			uptime_val = atoi(uptime);
@@ -1698,9 +1708,9 @@ ccm_state_joined(enum ccm_type ccm_msg_type,
 		case CCM_TYPE_RES_MEMLIST:
 		case CCM_TYPE_FINAL_MEMLIST:
 		case CCM_TYPE_ABORT:
-			ccm_log(LOG_ERR, "ccm_state_joined: dropping message "
-				"of type %s. Is this a Byzantine failure?", 
-				ccm_type2string(ccm_msg_type));
+			ccm_log(LOG_ERR, "%s: dropping message "
+				"of type %s. Is this a Byzantine failure?"
+			,	__FUNCTION__, ccm_type2string(ccm_msg_type));
 			/* nothing to do. Just forget the message */
 			break;
 		default:
@@ -1723,14 +1733,14 @@ static void ccm_state_wait_for_change(enum ccm_type ccm_msg_type,
 	int repeat;
 	
 	if ((orig = ha_msg_value(reply, F_ORIG)) == NULL) {
-		ccm_debug(LOG_WARNING, "ccm_state_joined: received message "
-							"from unknown");
+		ccm_debug(LOG_WARNING, "%s: received message from unknown"
+		,	__FUNCTION__ );
 		return;
 	}
 
 	if(!llm_is_valid_node(CCM_GET_LLM(info), orig)) {
-		ccm_debug(LOG_WARNING, "ccm_state_joined: received message "
-				"from unknown host %s", orig);
+		ccm_debug(LOG_WARNING, "%s: received message "
+				"from unknown host %s", __FUNCTION__, orig);
 		return;
 	}
 	node = ha_msg_value(reply, F_NODE);
@@ -1741,15 +1751,15 @@ static void ccm_state_wait_for_change(enum ccm_type ccm_msg_type,
 		
 		if(strncmp(CCM_GET_COOKIE(info),
 			ha_msg_value(reply, CCM_COOKIE), COOKIESIZE) != 0){
-			ccm_debug(LOG_WARNING, "ccm_state_joined: received message "
-					"with unknown cookie, just dropping");
+			ccm_debug(LOG_WARNING, "%s: received message "
+					"with unknown cookie, just dropping", __FUNCTION__);
 			return;
 		}
 
 		/* get the major transition version */
 		if ((trans = ha_msg_value(reply, CCM_MAJORTRANS)) == NULL) {
-			ccm_debug(LOG_WARNING, "ccm_state_joined: no transition major "
-				"information");
+			ccm_debug(LOG_WARNING, "%s: no transition major "
+				"information", __FUNCTION__);
 			return;
 		}
 		trans_majorval = atoi(trans);
@@ -1757,10 +1767,10 @@ static void ccm_state_wait_for_change(enum ccm_type ccm_msg_type,
 	 	/* drop the message if it has lower major transition number */
 		if (CCM_TRANS_EARLIER(trans_majorval,
 					CCM_GET_MAJORTRANS(info))) {
-			ccm_debug(LOG_WARNING, "ccm_state_joined: received "
+			ccm_debug(LOG_WARNING, "%s: received "
 				"%s message with "
 				"a earlier major transition number "
-				"recv_trans=%d, mytrans=%d",
+				"recv_trans=%d, mytrans=%d", __FUNCTION__,
 				ccm_type2string(ccm_msg_type), trans_majorval,
 				CCM_GET_MAJORTRANS(info));
 			return;
@@ -1768,8 +1778,8 @@ static void ccm_state_wait_for_change(enum ccm_type ccm_msg_type,
 
 		/* get the minor transition version */
 		if ((trans = ha_msg_value(reply, CCM_MINORTRANS)) == NULL) { 
-			ccm_debug(LOG_WARNING, "ccm_state_joined: no transition minor "
-					"information");
+			ccm_debug(LOG_WARNING, "%s: no transition minor "
+					"information", __FUNCTION__);
 			return;
 		}
 		trans_minorval = atoi(trans);
@@ -1781,7 +1791,7 @@ static void ccm_state_wait_for_change(enum ccm_type ccm_msg_type,
 			 * cache this request. We will respond to it,
 			 * after transition is complete.
 			 */
-			ccm_add_new_joiner(info, orig);
+		  ccm_add_new_joiner(info, orig, reply);
 			break;
 			
 		case CCM_TYPE_NODE_LEAVE_NOTICE:
@@ -1814,8 +1824,8 @@ static void ccm_state_wait_for_change(enum ccm_type ccm_msg_type,
 
 			if (!uptime_set){
 				if ((uptime = ha_msg_value(reply, CCM_UPTIME)) == NULL){
-					ccm_debug(LOG_WARNING, "ccm_state_wait_for_change: no update "
-						"information");
+					ccm_debug(LOG_WARNING, "%s: no update information",
+					__FUNCTION__);
 					return;
 				}
 				uptime_val = atoi(uptime);
@@ -1855,8 +1865,7 @@ static void ccm_state_wait_for_change(enum ccm_type ccm_msg_type,
 				while (ccm_send_join(hb, info) != HA_OK) {
 					if(repeat < REPEAT_TIMES){
 						ccm_debug(LOG_WARNING,
-						"ccm_state_joined:"
-						" failure to send join");
+						"%s: failure to send join", __FUNCTION__);
 						cl_shortsleep();
 						repeat++;
 					}else{
@@ -1882,8 +1891,8 @@ static void ccm_state_wait_for_change(enum ccm_type ccm_msg_type,
 
 			if (!uptime_set){
 				if ((uptime = ha_msg_value(reply, CCM_UPTIME)) == NULL){
-					ccm_debug(LOG_WARNING, "ccm_state_wait_for_change: no update "
-						"information");
+					ccm_debug(LOG_WARNING, "%s: no update information",
+					__FUNCTION__);
 					return;
 				}
 				uptime_val = atoi(uptime);
@@ -1919,8 +1928,8 @@ static void ccm_state_wait_for_change(enum ccm_type ccm_msg_type,
 				update_reset(CCM_GET_UPDATETABLE(info));
 				CCM_INCREMENT_MINORTRANS(info);
 				while (ccm_send_join(hb, info) != HA_OK) {
-					ccm_debug(LOG_WARNING, "ccm_state_wait_for_change:"
-						" failure to send join");
+					ccm_debug(LOG_WARNING, "%s: failure to send join",
+					__FUNCTION__);
 					cl_shortsleep();
 				}
 				ccm_set_state(info, CCM_STATE_JOINING, reply);
@@ -1937,8 +1946,7 @@ static void ccm_state_wait_for_change(enum ccm_type ccm_msg_type,
 				while (ccm_send_join(hb, info) != HA_OK) {
 					if(repeat < REPEAT_TIMES){
 						ccm_debug(LOG_WARNING,
-						"ccm_state_wait_for_change:"
-						" failure to send join");
+						"%s: failure to send join", __FUNCTION__);
 						cl_shortsleep();
 						repeat++;
 					}else{
@@ -1952,8 +1960,7 @@ static void ccm_state_wait_for_change(enum ccm_type ccm_msg_type,
 		case CCM_TYPE_JOIN:
 			/* get the update value */
 			if ((uptime = ha_msg_value(reply, CCM_UPTIME)) == NULL){
-				ccm_debug(LOG_WARNING, "ccm_state_joined: no update "
-						"information");
+				ccm_debug(LOG_WARNING, "%s: no update information", __FUNCTION__);
 				return;
 			}
 			uptime_val = atoi(uptime);
@@ -1972,8 +1979,7 @@ static void ccm_state_wait_for_change(enum ccm_type ccm_msg_type,
 			while (ccm_send_join(hb, info) != HA_OK) {
 				if(repeat < REPEAT_TIMES){
 					ccm_debug(LOG_WARNING,
-						"ccm_state_joined: failure "
-						"to send join");
+						"%s: failure to send join", __FUNCTION__);
 					cl_shortsleep();
 					repeat++;
 				}else{
@@ -1992,9 +1998,9 @@ static void ccm_state_wait_for_change(enum ccm_type ccm_msg_type,
 			break;
 
 		default:  
-			ccm_log(LOG_ERR, "ccm_state_joined: dropping message "
+			ccm_log(LOG_ERR, "%s: dropping message "
 				"of type %s. Is this a Byzantine failure?", 
-				ccm_type2string(ccm_msg_type));
+				__FUNCTION__, ccm_type2string(ccm_msg_type));
 			/* nothing to do. Just forget the message */
 			break;	
 	}
@@ -2017,14 +2023,13 @@ ccm_state_sent_memlistreq(enum ccm_type ccm_msg_type,
 	int repeat;
 
 	if ((orig = ha_msg_value(reply, F_ORIG)) == NULL) {
-		ccm_debug(LOG_WARNING, "ccm_state_sent_memlistreq: received message "
-						"from unknown");
+		ccm_debug(LOG_WARNING, "%s: received message from unknown", __FUNCTION__);
 		return;
 	}
 
 	if(!llm_is_valid_node(CCM_GET_LLM(info), orig)) { 
-		ccm_debug(LOG_WARNING, "ccm_state_sent_memlistreq: received message "
-				"from unknown host %s", orig);
+		ccm_debug(LOG_WARNING, "%s: received message from unknown host %s",
+		__FUNCTION__, orig);
 		return;
 	}
 	
@@ -2036,32 +2041,29 @@ ccm_state_sent_memlistreq(enum ccm_type ccm_msg_type,
 
 	if(strncmp(CCM_GET_COOKIE(info), ha_msg_value(reply, CCM_COOKIE), 
 				COOKIESIZE) != 0){
-		ccm_debug(LOG_WARNING, "ccm_state_memlist_res: received message "
-				"with unknown cookie, just dropping");
+		ccm_debug(LOG_WARNING, "%s: received message "
+				"with unknown cookie, just dropping", __FUNCTION__);
 		return;
 	}
 
 	/* get the major transition version */
 	if ((trans = ha_msg_value(reply, CCM_MAJORTRANS)) == NULL) { 
-		ccm_debug(LOG_WARNING, "ccm_state_sent_memlistreq:no transition major "
-				"information");
+		ccm_debug(LOG_WARNING, "%s :no transition major information", __FUNCTION__);
 		return;
 	}
 
 	trans_majorval = atoi(trans);
 	 /*	drop the message if it has lower major transition number */
 	if (CCM_TRANS_EARLIER(trans_majorval,  CCM_GET_MAJORTRANS(info))) {
-		ccm_debug(LOG_WARNING, "ccm_state_sent_memlistreq: received "
-					"CCM_TYPE_JOIN message with"
-					"a earlier major transition number");
+		ccm_debug(LOG_WARNING, "%s: received CCM_TYPE_JOIN message with"
+					"a earlier major transition number", __FUNCTION__);
 		return;
 	}
 
 
 	/* get the minor transition version */
 	if ((trans = ha_msg_value(reply, CCM_MINORTRANS)) == NULL) { 
-		ccm_debug(LOG_WARNING, "ccm_state_sent_memlistreq:no transition minor "
-				"information");
+		ccm_debug(LOG_WARNING, "%s: no transition minor information", __FUNCTION__);
 		return;
 	}
 
@@ -2071,10 +2073,10 @@ switchstatement:
 	switch (ccm_msg_type)  {
 		case CCM_TYPE_PROTOVERSION_RESP:
 
-			ccm_debug(LOG_WARNING, "ccm_state_sent_memlistreq: "
+			ccm_debug(LOG_WARNING, "%s: "
 				"dropping message of type %s. "
 				" Is this a Byzantine failure?",
-				ccm_type2string(ccm_msg_type));
+				__FUNCTION__, ccm_type2string(ccm_msg_type));
 
 			break;
 
@@ -2084,7 +2086,7 @@ switchstatement:
 			 * cache this request. We will respond to it, 
 			 * if we become the leader.
 			 */
-			ccm_add_new_joiner(info, orig);
+		  ccm_add_new_joiner(info, orig, reply);
 			
 			break;
 
@@ -2105,8 +2107,7 @@ switchstatement:
 			if ((uptime = ha_msg_value(reply, CCM_UPTIME)) 
 						== NULL){
 				ccm_debug(LOG_WARNING, 
-					"ccm_state_sent_memlistreq: no "
-					"update information");
+					"%s: no update information", __FUNCTION__);
 				return;
 			}
 			uptime_val = atoi(uptime);
@@ -2127,12 +2128,17 @@ switchstatement:
 			break;
 
 		case CCM_TYPE_REQ_MEMLIST:
-
 			/* if this is my own message just forget it */
-			if(strncmp(orig, llm_get_mynodename(&info->llm),
-				   NODEIDSIZE) == 0) 
-				break;
-
+  			if(strncmp(orig, llm_get_mynodename(&info->llm),
+  				   NODEIDSIZE) == 0){
+				if(llm_get_live_nodecount(&info->llm) == 1){
+					ccm_log(LOG_INFO, "%s: directly call"
+						"ccm_compute_and_send_final_memlist()",
+						__FUNCTION__);
+					ccm_compute_and_send_final_memlist(hb, info);
+				}
+  				break;
+  			}
 
 			/* whoever is requesting memlist from me thinks it is 
 			 * the leader. Hmm....., we will send it a NULL memlist.
@@ -2145,8 +2151,7 @@ switchstatement:
 						HA_OK) {
 				if(repeat < REPEAT_TIMES){
 					ccm_log(LOG_ERR,
-						"ccm_state_sent_memlistreq: "
-						"failure to send join");
+						"%s: failure to send join", __FUNCTION__);
 					cl_shortsleep();
 					repeat++;
 				}else{
@@ -2165,26 +2170,24 @@ switchstatement:
 
 			if(trans_majorval != CCM_GET_MAJORTRANS(info)) {
 				ccm_log(LOG_INFO, 
-				   "dropping CCM_TYPE_RES_MEMLIST "
+				   "%s: dropping CCM_TYPE_RES_MEMLIST "
 				   "from orig=%s mymajor=%d msg_major=%d", 
-				   orig, trans_majorval, 
+				   __FUNCTION__, orig, trans_majorval, 
 					CCM_GET_MAJORTRANS(info));
 				assert(0);
 				break;
 			}
 			if ((memlist = ha_msg_value(reply, CCM_MEMLIST)) 
 						== NULL) { 
-				ccm_debug(LOG_WARNING, "ccm_state_sent_memlistreq: "
-						"no memlist ");
+				ccm_debug(LOG_WARNING, "%s: no memlist ", __FUNCTION__);
 				break;
 			}
 			/* get the max transition version */
 			if (!(trans = ha_msg_value(reply, CCM_MAXTRANS))) { 
 				ccm_debug(LOG_WARNING, 
-					"ccm_state_sent_memlistreq: "
-					"no max transition "
+					"%s: no max transition "
 					"information %s, type=%d", 
-					orig, ccm_msg_type);
+					__FUNCTION__, orig, ccm_msg_type);
 				return;
 			}
 
@@ -2231,10 +2234,9 @@ switchstatement:
 		case CCM_TYPE_FINAL_MEMLIST:
 		case CCM_TYPE_ABORT:
 		default:
-			ccm_log(LOG_ERR, "ccm_state_sent_memlistreq: "
-					"dropping message of type %s. Is this "
+			ccm_log(LOG_ERR, "%s: dropping message of type %s. Is this "
 					"a Byzantine failure?", 
-					ccm_type2string(ccm_msg_type));
+					__FUNCTION__, ccm_type2string(ccm_msg_type));
 			/* nothing to do. Just forget the message */
 			break;
 	}
@@ -2260,14 +2262,13 @@ ccm_state_memlist_res(enum ccm_type ccm_msg_type,
 
 
 	if ((orig = ha_msg_value(reply, F_ORIG)) == NULL) {
-		ccm_debug(LOG_WARNING, "ccm_state_memlist_res: received message "
-		       "from unknown");
+		ccm_debug(LOG_WARNING, "%s: received message from unknown", __FUNCTION__);
 		return;
 	}
 
 	if(!llm_is_valid_node(CCM_GET_LLM(info), orig)) { 
-		ccm_debug(LOG_WARNING, "ccm_state_memlist_res: received message "
-				"from unknown host %s", orig);
+		ccm_debug(LOG_WARNING, "%s: received message from unknown host %s",
+		__FUNCTION__, orig);
 		return;
 	}
 	if(ccm_msg_type == CCM_TYPE_PROTOVERSION
@@ -2278,32 +2279,29 @@ ccm_state_memlist_res(enum ccm_type ccm_msg_type,
 
 	if(strncmp(CCM_GET_COOKIE(info), ha_msg_value(reply, CCM_COOKIE), 
 				COOKIESIZE) != 0){
-		ccm_debug(LOG_WARNING, "ccm_state_memlist_res: received message "
-				"with unknown cookie, just dropping");
+		ccm_debug(LOG_WARNING, "%s: received message with unknown cookie, just dropping",
+		__FUNCTION__);
 		return;
 	}
 
 	/* get the major transition version */
 	if ((trans = ha_msg_value(reply, CCM_MAJORTRANS)) == NULL) { 
-		ccm_debug(LOG_WARNING, "ccm_state_memlist_res: no transition major "
-				"information");
+		ccm_debug(LOG_WARNING, "%s: no transition major information", __FUNCTION__);
 		return;
 	}
 
 	trans_majorval = atoi(trans);
 	 /*	drop the message if it has lower major transition number */
 	if (CCM_TRANS_EARLIER(trans_majorval,  CCM_GET_MAJORTRANS(info))) {
-		ccm_debug(LOG_WARNING, "ccm_state_memlist_res: received "
-					"CCM_TYPE_JOIN message with"
-					"a earlier major transition number");
+		ccm_debug(LOG_WARNING, "%s: received CCM_TYPE_JOIN message with"
+					"a earlier major transition number", __FUNCTION__);
 		return;
 	}
 
 
 	/* get the minor transition version */
 	if ((trans = ha_msg_value(reply, CCM_MINORTRANS)) == NULL) { 
-		ccm_debug(LOG_WARNING, "ccm_state_memlist_res: no transition minor "
-				"information");
+		ccm_debug(LOG_WARNING, "%s: no transition minor information", __FUNCTION__);
 		return;
 	}
 
@@ -2314,10 +2312,9 @@ switchstatement:
 
 	switch (ccm_msg_type)  {
 		case CCM_TYPE_PROTOVERSION_RESP:
-			ccm_debug(LOG_WARNING, "ccm_state_memlist_res:dropping message"
-					" of type %s. Is this a Byzantine "
-					" failure?", 
-					ccm_type2string(ccm_msg_type));
+			ccm_debug(LOG_WARNING, "%s: dropping message"
+					" of type %s. Is this a Byzantine failure?", 
+					__FUNCTION__, ccm_type2string(ccm_msg_type));
 			break;
 
 		case CCM_TYPE_PROTOVERSION:
@@ -2325,7 +2322,7 @@ switchstatement:
 			 * cache this request. We will respond to it, if we 
 			 * become the leader.
 			 */
-			ccm_add_new_joiner(info, orig);
+		  ccm_add_new_joiner(info, orig, reply);
 			
 			break;
 
@@ -2355,8 +2352,7 @@ switchstatement:
 							!= HA_OK) {
 					if(repeat < REPEAT_TIMES){
 						ccm_log(LOG_ERR,
-						"ccm_state_memlist_res:"
-						" failure to send abort");
+						"%s: failure to send abort", __FUNCTION__);
 						cl_shortsleep();
 						repeat++;
 					}else{
@@ -2374,8 +2370,7 @@ switchstatement:
 				if ((uptime = ha_msg_value(reply, CCM_UPTIME)) 
 							== NULL){
 					ccm_debug(LOG_WARNING, 
-						"ccm_state_memlist_res: no "
-						"update information");
+						"%s: no update information", __FUNCTION__);
 					return;
 				}
 				uptime_val = atoi(uptime);
@@ -2389,8 +2384,7 @@ switchstatement:
 				while (ccm_send_join(hb, info) != HA_OK) {
 					if(repeat < REPEAT_TIMES){
 						ccm_log(LOG_ERR,
-						"ccm_state_memlist_res:"
-						" failure to send join");
+						"%s: failure to send join", __FUNCTION__);
 						cl_shortsleep();
 						repeat++;
 					}else{
@@ -2423,8 +2417,7 @@ switchstatement:
 							NULL) != HA_OK) {
 					if(repeat < REPEAT_TIMES){
 						ccm_log(LOG_ERR,
-						"ccm_state_memlist_res:"
-						 " failure to send join");
+						"%s: failure to send join", __FUNCTION__);
 						cl_shortsleep();
 						repeat++;
 					}else{
@@ -2450,8 +2443,7 @@ switchstatement:
 			while (ccm_send_join(hb, info) != HA_OK) {
 				if(repeat < REPEAT_TIMES){
 					ccm_log(LOG_ERR,
-						"ccm_state_memlist_res:"
-						" failure to send join");
+						"%s: failure to send join", __FUNCTION__);
 					cl_shortsleep();
 					repeat++;
 				}else{
@@ -2481,8 +2473,7 @@ switchstatement:
 				while (ccm_send_join(hb, info) != HA_OK) {
 					if(repeat < REPEAT_TIMES){
 						ccm_log(LOG_ERR,
-						"ccm_state_memlist_res:"
-						" failure to send join");
+						"%s: failure to send join", __FUNCTION__);
 						cl_shortsleep();
 						repeat++;
 					}else{
@@ -2510,9 +2501,8 @@ switchstatement:
 				 * message and wait for a message from the 
 				 * our percieved master
 				 */
-				ccm_debug(LOG_WARNING, "ccm_state_memlist_res: "
-					"received final memlist from "
-					"non-master,neglecting");
+				ccm_debug(LOG_WARNING, "%s: received final memlist from "
+					"non-master,neglecting", __FUNCTION__);
 									
 				break;
 			}
@@ -2526,23 +2516,21 @@ switchstatement:
 
 			if(curr_major != trans_majorval || 
 				curr_minor !=  trans_minorval){
-				ccm_debug(LOG_WARNING, "ccm_state_memlist_res: "
+				ccm_debug(LOG_WARNING, "%s: "
 					"received final memlist from master, "
 					"but transition versions do not match: "
-					"rejecting the message");
+					"rejecting the message", __FUNCTION__);
 				break;
 			}
 			
 			if ((memlist = ha_msg_value(reply, CCM_MEMLIST)) 
 						== NULL) { 
-				ccm_debug(LOG_WARNING, "ccm_state_sent_memlistreq: "
-						"no membership list ");
+				ccm_debug(LOG_WARNING, "%s: no membership list ", __FUNCTION__);
 				return;
 			}
 			if ((trans = ha_msg_value(reply, CCM_MAXTRANS)) 
 						== NULL) { 
-				ccm_debug(LOG_WARNING, "ccm_state_sent_memlistreq: "
-						"no membership list ");
+				ccm_debug(LOG_WARNING, "%s: no membership list ", __FUNCTION__);
 				return;
 			}
 			trans_maxval = atoi(trans);
@@ -2571,8 +2559,7 @@ switchstatement:
 			 */
 			if ((cookie = ha_msg_value(reply, CCM_NEWCOOKIE)) 
 						!= NULL) { 
-				ccm_debug2(LOG_DEBUG, "ccm_state_sent_memlistreq: "
-					"leader  changed  cookie ");
+				ccm_debug2(LOG_DEBUG, "%s: leader  changed  cookie ", __FUNCTION__);
 				CCM_SET_COOKIE(info, cookie); 
 			}
 
@@ -2626,14 +2613,13 @@ ccm_state_joining(enum ccm_type ccm_msg_type,
 	int repeat;
 	
 	if ((orig = ha_msg_value(reply, F_ORIG)) == NULL) {
-		ccm_debug(LOG_WARNING, "ccm_state_joining: received message "
-							"from unknown");
+		ccm_debug(LOG_WARNING, "%s: received message from unknown", __FUNCTION__);
 		return;
 	}
 
 	if(!llm_is_valid_node(CCM_GET_LLM(info), orig)) { 
-		ccm_debug(LOG_WARNING, "ccm_state_joining: received message "
-				"from unknown host %s", orig);
+		ccm_debug(LOG_WARNING, "%s: received message "
+				"from unknown host %s", __FUNCTION__, orig);
 		return;
 	}
 
@@ -2648,13 +2634,13 @@ ccm_state_joining(enum ccm_type ccm_msg_type,
 
 		if(ccm_msg_type ==  CCM_TYPE_PROTOVERSION_RESP) {
 			version_inc_nresp(CCM_GET_VERSION(info));
-			ccm_debug(LOG_WARNING, "ccm_state_joining: received message "
+			ccm_debug(LOG_WARNING, "%s: received message "
 			"incrementing versionresp counter %d", 
-				version_get_nresp(CCM_GET_VERSION(info)));
+				__FUNCTION__, version_get_nresp(CCM_GET_VERSION(info)));
 		}
 
-		ccm_debug(LOG_WARNING, "ccm_state_joining: received message "
-			"with unknown cookie, just dropping");
+		ccm_debug(LOG_WARNING, "%s: received message "
+			"with unknown cookie, just dropping", __FUNCTION__);
 		return;
 	}
 
@@ -2663,25 +2649,22 @@ ccm_state_joining(enum ccm_type ccm_msg_type,
 
 	/* get the major transition version */
 	if ((trans = ha_msg_value(reply, CCM_MAJORTRANS)) == NULL) { 
-		ccm_debug(LOG_WARNING, "ccm_state_joining: no transition major "
-				"information");
+		ccm_debug(LOG_WARNING, "%s: no transition major information", __FUNCTION__);
 		return;
 	}
 
 	trans_majorval = atoi(trans);
 	 /*	drop the message if it has lower major transition number */
 	if (CCM_TRANS_EARLIER(trans_majorval,  CCM_GET_MAJORTRANS(info))) {
-		ccm_debug(LOG_WARNING, "ccm_state_joining: received "
-				"CCM_TYPE_JOIN message with"
-				"a earlier major transition number");
+		ccm_debug(LOG_WARNING, "%s: received CCM_TYPE_JOIN message with"
+				"a earlier major transition number", __FUNCTION__);
 		return;
 	}
 
 
 	/* get the minor transition version */
 	if ((trans = ha_msg_value(reply, CCM_MINORTRANS)) == NULL) { 
-		ccm_debug(LOG_WARNING, "ccm_state_joining: no transition minor "
-				"information");
+		ccm_debug(LOG_WARNING, "%s: no transition minor information", __FUNCTION__);
 		return;
 	}
 
@@ -2700,17 +2683,16 @@ switchstatement:
 			 * message should not have arrived. A bug in the logic!
 			 */
 			if(ccm_already_joined(info)) {
-				ccm_debug(LOG_WARNING, "ccm_state_joining: BUG:"
+ 				ccm_debug(LOG_WARNING, "%s: BUG:"
 					" received CCM_TYPE_PROTOVERSION_RESP "
 					"message when we have not asked for "
-					"it ");
+ 					"it ", __FUNCTION__);
 				break;
 			}
 
-			ccm_debug(LOG_WARNING, "ccm_state_joining: dropping message "
-					" of type %s. Is this a Byzantine "
-					"failure?", 
-					ccm_type2string(ccm_msg_type));
+  			ccm_debug(LOG_WARNING, "%s: dropping message "
+ 					" of type %s. Is this a Byzantine failure?", 
+ 					__FUNCTION__, ccm_type2string(ccm_msg_type));
 			break;
 				
 
@@ -2719,15 +2701,14 @@ switchstatement:
 			 * cache this request. We will respond to it, 
 			 * if we become the leader.
 			 */
-			ccm_add_new_joiner(info, orig);
+		  ccm_add_new_joiner(info, orig, reply);
 			
 			break;
 
         	case CCM_TYPE_JOIN:
 			/* get the update value */
 			if((uptime = ha_msg_value(reply, CCM_UPTIME)) == NULL){ 
-				ccm_debug(LOG_WARNING, "ccm_state_joining: no update "
-						"information");
+				ccm_debug(LOG_WARNING, "%s: no update information", __FUNCTION__);
 				return;
 			}
 			uptime_val = atoi(uptime);
@@ -2755,8 +2736,7 @@ switchstatement:
 				while (ccm_send_join(hb, info) != HA_OK) {
 					if(repeat < REPEAT_TIMES){
 						ccm_log(LOG_ERR, 
-						"ccm_state_joining: failure "
-						"to send join");
+						"%s: failure to send join", __FUNCTION__);
 						cl_shortsleep();
 						repeat++;
 					}else{
@@ -2787,9 +2767,8 @@ switchstatement:
 							hb, info)!=HA_OK) {
 							if(repeat < REPEAT_TIMES){
 							ccm_log(LOG_ERR, 
-							"ccm_state_joining: "
-							"failure to send "
-							"memlist request");
+							"%s: failure to send memlist request",
+							__FUNCTION__);
 							cl_shortsleep();
 							repeat++;
 							}else{
@@ -2895,9 +2874,8 @@ switchstatement:
 							!= HA_OK) {
 					if(repeat < REPEAT_TIMES){
 						ccm_log(LOG_ERR,
-						"ccm_state_joining: "
-						"failure to send memlist "
-						"request");
+						"%s: failure to send memlist request",
+						__FUNCTION__);
 						cl_shortsleep();
 						repeat++;
 					}else{
@@ -2954,8 +2932,7 @@ switchstatement:
 			while (ccm_send_join(hb, info) != HA_OK) {
 				if(repeat < REPEAT_TIMES){
 					ccm_log(LOG_ERR,
-						"ccm_state_joining: failure "
-						"to send join");
+						"%s: failure to send join", __FUNCTION__);
 					cl_shortsleep();
 					repeat++;
 				}else{
@@ -2991,16 +2968,16 @@ switchstatement:
 		case CCM_TYPE_RES_MEMLIST:
 		case CCM_TYPE_FINAL_MEMLIST:
 			/* this message is from other partitions*/
-			ccm_debug(LOG_WARNING, "ccm_state_joinging: received a %s message", 
-			       ccm_type2string(ccm_msg_type));
+			ccm_debug(LOG_WARNING, "%s: received a %s message", 
+			       __FUNCTION__, ccm_type2string(ccm_msg_type));
 			ccm_debug(LOG_WARNING, "We probably have different partitions");
 			break;
 			
 			
 		default:
-			ccm_log(LOG_ERR, "ccm_state_joining: dropping message "
-			       "of type %s. Is this a Byzantine failure?", 
-			       ccm_type2string(ccm_msg_type));
+			ccm_log(LOG_ERR, "%s: dropping message "
+			       "of type %s from %s. Is this a Byzantine failure?", 
+			       __FUNCTION__, ccm_type2string(ccm_msg_type), orig);
 			/* nothing to do. Just forget the message */
 			break;
 	}
@@ -3101,7 +3078,7 @@ set_llm_from_heartbeat(ll_cluster_t* llc, ccm_info_t* info){
 	int		weight;
 	
 	if (mynode == NULL){
-		ccm_log(LOG_ERR, "set_llm_from_heartbeat:mynode is NULL");
+		ccm_log(LOG_ERR, "%s: mynode is NULL", __FUNCTION__);
 		return HA_FAIL;
 	}
 
@@ -3173,14 +3150,14 @@ ccm_initialize()
 	ccm_info_t 	*global_info = NULL;
 	ll_cluster_t*	hb_fd;
 	ccm_t		*ccmret = NULL;
-	int		facility;
 	const char *	parameter;
 
 	ccm_debug2(LOG_DEBUG, "========================== Starting CCM ===="
 			"======================");
 
 	CL_SIGINTERRUPT(SIGTERM, 1);
-
+	cl_inherit_logging_environment(0);
+	
 	hb_fd = ll_cluster_new("heartbeat");
 
 	ccm_debug(LOG_DEBUG, "Signing in with Heartbeat");
@@ -3197,18 +3174,12 @@ ccm_initialize()
 	}
 	cl_cdtocoredir();
 
-	/* change the logging facility to the one used by heartbeat daemon
-	 * the signon MUST BE FIRST! */
-	if ((facility = hb_fd->llc_ops->get_logfacility(hb_fd))>0) {
-		/* If someone cares, map it to its name ... */
-		ccm_debug(LOG_DEBUG, "Switched to heartbeat syslog facility: %d", facility);
-		cl_log_set_facility(facility);
-	}
-	
 	if((global_info = (ccm_info_t *)g_malloc(sizeof(ccm_info_t))) == NULL){
 		ccm_log(LOG_ERR, "Cannot allocate memory ");
 		goto errout;
 	}
+
+	memset(global_info, 0, sizeof(ccm_info_t));
 
 	if((ccmret = (ccm_t *)g_malloc(sizeof(ccm_t))) == NULL){
 		ccm_log(LOG_ERR, "Cannot allocate memory");
@@ -3321,14 +3292,13 @@ static void ccm_state_wait_for_mem_list(enum ccm_type ccm_msg_type,
 	int quorum;
 	
 	if ((orig = ha_msg_value(reply, F_ORIG)) == NULL) {
-		ccm_debug(LOG_WARNING, "ccm_state_wait_for_mem_list: received message "
-							"from unknown");
+		ccm_debug(LOG_WARNING, "%s: received message from unknown", __FUNCTION__);
 		return;
 	}
 
 	if(!llm_is_valid_node(CCM_GET_LLM(info), orig)) {
-		ccm_debug(LOG_WARNING, "ccm_state_wait_for_mem_list: received message "
-				"from unknown host %s", orig);
+		ccm_debug(LOG_WARNING, "%s: received message from unknown host %s",
+					__FUNCTION__, orig);
 		return;
 	}
 
@@ -3338,15 +3308,14 @@ static void ccm_state_wait_for_mem_list(enum ccm_type ccm_msg_type,
 	   && ccm_msg_type != CCM_TYPE_RESTART) {
 		if(strncmp(CCM_GET_COOKIE(info),
 			ha_msg_value(reply, CCM_COOKIE), COOKIESIZE) != 0){
-			ccm_debug(LOG_WARNING, "ccm_state_wait_for_mem_list: received message"
-					" with unknown cookie, just dropping");
+			ccm_debug(LOG_WARNING, "%s: received message"
+					" with unknown cookie, just dropping", __FUNCTION__);
 			return;
 		}
 
 		/* get the major transition version */
 		if ((trans = ha_msg_value(reply, CCM_MAJORTRANS)) == NULL) {
-			ccm_debug(LOG_WARNING, "ccm_state_wait_for_mem_list:"
-					"no transition major information");
+			ccm_debug(LOG_WARNING, "%s: no transition major information", __FUNCTION__);
 			return;
 		}
 		trans_majorval = atoi(trans);
@@ -3354,19 +3323,17 @@ static void ccm_state_wait_for_mem_list(enum ccm_type ccm_msg_type,
 		/* drop the message if it has lower major transition number */
 		if (CCM_TRANS_EARLIER(trans_majorval,  
 					CCM_GET_MAJORTRANS(info))) {
-			ccm_debug(LOG_WARNING, "ccm_state_wait_for_mem_list: received "
-				"%s message with "
+			ccm_debug(LOG_WARNING, "%s: received %s message with "
 				"a earlier major transition number "
 				"recv_trans=%d, mytrans=%d",
-				ccm_type2string(ccm_msg_type), trans_majorval, 
+				__FUNCTION__, ccm_type2string(ccm_msg_type), trans_majorval, 
 				CCM_GET_MAJORTRANS(info));
 			return;
 		}
 
 		/* get the minor transition version */
 		if ((trans = ha_msg_value(reply, CCM_MINORTRANS)) == NULL) { 
-			ccm_debug(LOG_WARNING, "ccm_state_wait_for_mem_list: "
-					"no transition minor information");
+			ccm_debug(LOG_WARNING, "%s: no transition minor information", __FUNCTION__);
 			return;
 		}
 
@@ -3383,16 +3350,15 @@ static void ccm_state_wait_for_mem_list(enum ccm_type ccm_msg_type,
 
 			if(curr_major != trans_majorval || 
 				curr_minor !=  trans_minorval){
-				ccm_debug(LOG_WARNING, "ccm_state_wait_for_mem_list: "
+				ccm_debug(LOG_WARNING, "%s: "
 					"received final memlist from master, "
 					"but transition versions do not match: "
-					"rejecting the message");
+					"rejecting the message", __FUNCTION__);
 				break;
 			}
 			if ((memlist = ha_msg_value(reply, CCM_MEMLIST)) 
 							== NULL) {
-				ccm_debug(LOG_WARNING, "ccm_state_wait_for_mem_list: "
-						"no membership list ");
+				ccm_debug(LOG_WARNING, "%s: no membership list ", __FUNCTION__);
 				return;
 			}
 
@@ -3416,8 +3382,7 @@ static void ccm_state_wait_for_mem_list(enum ccm_type ccm_msg_type,
 			CCM_RESET_MINORTRANS(info);
 			if ((cookie = ha_msg_value(reply, CCM_NEWCOOKIE))
 						!= NULL) { 
-				ccm_debug2(LOG_DEBUG, "ccm_state_sent_memlistreq: "
-					"leader  changed  cookie ");
+				ccm_debug2(LOG_DEBUG, "%s: leader  changed  cookie ", __FUNCTION__);
 				CCM_SET_COOKIE(info, cookie);
 			}
 			CCM_SET_CL(info, llm_get_index(&info->llm,orig));
@@ -3436,8 +3401,7 @@ static void ccm_state_wait_for_mem_list(enum ccm_type ccm_msg_type,
 				while (ccm_send_join(hb, info) != HA_OK) {
 					if(repeat < REPEAT_TIMES){
 						ccm_debug(LOG_WARNING,
-						"ccm_state_joined:"
-						" failure to send join");
+						"%s: failure to send join", __FUNCTION__);
 						cl_shortsleep();
 						repeat++;
 					}else{
@@ -3451,8 +3415,7 @@ static void ccm_state_wait_for_mem_list(enum ccm_type ccm_msg_type,
 		case CCM_TYPE_JOIN:
         		/* get the update value */
 			if ((uptime = ha_msg_value(reply, CCM_UPTIME)) == NULL){
-				ccm_debug(LOG_WARNING, "ccm_state_joined: no update "
-						"information");
+				ccm_debug(LOG_WARNING, "%s: no update information", __FUNCTION__);
 				return;
 			}
 			uptime_val = atoi(uptime);
@@ -3470,8 +3433,7 @@ static void ccm_state_wait_for_mem_list(enum ccm_type ccm_msg_type,
 			while (ccm_send_join(hb, info) != HA_OK) {
 				if(repeat < REPEAT_TIMES){
 					ccm_debug(LOG_WARNING,
-						"ccm_state_joined: failure "
-						"to send join");
+						"%s: failure to send join", __FUNCTION__);
 					cl_shortsleep();
 					repeat++;
 				}else{
@@ -3492,8 +3454,7 @@ static void ccm_state_wait_for_mem_list(enum ccm_type ccm_msg_type,
 				while (ccm_send_join(hb, info) != HA_OK) {
 					if(repeat < REPEAT_TIMES){
 						ccm_debug(LOG_WARNING,
-						"ccm_state_joined:"
-						" failure to send join");
+						"%s: failure to send join", __FUNCTION__);
 						cl_shortsleep();
 						repeat++;
 					}else{
@@ -3527,9 +3488,9 @@ static void ccm_state_wait_for_mem_list(enum ccm_type ccm_msg_type,
 
 	
 		default:
-			ccm_log(LOG_ERR, "ccm_state_wait_for_mem_list: dropping message "
+			ccm_log(LOG_ERR, "%s: dropping message "
 				"of type %s. Is this a Byzantine failure?",
-				ccm_type2string(ccm_msg_type));
+				__FUNCTION__, ccm_type2string(ccm_msg_type));
 			/* nothing to do. Just forget the message */
 			break;
 	}
@@ -3604,14 +3565,12 @@ static void ccm_state_new_node_wait_for_mem_list(enum ccm_type ccm_msg_type,
 	int quorum;
 
 	if ((orig = ha_msg_value(reply, F_ORIG)) == NULL) {
-		ccm_debug(LOG_WARNING, "ccm_state_new_node_wait_for_mem_list: " 
-					"received message from unknown");
+		ccm_debug(LOG_WARNING, "%s: received message from unknown", __FUNCTION__);
 		return;
 	}
 
 	if(!llm_is_valid_node(CCM_GET_LLM(info), orig)) { 
-		ccm_debug(LOG_WARNING, "ccm_state_new_node_wait_for_mem_list: " 
-					"received message from unknown host %s", orig);
+		ccm_debug(LOG_WARNING, "%s: received message from unknown host %s", __FUNCTION__, orig);
 		return;
 	}
 
@@ -3621,15 +3580,13 @@ static void ccm_state_new_node_wait_for_mem_list(enum ccm_type ccm_msg_type,
 		
 		if(strncmp(CCM_GET_COOKIE(info), 
 			ha_msg_value(reply, CCM_COOKIE), COOKIESIZE) != 0){
-			ccm_debug(LOG_WARNING, "ccm_state_new_node_wait_for_mem_list: "
-					"received message with unknown cookie, just dropping");
+			ccm_debug(LOG_WARNING, "%s: received message with unknown cookie, just dropping", __FUNCTION__);
 			return;
 		}
 
 		/* get the major transition version */
 		if ((trans = ha_msg_value(reply, CCM_MAJORTRANS)) == NULL) { 
-			ccm_debug(LOG_WARNING, "ccm_state_new_node_wait_for_mem_list:"
-					" no transition major information");
+			ccm_debug(LOG_WARNING, "%s: no transition major information", __FUNCTION__);
 			return;
 		}
 		trans_majorval = atoi(trans);
@@ -3637,19 +3594,18 @@ static void ccm_state_new_node_wait_for_mem_list(enum ccm_type ccm_msg_type,
 	 	/*drop the message if it has lower major transition number */
 		if (CCM_TRANS_EARLIER(trans_majorval,  
 					CCM_GET_MAJORTRANS(info))) {
-			ccm_debug(LOG_WARNING, "ccm_state_new_node_wait_for_mem_list:received"
+			ccm_debug(LOG_WARNING, "%s: received"
 				" %s message with "
 				"a earlier major transition number "
 				"recv_trans=%d, mytrans=%d",
-				ccm_type2string(ccm_msg_type), trans_majorval, 
+				__FUNCTION__, ccm_type2string(ccm_msg_type), trans_majorval, 
 				CCM_GET_MAJORTRANS(info));
 			return;
 		}
 
 		/* get the minor transition version */
 		if ((trans = ha_msg_value(reply, CCM_MINORTRANS)) == NULL) { 
-			ccm_debug(LOG_WARNING, "ccm_state_new_node_wait_for_mem_list: "
-					"no transition minor information");
+			ccm_debug(LOG_WARNING, "%s: no transition minor information", __FUNCTION__);
 			return;
 		}
 
@@ -3664,23 +3620,20 @@ static void ccm_state_new_node_wait_for_mem_list(enum ccm_type ccm_msg_type,
 
 			if(curr_major != trans_majorval || 
 				curr_minor !=  trans_minorval){
-				ccm_debug(LOG_WARNING, "ccm_state_new_node_wait_for_mem_list: "
-					"received final memlist from master, "
+				ccm_debug(LOG_WARNING, "%s: received final memlist from master, "
 					"but transition versions do not match: "
-					"rejecting the message");
+					"rejecting the message", __FUNCTION__);
 				break;
 			}
 			if ((memlist = ha_msg_value(reply, CCM_MEMLIST)) 
 						== NULL) { 
-				ccm_debug(LOG_WARNING, "ccm_state_new_node_wait_for_mem_list: "
-						"no membership list ");
+				ccm_debug(LOG_WARNING, "%s: no membership list ", __FUNCTION__);
 				return;
 			}
 			
 			if (cl_msg_get_list_int(reply,CCM_UPTIMELIST, 
 						uptime_list, &uptime_size) != HA_OK){
-				ccm_log(LOG_ERR," ccm_state_new_node_wait_for_mem_list:"
-				       "geting uptie_list failed");
+				ccm_log(LOG_ERR,"%s: geting uptie_list failed", __FUNCTION__);
 				return;
 			}
 			
@@ -3718,8 +3671,7 @@ static void ccm_state_new_node_wait_for_mem_list(enum ccm_type ccm_msg_type,
 			CCM_RESET_MINORTRANS(info);
 			if ((cookie = ha_msg_value(reply, CCM_NEWCOOKIE)) 
 						!= NULL) { 
-				ccm_debug2(LOG_DEBUG, "ccm_state_new_node_wait_for_mem_list: "
-					"leader  changed  cookie ");
+				ccm_debug2(LOG_DEBUG, "%s: leader  changed  cookie ", __FUNCTION__);
 				CCM_SET_COOKIE(info, cookie); 
 			}
 			CCM_SET_CL(info,llm_get_index(&info->llm, orig));
@@ -3738,8 +3690,7 @@ static void ccm_state_new_node_wait_for_mem_list(enum ccm_type ccm_msg_type,
 				while (ccm_send_join(hb, info) != HA_OK) {
 					if(repeat < REPEAT_TIMES){
 						ccm_debug(LOG_WARNING,
-						"ccm_state_new_node_wait_for_mem_list:"
-						" failure to send join");
+						"%s: failure to send join", __FUNCTION__);
 						cl_shortsleep();
 						repeat++;
 					}else{
@@ -3753,8 +3704,7 @@ static void ccm_state_new_node_wait_for_mem_list(enum ccm_type ccm_msg_type,
 		case CCM_TYPE_JOIN:
 			/* get the update value */
 			if ((uptime = ha_msg_value(reply, CCM_UPTIME)) == NULL){
-				ccm_debug(LOG_WARNING, "ccm_state_new_node_wait_for_mem_list: "
-						"no update information");
+				ccm_debug(LOG_WARNING, "%s: no update information", __FUNCTION__);
 				return;
 			}
 			uptime_val = atoi(uptime);
@@ -3772,8 +3722,7 @@ static void ccm_state_new_node_wait_for_mem_list(enum ccm_type ccm_msg_type,
 			while (ccm_send_join(hb, info) != HA_OK) {
 				if(repeat < REPEAT_TIMES){
 					ccm_debug(LOG_WARNING,
-					"ccm_state_new_node_wait_for_mem_list: "
-					"failure to send join");
+					"%s: failure to send join", __FUNCTION__);
 					cl_shortsleep();
 					repeat++;
 				}else{
@@ -3793,8 +3742,7 @@ static void ccm_state_new_node_wait_for_mem_list(enum ccm_type ccm_msg_type,
 				while (ccm_send_join(hb, info) != HA_OK) {
 					if(repeat < REPEAT_TIMES){
 						ccm_debug(LOG_WARNING,
-						"ccm_state_new_node_wait_for_mem_list:"
-						" failure to send join");
+						"%s: failure to send join", __FUNCTION__);
 						cl_shortsleep();
 						repeat++;
 					}else{
@@ -3886,7 +3834,7 @@ static void
 dump_mbrs(ccm_info_t *info)
 {
 	int i;
-	char *nodename;
+	const char *nodename;
 	int leader;
 	
 	static struct born_s  {

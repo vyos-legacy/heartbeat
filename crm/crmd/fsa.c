@@ -142,15 +142,14 @@ init_dotfile(void)
 
 static void
 do_fsa_action(fsa_data_t *fsa_data, long long an_action,
-	      enum crmd_fsa_input (*function)(long long action,
-					      enum crmd_fsa_cause cause,
-					      enum crmd_fsa_state cur_state,
-					      enum crmd_fsa_input cur_input,
-					      fsa_data_t *msg_data)) 
+	      void (*function)(long long action,
+			       enum crmd_fsa_cause cause,
+			       enum crmd_fsa_state cur_state,
+			       enum crmd_fsa_input cur_input,
+			       fsa_data_t *msg_data)) 
 {
 	int action_log_level = LOG_DEBUG;
 	gboolean do_time_check = TRUE;
-	enum crmd_fsa_input result = I_NULL;
 
 	if(is_set(fsa_actions, an_action) == FALSE) {
 		crm_err("Action %s (%.16llx) was not requestsed",
@@ -165,7 +164,7 @@ do_fsa_action(fsa_data_t *fsa_data, long long an_action,
 		do_time_check = FALSE;
 	}
 	
-	fsa_actions = clear_bit(fsa_actions, an_action);
+	fsa_actions &= ~an_action;
 	crm_debug_3("Invoking action %s (%.16llx)",
 		    fsa_action2string(an_action), an_action);
 	if(do_time_check) {
@@ -174,10 +173,8 @@ do_fsa_action(fsa_data_t *fsa_data, long long an_action,
 
 	do_crm_log(action_log_level,
 		   DOT_PREFIX"\t// %s", fsa_action2string(an_action));
-	result = function(an_action, fsa_data->fsa_cause, fsa_state,
+	function(an_action, fsa_data->fsa_cause, fsa_state,
 			  fsa_data->fsa_input, fsa_data);
-
-	CRM_DEV_ASSERT(result == I_NULL);
 	crm_debug_3("Action complete: %s (%.16llx)",
 		    fsa_action2string(an_action), an_action);
 
@@ -525,16 +522,16 @@ s_crmd_fsa_actions(fsa_data_t *fsa_data)
 			do_fsa_action(fsa_data, A_TE_STOP,		do_te_control);
 		} else if(is_set(fsa_actions, A_SHUTDOWN)) {
 			do_fsa_action(fsa_data, A_SHUTDOWN,		do_shutdown);
-		} else if(is_set(fsa_actions, A_STOP)) {
-			do_fsa_action(fsa_data, A_STOP,			do_stop);
-		} else if(is_set(fsa_actions, A_CCM_DISCONNECT)) {
-			do_fsa_action(fsa_data, A_CCM_DISCONNECT,	do_ccm_control);
 		} else if(is_set(fsa_actions, A_LRM_DISCONNECT)) {
 			do_fsa_action(fsa_data, A_LRM_DISCONNECT,	do_lrm_control);
+		} else if(is_set(fsa_actions, A_CCM_DISCONNECT)) {
+			do_fsa_action(fsa_data, A_CCM_DISCONNECT,	do_ccm_control);
 		} else if(is_set(fsa_actions, A_HA_DISCONNECT)) {
 			do_fsa_action(fsa_data, A_HA_DISCONNECT,	do_ha_control);
 		} else if(is_set(fsa_actions, A_CIB_STOP)) {
 			do_fsa_action(fsa_data, A_CIB_STOP,		do_cib_control);
+		} else if(is_set(fsa_actions, A_STOP)) {
+			do_fsa_action(fsa_data, A_STOP,			do_stop);
 
 			/* exit gracefully */
 		} else if(is_set(fsa_actions, A_EXIT_0)) {
@@ -757,9 +754,9 @@ do_state_transition(long long actions,
 	}
 
 	if(clear_recovery_bit && next_state != S_PENDING) {
-		tmp = clear_bit(tmp, A_RECOVER);
+		tmp &= ~A_RECOVER;
 	} else if(clear_recovery_bit == FALSE) {
-		tmp = set_bit(tmp, A_RECOVER);
+		tmp |=  A_RECOVER;
 	}
 	
 	if(tmp != actions) {

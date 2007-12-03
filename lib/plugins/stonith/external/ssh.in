@@ -24,8 +24,8 @@
 # Inc., 59 Temple Place - Suite 330, Boston MA 02111-1307, USA.
 #
 
-#SSH_COMMAND "@SSH@ -q -x -o PasswordAuthentication=no StrictHostKeyChecking=no" 
-SSH_COMMAND="@SSH@ -q -x -n -l root"
+SSH_COMMAND="@SSH@ -q -x -o PasswordAuthentication=no -o StrictHostKeyChecking=no -n -l root" 
+#SSH_COMMAND="@SSH@ -q -x -n -l root"
 
 REBOOT_COMMAND="echo 'sleep 2; @REBOOT@ @REBOOT_OPTIONS@' | SHELL=/bin/sh at now >/dev/null 2>&1"
 
@@ -39,18 +39,6 @@ POWEROFF_COMMAND="echo 'sleep 2; @REBOOT@ @REBOOT_OPTIONS@' | SHELL=/bin/sh at n
 
 # Rewrite the hostlist to accept "," as a delimeter for hostnames too.
 hostlist=`echo $hostlist | tr ',' ' '`
-
-CheckIfDead() {
-	for j in 1 2 3
-        do
-          if
-            ping -w1 -c1 "$1" >/dev/null 2>&1
-          then
-            return 1
-          fi
-        done
-        return 0
-}
 
 case $1 in
 gethosts)
@@ -79,14 +67,15 @@ reset)
           fi
 	  $SSH_COMMAND "$2" "$REBOOT_COMMAND"
 	  # Good thing this is only for testing...
-          for j in 1 2 3 4 5
+          for j in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15
           do
             if
-              CheckIfDead "$2"
+		ping -w1 -c1 "$2" >/dev/null 2>&1
             then
-	      exit 0
+		sleep 1
+	    else
+		exit 0
             fi
-            sleep 1
           done
 	done
 	exit 1

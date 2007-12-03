@@ -58,7 +58,6 @@ const char* crm_system_name = SYS_NAME;
 void usage(const char* cmd, int exit_status);
 int crmd_init(void);
 void crmd_hamsg_callback(const HA_Message * msg, void* private_data);
-gboolean crmd_tickle_apphb(gpointer data);
 extern void init_dotfile(void);
 
 GMainLoop*  crmd_mainloop = NULL;
@@ -69,7 +68,7 @@ main(int argc, char ** argv)
     int flag;
     int	argerr = 0;
 
-    crm_log_init(crm_system_name, TRUE);
+    crm_log_init(crm_system_name, LOG_INFO, TRUE, FALSE, 0, NULL);
 
     crm_info("CRM Hg Version: %s\n", HA_HG_VERSION);
     
@@ -186,21 +185,4 @@ usage(const char* cmd, int exit_status)
     fflush(stream);
 
     exit(exit_status);
-}
-
-
-gboolean
-crmd_tickle_apphb(gpointer data)
-{
-    char	app_instance[APPNAME_LEN];
-    int     rc = 0;
-    snprintf(app_instance, sizeof(app_instance), "%s_%ld", crm_system_name
-    ,	(long)getpid());
-
-    rc = apphb_hb();
-    if (rc < 0) {
-		cl_perror("%s apphb_hb failure", app_instance);
-		exit(3);
-    }
-    return TRUE;
 }

@@ -156,12 +156,9 @@ main(int argc, char ** argv)
 
 	cl_log_set_entity(QUORUMD);
 	cl_log_enable_stderr(FALSE);
-	cl_log_set_facility(LOG_DAEMON);
+	cl_log_set_facility(HA_LOG_FACILITY);
 
-	/* Use logd if it's enabled by heartbeat */
-	cl_inherit_use_logd(ENV_PREFIX""KEY_LOGDAEMON, 0);
-
-	inherit_logconfig_from_environment();
+	cl_inherit_logging_environment(0);
 
 	if (req_status){
 		return init_status(PID_FILE, QUORUMD);

@@ -25,6 +25,7 @@ htmlfiles		= HardwareGuide.html	\
 			GettingStarted.html	\
 			Requirements.html	\
 			faqntips.html		\
+			hb_report.html	\
 			heartbeat_api.html	\
 			rsync.html
 
@@ -36,7 +37,7 @@ SPECSRC 		= $(top_builddir)/heartbeat.spec
 
 OTHER_DOCS              = AUTHORS COPYING COPYING.LGPL ChangeLog \
                                 README authkeys ha.cf startstop haresources \
-				DirectoryMap.txt apphbd.cf ha_logd.cf
+				DirectoryMap.txt apphbd.cf logd.cf
 
 doc_DATA		= $(OTHER_DOCS) $(txtfiles) $(htmlfiles) 
 
@@ -53,6 +54,8 @@ ChangeLog: $(SPECSRC)
 	rm -fr ChangeLog
 	sed -e '1,/^%changelog/d' -e '/^%/,$$d' < $(SPECSRC) > $@
 
+hb_report.txt: hb_report.html
+    @true : in this case .txt is the master source
 
 %.txt: %.html
 	if [ "X$(HTML2TXT)" = "X" ]; then echo "Lynx or w3m or user-defined HTML2TXT required to convert $< to $@" >$@ ; else $(HTML2TXT) -dump $< >$@ ; fi

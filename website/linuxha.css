@@ -121,6 +121,13 @@ h5 {
 	color: black;
 }
 
+/* Language menu in the page header */
+#i_header table {
+	width:		100%;
+	background:	white;
+	border:		none;
+}
+
 /* Menu across the top of the page */
 #i_menu table {
 	width:		100%;
@@ -161,6 +168,7 @@ h5 {
 	}
 
 #i_content table {
+	border-collapse: collpase;
 	border: 1pt solid #cccccc;
 	margin: 2pt;
 	padding: 1pt;
@@ -169,7 +177,7 @@ h5 {
 #i_content tr td {
 	margin: 0;
 	padding: 0;
-	border: 0;
+	border: 1pt solid #cccccc;
 	}
 
 #i_content ul {

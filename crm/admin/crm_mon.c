@@ -127,8 +127,7 @@ main(int argc, char **argv)
 #endif
 	pid_file = crm_strdup("/tmp/ClusterMon.pid");
 	crm_system_name = basename(argv[0]);
-	crm_log_init(crm_system_name, FALSE);
-	crm_log_level = LOG_ERR -1;
+	crm_log_init(crm_system_name, LOG_ERR-1, FALSE, FALSE, 0, NULL);
 
 	if (strcmp(crm_system_name, "crm_mon.cgi")==0) {
 		web_cgi = TRUE;
@@ -519,7 +518,7 @@ print_status(crm_data_t *cib)
 	}
 
 	slist_iter(rsc, resource_t, data_set.resources, lpc,
-		   if(rsc->orphan == FALSE) {
+		   if(is_not_set(rsc->flags, pe_rsc_orphan)) {
 			   configured_resources++;
 		   }
 		);
@@ -560,7 +559,7 @@ print_status(crm_data_t *cib)
 		slist_iter(rsc, resource_t, data_set.resources, lpc2,
 			   gboolean is_active = rsc->fns->active(rsc, TRUE);
 			   gboolean partially_active = rsc->fns->active(rsc, FALSE);
-			   if(rsc->orphan && is_active == FALSE) {
+			   if(is_set(rsc->flags, pe_rsc_orphan) && is_active == FALSE) {
 				   continue;
 				   
 			   } else if(group_by_node == FALSE) {

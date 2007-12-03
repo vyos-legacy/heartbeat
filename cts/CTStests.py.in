@@ -93,27 +93,24 @@ class RandomTests:
             errcount=0
             BadNewsDebug=0
             #BadNews.debug=1
+            ignorelist = []                
+            ignorelist.append(" CTS: ")
+            ignorelist.append("BadNews:")
+            ignorelist.extend(self.CM.errorstoignore())
+
+            if test:
+                ignorelist.extend(test.errorstoignore())
+
             while errcount < 1000:
                 if BadNewsDebug: print "Looking for BadNews"
                 match=BadNews.look(0)
                 if match:
                    if BadNewsDebug: print "BadNews found: "+match
                    add_err = 1
-                   ignorelist = []
-                   if test:
-                       ignorelist=test.errorstoignore()
-                   ignorelist.append(" CTS: ")
-                   ignorelist.append("BadNews:")
                    for ignore in ignorelist:
-                       if re.search(ignore, match):
-                           if BadNewsDebug: print "Ignoring:"+match+" (pattern: "+ignore+")"
+                       if add_err == 1 and re.search(ignore, match):
+                           if BadNewsDebug: print "Ignoring based on pattern: ("+ignore+")"
                            add_err = 0
-                   if add_err == 1:
-                       ignorelist=self.CM.errorstoignore()
-                       for ignore in ignorelist:
-                           if re.search(ignore, match):
-                               if BadNewsDebug: print "Ignoring:"+match+" (pattern: "+ignore+")"
-                               add_err = 0
                    if add_err == 1:
                        self.CM.log("BadNews: " + match)
                        self.incr("BadNews")
@@ -362,23 +359,25 @@ class StopTest(CTSTest):
         self.CM.StopaCM(node)
         watch_result = watch.lookforall()
 
+        failreason=None
         UnmatchedList = "||"
         if watch.unmatched:
             for regex in watch.unmatched:
-                self.CM.log ("Warn: Shutdown pattern not found: %s" % (regex))
+                self.CM.log ("ERROR: Shutdown pattern not found: %s" % (regex))
                 UnmatchedList +=  regex + "||";
+                failreason="Missing shutdown pattern"
 
         self.CM.cluster_stable(self.CM["DeadTime"])
 
-        # because syslog looses so many messages we can only really fail 
-        #  the stop if _none_ of the CCM peers notice the node leave
-        # Note:  Syslog only
         if not watch.unmatched or self.CM.upcount() == 0:
             return self.success()
         elif len(watch.unmatched) >= self.CM.upcount():
             return self.failure("no match against (%s)" % UnmatchedList)
 
-        return self.success()
+        if failreason == None:
+            return self.success()
+        else:
+            return self.failure(failreason)
 #
 # We don't register StopTest because it's better when called by
 # another test...
@@ -1743,51 +1742,98 @@ class ComponentFail(CTSTest):
     def __init__(self, cm):
         CTSTest.__init__(self,cm)
         self.name="ComponentFail"
-        self.start = StartTest(cm)
         self.startall = SimulStartLite(cm)
-        self.stopall = SimulStopLite(cm)
         self.complist = cm.Components()
-        self.theystart = cm["Pat:They_started"]
-        
+        self.patterns = []
+        self.okerrpatterns = []
+
     def __call__(self, node):
         '''Perform the 'ComponentFail' test. '''
         self.incr("calls")
-        
+        self.patterns = []
+        self.okerrpatterns = []
+
         # start all nodes
-        if not self.CM.cluster_stable():
-            self.stopall(None)        
-            
         ret = self.startall(None)
         if not ret:
             return self.failure("Setup failed")
 
+        if not self.CM.cluster_stable(self.CM["StableTime"]):
+            return self.failure("Setup failed - unstable")
+
+        node_is_dc = self.CM.is_node_dc(node, None)
+
         # select a component to kill
-        component = self.CM.Env.RandomGen.choice(self.complist)
-        self.CM.log("choose %s to kill"%component.name)
-        patterns = []
-        patterns.append("%s heartbeat.*Respawning.*%s" %(node, component.name))
-        patterns.append(self.theystart%node)
+        chosen = self.CM.Env.RandomGen.choice(self.complist)
+        while chosen.dc_only == 1 and node_is_dc == 0:
+            chosen = self.CM.Env.RandomGen.choice(self.complist)
+
+        self.CM.log("...component %s (dc=%d,boot=%d)" % (chosen.name, node_is_dc,chosen.triggersreboot))
+        self.incr(chosen.name)
         
+        self.patterns.extend(chosen.pats)
+
+        # Make sure the node goes down and then comes back up if it should reboot...
+        if chosen.triggersreboot:
+          for other in self.CM.Env["nodes"]:
+              if other != node:
+                  self.patterns.append(self.CM["Pat:They_stopped"] %(other, node))
+          self.patterns.append(self.CM["Pat:They_started"] % node)
+
+        # In an ideal world, this next stuff should be in the "chosen" object as a member function
+        if chosen.dc_only:
+          if chosen.triggersreboot:
+            # Sometimes these will be in the log, and sometimes they won't...
+            self.okerrpatterns.append("%s crmd:.*Process %s:.* exited" %(node, chosen.name))
+            self.okerrpatterns.append("%s crmd:.*I_ERROR.*crmdManagedChildDied" %node)
+            self.okerrpatterns.append("%s crmd:.*The %s subsystem terminated unexpectedly" %(node, chosen.name))
+            self.okerrpatterns.append("ERROR: Client .* exited with return code")
+          else:
+            self.patterns.append("%s crmd:.*Process %s:.* exited" %(node, chosen.name))
+            self.patterns.append("%s crmd:.*I_ERROR.*crmdManagedChildDied" %node)
+            self.patterns.append("%s crmd:.*The %s subsystem terminated unexpectedly" %(node, chosen.name))
+        else:
+          if chosen.triggersreboot:
+            # Sometimes this won't be in the log...
+            self.okerrpatterns.append("%s heartbeat.*%s.*killed by signal 9" %(node, chosen.name))
+            self.okerrpatterns.append("%s heartbeat.*Respawning client " % (node)
+            self.okerrpatterns.append("ERROR: Client .* exited with return code")
+          else:
+            self.patterns.append("%s heartbeat.*%s.*killed by signal 9" %(node, chosen.name))
+            self.patterns.append("%s heartbeat.*Respawning client.*%s" %(node, chosen.name))
+        if node_is_dc:
+          self.patterns.extend(chosen.dc_pats)
+
+        # supply a copy so self.patterns doesnt end up empty
+        tmpPats = []
+        tmpPats.extend(self.patterns)
+        self.patterns.extend(chosen.badnews_ignore)
+
         # set the watch for stable
         watch = CTS.LogWatcher(
-            self.CM["LogFileName"], patterns, self.CM["DeadTime"]+10)
+            self.CM["LogFileName"], tmpPats, 
+            self.CM["DeadTime"] + self.CM["StableTime"] + self.CM["StartTime"])
         watch.setwatch()
         
         # kill the component
-        component.kill(node)
-        
-        # check to see Heartbeat noticed
-        match = watch.look()
-        if match:
-            self.CM.log("Found match: %s"%(match))
+        chosen.kill(node)
 
-            # now watch it recover...
-            if self.CM.cluster_stable():
+        # check to see Heartbeat noticed
+        matched = watch.lookforall()
+        if not matched:
+            self.CM.log("Patterns not found: " + repr(watch.unmatched))
+            self.CM.cluster_stable(self.CM["StartTime"])
+            return self.failure("Didn't find all expected patterns")
+        
+        self.CM.debug("Found: "+ repr(matched))
+
+        # now watch it recover...
+        for attempt in (1, 2, 3, 4, 5):
+            self.CM.debug("Waiting for the cluster to recover...")
+            if self.CM.cluster_stable(self.CM["StartTime"]):
                 return self.success()
-            else:
-                self.failure("Cluster not stable")
-        else:
-            return self.failure("Heartbeat didnt notice %s die" %component)
+
+        return self.failure("Cluster did not become stable")
 
     def is_applicable(self):
         if self.CM["Name"] == "linux-ha-v2":
@@ -1796,9 +1842,12 @@ class ComponentFail(CTSTest):
     
     def errorstoignore(self):
         '''Return list of errors which should be ignored'''
-        return ["""heartbeat.*killed by signal 9""", """heartbeat.*Respawning"""]
+	# Note that okerrpatterns refers to the last time we ran this test
+	# The good news is that this works fine for us...
+        self.okerrpatterns.extend(self.patterns)
+        return self.okerrpatterns
     
-#AllTestClasses.append(ComponentFail)
+AllTestClasses.append(ComponentFail)
 
 ####################################################################
 class Split_brainTest2(CTSTest):
@@ -2155,6 +2204,9 @@ class NearQuorumPointTest(CTSTest):
                 
         if len(watchpats) == 0:
             return self.skipped()
+
+        if len(startset) != 0:
+            watchpats.append(self.CM["Pat:DC_IDLE"])
 
         watch = CTS.LogWatcher(self.CM["LogFileName"], watchpats
         ,     timeout=self.CM["DeadTime"]+10)

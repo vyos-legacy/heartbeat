@@ -71,12 +71,13 @@ node_copy(node_t *this_node)
 	node_t *new_node  = NULL;
 
 	CRM_CHECK(this_node != NULL, return NULL);
-	crm_malloc0(new_node, sizeof(node_t));
 
-	CRM_CHECK(new_node != NULL, return NULL);
+	crm_malloc0(new_node, sizeof(node_t));
+	CRM_ASSERT(new_node != NULL);
 	
 	crm_debug_5("Copying %p (%s) to %p",
 		  this_node, this_node->details->uname, new_node);
+
 	new_node->weight  = this_node->weight; 
 	new_node->fixed   = this_node->fixed;
 	new_node->details = this_node->details;	
@@ -312,6 +313,38 @@ node_list_dup(GListPtr list1, gboolean reset, gboolean filter)
 }
 
 
+void dump_node_scores(int level, resource_t *rsc, const char *comment, GListPtr nodes) 
+{
+    slist_iter(
+	node, node_t, nodes, lpc,
+	if(rsc) {
+	    do_crm_log(level, "%s: %s.%s = %d", comment, rsc->id, node->details->uname, node->weight);
+	} else {
+	    do_crm_log(level, "%s: %s = %d", comment, node->details->uname, node->weight);
+	}
+	);
+}
+
+gint sort_rsc_index(gconstpointer a, gconstpointer b)
+{
+	const resource_t *resource1 = (const resource_t*)a;
+	const resource_t *resource2 = (const resource_t*)b;
+
+	if(a == NULL && b == NULL) { return 0; }
+	if(a == NULL) { return 1; }
+	if(b == NULL) { return -1; }
+  
+	if(resource1->sort_index > resource2->sort_index) {
+		return -1;
+	}
+	
+	if(resource1->sort_index < resource2->sort_index) {
+		return 1;
+	}
+
+	return 0;
+}
+
 gint sort_rsc_priority(gconstpointer a, gconstpointer b)
 {
 	const resource_t *resource1 = (const resource_t*)a;
@@ -449,7 +482,7 @@ custom_action(resource_t *rsc, char *key, const char *task,
 		} else if(action->node == NULL) {
 			action->runnable = FALSE;
 			
-		} else if(rsc->is_managed == FALSE) {
+		} else if(is_not_set(rsc->flags, pe_rsc_managed)) {
 			do_crm_log(warn_level, "Action %s (unmanaged)",
 				 action->uuid);
 			action->optional = TRUE;
@@ -459,7 +492,7 @@ custom_action(resource_t *rsc, char *key, const char *task,
 			action->runnable = FALSE;
 			do_crm_log(warn_level, "Action %s on %s is unrunnable (offline)",
 				 action->uuid, action->node->details->uname);
-			if(action->rsc->is_managed
+			if(is_set(action->rsc->flags, pe_rsc_managed)
 			   && save_action
 			   && a_task == stop_rsc) {
 				do_crm_log(warn_level, "Marking node %s unclean",
@@ -505,14 +538,14 @@ custom_action(resource_t *rsc, char *key, const char *task,
 		if(save_action) {
 			switch(a_task) {
 				case stop_rsc:
-					rsc->stopping = TRUE;
-					break;
+				    set_bit(rsc->flags, pe_rsc_stopping);
+				    break;
 				case start_rsc:
-					rsc->starting = FALSE;
-					if(action->runnable) {
-					rsc->starting = TRUE;
-					}
-					break;
+				    clear_bit(rsc->flags, pe_rsc_starting);
+				    if(action->runnable) {
+					set_bit(rsc->flags, pe_rsc_starting);
+				    }
+				    break;
 				default:
 					break;
 			}
@@ -533,6 +566,7 @@ unpack_operation(
 	const char *field = NULL;
 	
 	CRM_CHECK(action->rsc != NULL, return);
+	class = g_hash_table_lookup(action->rsc->meta, "class");
 	
 	if(xml_obj != NULL) {
 		value = crm_element_value(xml_obj, "prereq");
@@ -555,7 +589,8 @@ unpack_operation(
 	} else if(safe_str_eq(value, "fencing")) {
 		action->needs = rsc_req_stonith;
 		
-	} else if(data_set->no_quorum_policy == no_quorum_ignore) {
+	} else if(data_set->no_quorum_policy == no_quorum_ignore
+	    || safe_str_eq(class, "stonith")) {
 		action->needs = rsc_req_nothing;
 		value = "nothing (default)";
 		
@@ -569,7 +604,6 @@ unpack_operation(
 		value = "quorum (default)";
 	}
 
-	class = g_hash_table_lookup(action->rsc->meta, "class");
 	if(safe_str_eq(class, "stonith")) {
 		if(action->needs == rsc_req_stonith) {
 			crm_config_err("Stonith resources (eg. %s) cannot require"
@@ -611,7 +645,15 @@ unpack_operation(
 	} else if(safe_str_eq(value, "fence")) {
 		action->on_fail = action_fail_fence;
 		value = "node fencing";
-
+		
+		if(data_set->stonith_enabled == FALSE) {
+		    crm_config_err("Specifying on_fail=fence and"
+				   " stonith-enabled=false makes no sense");
+		    action->on_fail = action_fail_stop;
+		    action->fail_role = RSC_ROLE_STOPPED;
+		    value = "stop resource";
+		}
+		
 	} else if(safe_str_eq(value, "ignore")) {
 		action->on_fail = action_fail_ignore;
 		value = "ignore";

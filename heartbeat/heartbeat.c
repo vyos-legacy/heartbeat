@@ -243,6 +243,7 @@
 #include <clplumbing/netstring.h>
 #include <clplumbing/coredumps.h>
 #include <clplumbing/cl_random.h>
+#include <clplumbing/cl_reboot.h>
 #include <heartbeat.h>
 #include <ha_msg.h>
 #include <hb_api.h>
@@ -314,7 +315,8 @@ char *				watchdogdev = NULL;
 static int			watchdogfd = -1;
 static int			watchdog_timeout_ms = 0L;
 
-int				shutdown_in_progress = FALSE;
+gboolean			shutdown_in_progress = FALSE;
+gboolean			shutting_down_comm=FALSE;
 int				startup_complete = FALSE;
 int				WeAreRestarting = FALSE;
 enum comm_state			heartbeat_comm_state = COMM_STARTING;
@@ -450,8 +452,8 @@ static int	SetupFifoChild(void);
 /*
  * The biggies
  */
-static void	read_child(struct hb_media* mp);
-static void	write_child(struct hb_media* mp);
+static void	read_child(struct hb_media* mp, int medianum);
+static void	write_child(struct hb_media* mp, int medianum);
 static void	fifo_child(IPC_Channel* chan);		/* Reads from FIFO */
 		/* The REAL biggie ;-) */
 static void	master_control_process(void);
@@ -669,6 +671,8 @@ SetupFifoChild(void) {
 	if (fifoproc < 0) {
 		fifoproc = procinfo->nprocs;
 	}
+	procinfo->nprocs++;
+
 	switch ((pid=fork())) {
 		case -1:	cl_perror("Can't fork FIFO process!");
 				return HA_FAIL;
@@ -707,6 +711,211 @@ SetupFifoChild(void) {
 	return HA_OK;
 }
 
+static void
+shutdown_io_childpair(int medianum)
+{
+	struct hb_media*	mp = sysmedia[medianum];
+
+	if (mp->wchan[P_WRITEFD] && mp->wchan[P_WRITEFD]->farside_pid) {
+		if (ANYDEBUG) {
+			cl_log(LOG_DEBUG, "Killing pid %d"
+			,	mp->wchan[P_WRITEFD]->farside_pid);
+		}
+		CL_KILL(mp->wchan[P_WRITEFD]->farside_pid, SIGKILL);
+	}
+	if (mp->rchan[P_WRITEFD] && mp->rchan[P_WRITEFD]->farside_pid) {
+		if (ANYDEBUG) {
+			cl_log(LOG_DEBUG, "Killing pid %d"
+			,	mp->rchan[P_WRITEFD]->farside_pid);
+		}
+		CL_KILL(mp->rchan[P_WRITEFD]->farside_pid, SIGKILL);
+	}
+	if (mp->readsource) {
+		if (ANYDEBUG && mp->rchan[P_WRITEFD]) {
+			cl_log(LOG_DEBUG, "%s: Closing socket %d"
+			,	__FUNCTION__
+			,	mp->rchan[P_WRITEFD]->ops->get_recv_select_fd(mp->rchan[P_WRITEFD]));
+		}
+		G_main_del_IPC_Channel(mp->readsource);
+		mp->readsource = NULL;
+	}
+	if (mp->writesource) {
+		if (ANYDEBUG && mp->wchan[P_WRITEFD]) {
+			cl_log(LOG_DEBUG, "%s: Closing socket %d"
+			,	__FUNCTION__
+			,	mp->wchan[P_WRITEFD]->ops->get_recv_select_fd(mp->wchan[P_WRITEFD]));
+		}
+		G_main_del_IPC_Channel(mp->writesource);
+		mp->writesource = NULL;
+		mp->vf->close(mp);
+	}
+	mp->wchan[0] = mp->rchan[0] = mp->wchan[1] = mp->rchan[1] = NULL;
+}
+
+static int
+make_io_childpair(int medianum, int ourproc)
+{
+
+	struct hb_media*	mp = sysmedia[medianum];
+	int			pid;
+	GCHSource*		s;
+	int			rc = HA_OK;
+
+	if (medianum < 0 || medianum >= MAXMEDIA) {
+		cl_log(LOG_ERR, "%s : media index is %d"
+		,	__FUNCTION__, medianum);
+		return HA_FAIL;
+	}
+
+	if (mp->recovery_state != MEDIA_OK) {
+		cl_log(LOG_ERR, "Attempt to start read/write children while in recovery");
+	}
+
+	shutdown_io_childpair(medianum);	/* Just in case... */
+
+	if (ANYDEBUG) {
+		cl_log(LOG_DEBUG, "opening %s %s (%s)", mp->type
+		,	mp->name, mp->description);
+	}
+	if ((mp->vf->mopen)(mp) != HA_OK){
+		cl_log(LOG_ERR, "%s: cannot open %s %s"
+		,	__FUNCTION__, mp->type, mp->name);
+		return HA_FAIL;
+	}
+	if (ipc_channel_pair(mp->wchan) != IPC_OK) {
+		cl_perror("%s: cannot create hb write channel IPC", __FUNCTION__);
+		goto failexit;
+	}
+	if (ipc_channel_pair(mp->rchan) != IPC_OK) {
+		cl_perror("%s: cannot create hb read channel IPC", __FUNCTION__);
+		goto failexit;
+	}
+	mp->ourproc = ourproc;
+
+	switch ((pid=fork())) {
+		case -1:	cl_perror("Can't fork write proc.");
+				goto failexit;
+				break;
+
+		case 0:		/* Child */
+				close(watchdogfd);
+				curproc = &procinfo->info[ourproc];
+				cl_malloc_setstats(&curproc->memstats);
+				cl_msg_setstats(&curproc->msgstats);
+				curproc->type = PROC_HBWRITE;
+				while (curproc->pid != getpid()) {
+					sleep(1);
+				}
+				write_child(mp, medianum);
+				cl_perror("write process exiting");
+				cleanexit(1);
+		default:
+			mp->wchan[P_WRITEFD]->farside_pid = pid;
+
+
+	}
+	NewTrackedProc(pid, 0, PT_LOGVERBOSE
+	,	GINT_TO_POINTER(ourproc)
+	,	&CoreProcessTrackOps);
+
+
+	if (ANYDEBUG) {
+		cl_log(LOG_DEBUG, "write process pid: %d", pid);
+	}
+
+	/* ourproc = procinfo->nprocs; */
+	ourproc++;
+
+	switch ((pid=fork())) {
+		case -1:	cl_perror("Can't fork read process");
+				goto failexit;
+				break;
+
+		case 0:		/* Child */
+				close(watchdogfd);
+				curproc = &procinfo->info[ourproc];
+				cl_malloc_setstats(&curproc->memstats);
+				cl_msg_setstats(&curproc->msgstats);
+				curproc->type = PROC_HBREAD;
+				while (curproc->pid != getpid()) {
+					sleep(1);
+				}
+				read_child(mp, medianum);
+				cl_perror("read_child() exiting");
+				cleanexit(1);
+		default:
+				mp->rchan[P_WRITEFD]->farside_pid = pid;
+	}
+	if (ANYDEBUG) {
+		cl_log(LOG_DEBUG, "read child process pid: %d", pid);
+	}
+	NewTrackedProc(pid, 0, PT_LOGVERBOSE, GINT_TO_POINTER(ourproc)
+	,	&CoreProcessTrackOps);
+
+
+	if (mp->vf->close(mp) != HA_OK){
+		cl_log(LOG_ERR, "%s: cannot close %s %s"
+		,	__FUNCTION__, mp->type, mp->name);
+		goto failexit;
+	}
+	/*
+	 * We cannot share a socket between the write and read
+	 * children, though it might sound like it would work ;-)
+	 */
+	if (ANYDEBUG) {
+		cl_log(LOG_DEBUG, "%s: CREATED childpair wchan socket %d"
+		,	__FUNCTION__
+		,	mp->wchan[P_WRITEFD]->ops
+		->	get_recv_select_fd(mp->wchan[P_WRITEFD]));
+		cl_log(LOG_DEBUG, "%s: CREATED childpair rchan socket %d"
+		,	__FUNCTION__
+		,	mp->wchan[P_WRITEFD]->ops
+		->	get_recv_select_fd(mp->rchan[P_WRITEFD]));
+	}
+
+	/* Connect up the write child IPC channel... */
+	s = G_main_add_IPC_Channel(PRI_SENDPKT
+	,	mp->wchan[P_WRITEFD], FALSE
+	,	NULL, sysmedia+medianum, NULL);
+	G_main_setmaxdispatchdelay((GSource*)s, config->heartbeat_ms/4);
+	G_main_setmaxdispatchtime((GSource*)s, 50);
+	G_main_setdescription((GSource*)s, "write child");
+
+	/* Ensure that a hanging write process does not livelock
+	 * the MCP yet doesn't get kicked out
+	 */
+	mp->wchan[P_WRITEFD]->should_send_block = FALSE;
+	mp->wchan[P_WRITEFD]->should_block_fail = FALSE;
+	mp->writesource=s;
+	
+	/* Connect up the read child IPC channel... */
+	s = G_main_add_IPC_Channel(PRI_READPKT
+	,	mp->rchan[P_WRITEFD], FALSE
+	,	read_child_dispatch, sysmedia+medianum, NULL);
+	/* Encourage better real-time behavior */
+	mp->rchan[P_WRITEFD]->ops->set_recv_qlen(mp->rchan[P_WRITEFD], 0); 
+	G_main_setmaxdispatchdelay((GSource*)s, config->heartbeat_ms/4);
+	G_main_setmaxdispatchtime((GSource*)s, 50);
+	G_main_setdescription((GSource*)s, "read child");
+	mp->readsource=s;
+
+cleanandexit:
+	if (mp->rchan[P_READFD]) {
+		mp->rchan[P_READFD]->ops->destroy(mp->rchan[P_READFD]);
+		mp->rchan[P_READFD]= NULL;
+	}
+	if (mp->wchan[P_READFD]) {
+		mp->wchan[P_READFD]->ops->destroy(mp->wchan[P_READFD]);
+		mp->wchan[P_READFD]= NULL;
+	}
+
+	return rc;
+failexit:
+	shutdown_io_childpair(medianum);
+	rc = HA_FAIL;
+	goto cleanandexit;
+}
+
 /*
  *	This routine starts everything up and kicks off the heartbeat
  *	process.
@@ -727,7 +936,6 @@ initialize_heartbeat()
 
 	int		j;
 	struct stat	buf;
-	int		pid;
 	int		ourproc = 0;
 	int	(*getgen)(seqno_t * generation) = IncrGeneration;
 
@@ -756,22 +964,9 @@ initialize_heartbeat()
 		cl_log(LOG_DEBUG, "uuid is:%s", uuid_str);
 	}
 	
-	write_hostcachefile = G_main_add_tempproc_trigger(PRI_WRITECACHE
-	,	write_hostcachedata, "write_hostcachedata"
-	,	NULL, NULL, NULL, NULL);
-
-	write_delcachefile = G_main_add_tempproc_trigger(PRI_WRITECACHE
-	,	write_delcachedata, "write_delcachedata"
-	,	NULL, NULL, NULL, NULL);
-
 	add_uuidtable(&config->uuid, curnode);
 	cl_uuid_copy(&curnode->uuid, &config->uuid);
 
-	/*
-	 * We _really_ only need to write out the uuid file if we're not yet
-	 * in the host cache file on disk.
-	 */
-	G_main_set_trigger(write_hostcachefile);
 
 	if (stat(FIFONAME, &buf) < 0 ||	!S_ISFIFO(buf.st_mode)) {
 		cl_log(LOG_INFO, "Creating FIFO %s.", FIFONAME);
@@ -806,25 +1001,6 @@ initialize_heartbeat()
 	|	S_IRGRP|S_IWGRP|S_IXGRP	
 	|	S_IROTH|S_IWOTH|S_IXOTH	|	S_ISVTX /* sticky bit */);
 
-	/* Open all our heartbeat channels */
-
-	for (j=0; j < nummedia; ++j) {
-		struct hb_media* smj = sysmedia[j];
-
-		if (ipc_channel_pair(smj->wchan) != IPC_OK) {
-			cl_perror("cannot create hb write channel IPC");
-			return HA_FAIL;
-		}
-		if (ipc_channel_pair(smj->rchan) != IPC_OK) {
-			cl_perror("cannot create hb read channel IPC");
-			return HA_FAIL;
-		}
-		if (ANYDEBUG) {
-			cl_log(LOG_DEBUG, "opening %s %s (%s)", smj->type
-			,	smj->name, smj->description);
-		}
-		
-	}
 
  	PILSetDebugLevel(PluginLoadingSystem, NULL, NULL, debug_level);
 	CoreProcessCount = 0;
@@ -836,6 +1012,7 @@ initialize_heartbeat()
 	cl_msg_setstats(&curproc->msgstats);
 	NewTrackedProc(getpid(), 0, PT_LOGVERBOSE, GINT_TO_POINTER(ourproc)
 	,	&CoreProcessTrackOps);
+	procinfo->nprocs++;
 
 	curproc->pstat = RUNNING;
 
@@ -855,91 +1032,16 @@ initialize_heartbeat()
 
 	SetupFifoChild();
 
-	ourproc = procinfo->nprocs;
+
+	/* Start up all read/write children */
 
 	for (j=0; j < nummedia; ++j) {
-		struct hb_media* mp = sysmedia[j];
-		
-		ourproc = procinfo->nprocs;
-		
-		if (mp->vf->open(mp) != HA_OK){
-			cl_log(LOG_ERR, "cannot open %s %s",
-			       mp->type,
-			       mp->name);
+		if (make_io_childpair(j, procinfo->nprocs) != HA_OK) {
 			return HA_FAIL;
 		}
-
-		switch ((pid=fork())) {
-			case -1:	cl_perror("Can't fork write proc.");
-					return HA_FAIL;
-					break;
-
-			case 0:		/* Child */
-					close(watchdogfd);
-					curproc = &procinfo->info[ourproc];
-					cl_malloc_setstats(&curproc->memstats);
-					cl_msg_setstats(&curproc->msgstats);
-					curproc->type = PROC_HBWRITE;
-					while (curproc->pid != getpid()) {
-						sleep(1);
-					}
-					write_child(mp);
-					cl_perror("write process exiting");
-					cleanexit(1);
-			default:
-				mp->wchan[P_WRITEFD]->farside_pid = pid;
-				
-
-		}
-		NewTrackedProc(pid, 0, PT_LOGVERBOSE
-		,	GINT_TO_POINTER(ourproc)
-		,	&CoreProcessTrackOps);
-
-		ourproc = procinfo->nprocs;
-
-		if (ANYDEBUG) {
-			cl_log(LOG_DEBUG, "write process pid: %d", pid);
-		}
-
-		switch ((pid=fork())) {
-			case -1:	cl_perror("Can't fork read process");
-					return HA_FAIL;
-					break;
-
-			case 0:		/* Child */
-					close(watchdogfd);
-					curproc = &procinfo->info[ourproc];
-					cl_malloc_setstats(&curproc->memstats);
-					cl_msg_setstats(&curproc->msgstats);
-					curproc->type = PROC_HBREAD;
-					while (curproc->pid != getpid()) {
-						sleep(1);
-					}
-					read_child(mp);
-					cl_perror("read_child() exiting");
-					cleanexit(1);
-			default:
-					mp->rchan[P_WRITEFD]->farside_pid = pid;
-		}
-		if (ANYDEBUG) {
-			cl_log(LOG_DEBUG, "read child process pid: %d", pid);
-		}
-		NewTrackedProc(pid, 0, PT_LOGVERBOSE, GINT_TO_POINTER(ourproc)
-		,	&CoreProcessTrackOps);
-
-		
-		if (mp->vf->close(mp) != HA_OK){
-			cl_log(LOG_ERR, "cannot close %s %s",
-			       mp->type,
-			       mp->name);
-			return HA_FAIL;
-		}
+		procinfo->nprocs += 2;
 	}
 
-
-
-
-	ourproc = procinfo->nprocs;
 	master_control_process();
 
 	/*NOTREACHED*/
@@ -949,9 +1051,10 @@ initialize_heartbeat()
 	return HA_FAIL;
 }
 
+
 /* Create a read child process (to read messages from hb medium) */
 static void
-read_child(struct hb_media* mp)
+read_child(struct hb_media* mp, int medianum)
 {
 	IPC_Channel* ourchan =	mp->rchan[P_READFD];
 	int		nullcount=0;
@@ -972,6 +1075,7 @@ read_child(struct hb_media* mp)
 
 	hb_signal_process_pending();
 	curproc->pstat = RUNNING;
+	curproc->medianum = medianum;
 
 	if (ANYDEBUG) {
 		/* Limit ourselves to 10% of the CPU */
@@ -1029,9 +1133,11 @@ read_child(struct hb_media* mp)
 
 /* Create a write child process (to write messages to hb medium) */
 static void
-write_child(struct hb_media* mp)
+write_child(struct hb_media* mp, int medianum)
 {
-	IPC_Channel* ourchan =	mp->wchan[P_READFD];
+	IPC_Channel*	ourchan =	mp->wchan[P_READFD];
+	int		failcount=0;
+	int		supp_flushedmsgs=0;
 
 	if (hb_signal_set_write_child(NULL) < 0) {
 		cl_perror("write_child(): hb_signal_set_write_child(): "
@@ -1046,6 +1152,7 @@ write_child(struct hb_media* mp)
 	cl_set_all_coredump_signal_handlers();
 	drop_privs(0, 0);	/* Become nobody */
 	curproc->pstat = RUNNING;
+	curproc->medianum = medianum;
 
 	if (ANYDEBUG) {
 		/* Limit ourselves to 40% of the CPU */
@@ -1054,6 +1161,8 @@ write_child(struct hb_media* mp)
 	}
 	for (;;) {
 		IPC_Message*	ipcmsg = ipcmsgfromIPC(ourchan);
+		int		rc;
+		int		saveerrno;
 		hb_signal_process_pending();
 		if (ipcmsg == NULL) {
 			continue;
@@ -1061,9 +1170,91 @@ write_child(struct hb_media* mp)
 
 		cl_cpu_limit_update();
 		
-		if (mp->vf->write(mp, ipcmsg->msg_body, ipcmsg->msg_len) != HA_OK) {
-			cl_perror("write failure on %s %s."
-			,	mp->type, mp->name);
+		setmsalarm(config->heartbeat_ms);
+		errno = 0;
+		rc = mp->vf->write(mp, ipcmsg->msg_body, ipcmsg->msg_len);
+		saveerrno=errno;
+		cancelmstimer();
+		hb_signal_process_pending();
+
+		if (rc != HA_OK) {
+			if (saveerrno == EINTR) {
+				int	flushcount = 0;
+				if (!mp->suppresserrs) {
+					errno=saveerrno;
+					cl_perror("Write timeout on %s %s."
+					,	mp->type, mp->name);
+				}
+				/* Throw away messages currently in our input queue */
+				while (ourchan->recv_queue->current_qlen > 0) {
+					IPC_Message*	fmsg;
+					++flushcount;
+					cl_cpu_limit_update();
+					if (NULL == (fmsg = ipcmsgfromIPC(ourchan))) {
+						break;
+					}
+					if(fmsg->msg_done) { 
+						 fmsg->msg_done(ipcmsg); 
+					}
+				}
+				if (flushcount && !mp->suppresserrs) {
+					cl_log(LOG_WARNING
+					,	"%d messages discarded due to write errors on %s %s"
+					,	flushcount, mp->type, mp->name);
+				}else{
+					supp_flushedmsgs += flushcount;
+				}
+			}else{
+				if (!mp->suppresserrs) {
+					cl_perror("%s: write failure on %s %s."
+					,	__FUNCTION__
+					,	mp->type, mp->name);
+				}
+			}
+			if (failcount == 10) {
+				cl_log(LOG_WARNING
+				,	"Temporarily Suppressing write error messages");
+				cl_log(LOG_WARNING, "Is a cable unplugged on %s %s?"
+				,	mp->type, mp->name);
+				mp->suppresserrs=TRUE;
+			}else if (failcount >= 1000) {
+				if (supp_flushedmsgs) {
+					cl_log(LOG_WARNING,
+					"%s: %d %s %s messages discarded while suppressed."
+					,	 __FUNCTION__
+					,	supp_flushedmsgs
+					,	mp->type, mp->name);
+					supp_flushedmsgs=0;
+				}
+				supp_flushedmsgs=0;
+				failcount=0;
+				mp->suppresserrs=FALSE;
+				switch (errno) {
+				case EBADF: case ENODEV:
+					cl_perror(
+					"%s: Exiting due to persistent errors"
+					,	__FUNCTION__);
+					cleanexit(LSB_EXIT_GENERIC);
+					break;
+
+				default: /* Keep trying */
+					break;
+				}
+					
+					
+			}
+			failcount++;
+		}else{ /* Write succeeded! */
+			failcount=0;
+			mp->suppresserrs=FALSE;
+			if (supp_flushedmsgs) {
+				cl_log(LOG_WARNING,
+				"%s: %d %s %s messages discarded while suppressed."
+				,	 __FUNCTION__
+				,	supp_flushedmsgs
+				,	mp->type, mp->name);
+				supp_flushedmsgs=0;
+			}
 		}
 
 		if(ipcmsg->msg_done) { 
@@ -1326,6 +1517,19 @@ master_control_process(void)
 	long			memstatsinterval;
 	guint			id;
 
+	write_hostcachefile = G_main_add_tempproc_trigger(PRI_WRITECACHE
+	,	write_hostcachedata, "write_hostcachedata"
+	,	NULL, NULL, NULL, NULL);
+
+	write_delcachefile = G_main_add_tempproc_trigger(PRI_WRITECACHE
+	,	write_delcachedata, "write_delcachedata"
+	,	NULL, NULL, NULL, NULL);
+	/*
+	 * We _really_ only need to write out the uuid file if we're not yet
+	 * in the host cache file on disk.
+	 */
+
+	G_main_set_trigger(write_hostcachefile);
 	init_xmit_hist (&msghist);
 
 	hb_init_watchdog();
@@ -1398,37 +1602,6 @@ master_control_process(void)
 		,	"Starting local status message @ %ld ms intervals"
 		,	config->heartbeat_ms);
 	}
-
-	/* Child I/O processes */
-	for(j = 0; j < nummedia; j++) {
-		GCHSource*	s;
-		/*
-		 * We cannot share a socket between the write and read
-		 * children, though it might sound like it would work ;-)
-		 */
-
-		/* Connect up the write child IPC channel... */
-		s = G_main_add_IPC_Channel(PRI_SENDPKT
-		,	sysmedia[j]->wchan[P_WRITEFD], FALSE
-		,	NULL, sysmedia+j, NULL);
-		G_main_setmaxdispatchdelay((GSource*)s, config->heartbeat_ms/4);
-		G_main_setmaxdispatchtime((GSource*)s, 50);
-		G_main_setdescription((GSource*)s, "write child");
-
-		
-		/* Connect up the read child IPC channel... */
-		s = G_main_add_IPC_Channel(PRI_READPKT
-		,	sysmedia[j]->rchan[P_WRITEFD], FALSE
-		,	read_child_dispatch, sysmedia+j, NULL);
-		/* Encourage better real-time behavior */
-		sysmedia[j]->rchan[P_WRITEFD]->ops->set_recv_qlen
-		(	sysmedia[j]->rchan[P_WRITEFD], 0); 
-		G_main_setmaxdispatchdelay((GSource*)s, config->heartbeat_ms/4);
-		G_main_setmaxdispatchtime((GSource*)s, 50);
-		G_main_setdescription((GSource*)s, "read child");
-
-}	
-	
 
 	/*
 	 * Things to do on a periodic basis...
@@ -1567,8 +1740,10 @@ hb_new_ipcmsg(const void* data, int len, IPC_Channel* ch, int refcnt)
 static void
 send_to_all_media(const char * smsg, int len)
 {
-	int	j;
-	IPC_Message*	outmsg = NULL;
+	int			j;
+	IPC_Message*		outmsg = NULL;
+	int			numwrites = 0;
+	int			nowritecount = 0;
 	
 	/* Throw away some packets if testing is enabled */
 	if (TESTSEND) {
@@ -1583,12 +1758,22 @@ send_to_all_media(const char * smsg, int len)
 
 	/* Send the message to all our heartbeat interfaces */
 	for (j=0; j < nummedia; ++j) {
-		IPC_Channel*	wch = sysmedia[j]->wchan[P_WRITEFD];
-		int	wrc;
+		IPC_Channel*		wch;
+		struct hb_media*	mp;
+		int			wrc;
+
+		mp = sysmedia[j];
 		
-		/*take the first media write channel as this msg's chan
-		  assumption all channel's msgpad is the same
-		*/
+		if (mp == NULL || mp->recovery_state != MEDIA_OK
+		||	NULL == (wch = mp->wchan[P_WRITEFD])) {
+			++nowritecount;
+			continue;
+		}
+
+		wch = mp->wchan[P_WRITEFD];
+		/* Take the first media write channel as this msg's chan
+		 *  assumption all channel's msgpad is the same
+		 */
 		
 		if (outmsg == NULL){
 			outmsg = hb_new_ipcmsg(smsg, len, wch,
@@ -1604,12 +1789,25 @@ send_to_all_media(const char * smsg, int len)
 		outmsg->msg_ch = wch;
 		wrc=wch->ops->send(wch, outmsg);
 		if (wrc != IPC_OK) {
-			cl_perror("Cannot write to media pipe %d"
-				  ,	j);
-			cl_log(LOG_ERR, "Shutting down.");
-			hb_initiate_shutdown(FALSE);
+			if (!shutting_down_comm) {
+				cl_perror("Cannot write to media pipe %d", j);
+				if (mp->recovery_state == MEDIA_OK) {
+					cl_perror("Killing and restarting communications processes.");
+					shutdown_io_childpair(j);
+				}
+			}
+		}else if (!mp->vf->isping()) {
+			++numwrites;
 		}
 		alarm(0);
+	}
+	for (j=0; j < nowritecount && outmsg; ++j) {
+		/* Decrement reference count */
+		hb_del_ipcmsg(outmsg);
+	}
+	if (numwrites == 0 && !shutting_down_comm) {
+		cl_log(LOG_CRIT, "%s: No working comm channels to write to."
+		,	__FUNCTION__);
 	}
 }
 
@@ -1972,6 +2170,7 @@ hb_mcp_final_shutdown(gpointer p)
 
 	case 2: /* From 1-second delay above */
 		shutdown_phase = 3;
+		shutting_down_comm=TRUE;
 		if (procinfo->giveup_resources) {
 			/* THIS IS RESOURCE WORK!  FIXME */
 			/* Shouldn't *really* need this either ;-) */
@@ -1994,6 +2193,7 @@ hb_mcp_final_shutdown(gpointer p)
 	/* Whack 'em */
 	hb_kill_core_children(SIGKILL);
 	cl_log(LOG_INFO,"%s Heartbeat shutdown complete.", localnodename);
+	cl_flush_logs();
 
 	if (procinfo->restart_after_shutdown) {
 		cl_log(LOG_INFO, "Heartbeat restart triggered.");
@@ -2079,17 +2279,18 @@ free_one_hist_slot(struct msg_xmit_hist* hist, int slot )
 static void 
 hist_display(struct msg_xmit_hist * hist)
 {
-	cl_log(LOG_DEBUG, "hist->ackseq =%ld",     hist->ackseq);
-	cl_log(LOG_DEBUG, "hist->lowseq =%ld, hist->hiseq=%ld", 
-	       hist->lowseq, hist->hiseq);
-	dump_missing_pkts_info();
-	
-	if (hist->lowest_acknode){
-		cl_log(LOG_DEBUG,"expecting from %s",hist->lowest_acknode->nodename);
-		cl_log(LOG_DEBUG,"it's ackseq=%ld", hist->lowest_acknode->track.ackseq);
+	if (ANYDEBUG) {
+		cl_log(LOG_DEBUG, "hist->ackseq =%ld",     hist->ackseq);
+		cl_log(LOG_DEBUG, "hist->lowseq =%ld, hist->hiseq=%ld", 
+		       hist->lowseq, hist->hiseq);
+		dump_missing_pkts_info();
+		
+		if (hist->lowest_acknode){
+			cl_log(LOG_DEBUG,"expecting from %s",hist->lowest_acknode->nodename);
+			cl_log(LOG_DEBUG,"it's ackseq=%ld", hist->lowest_acknode->track.ackseq);
+		}
+		cl_log(LOG_DEBUG, " ");	
 	}
-	cl_log(LOG_DEBUG, " ");	
-	
 }
 
 static void
@@ -2313,7 +2514,7 @@ getnodes(const char* nodelist, char** nodes, int* num){
 		if (*p == 0){
 			break;
 		}
-		nodelen = strcspn(p, " \0") ;
+		nodelen = strcspn(p, " \t\0") ;
 		
 		if (i >= *num){
 			cl_log(LOG_ERR, "%s: more memory needed(%d given but require %d)",
@@ -2609,8 +2810,7 @@ HBDoMsg_T_DELNODE(const char * type, struct node_info * fromnode,
 		nodes[i]= NULL;	
 	}
 	
-	write_delnode_file(config);
-	write_cache_file(config);
+	G_main_set_trigger(write_hostcachefile);
 	G_main_set_trigger(write_delcachefile);
 	
 	return ;
@@ -2862,7 +3062,7 @@ HBDoMsg_T_REPNODES(const char * type, struct node_info * fromnode
 			}
 		}
 		get_reqnodes_reply = TRUE;
-		write_cache_file(config);
+		G_main_set_trigger(write_hostcachefile);
 	}
 
 	if (delnodelist != NULL) {	
@@ -2887,7 +3087,7 @@ HBDoMsg_T_REPNODES(const char * type, struct node_info * fromnode
 			}
 		}
 		get_reqnodes_reply = TRUE;
-		write_delnode_file(config);
+		G_main_set_trigger(write_delcachefile);
 	}
 	comm_now_up();
         return;
@@ -3512,27 +3712,69 @@ hb_compute_authentication(int authindex, const void * data, size_t datalen
  * Track the core heartbeat processes
  ***********************************************************************/
 
+static const char *
+CoreProcessName(ProcTrack* p)
+{
+	/* This is perfectly safe - procindex is a small int */
+	int	procindex = POINTER_TO_SIZE_T(p->privatedata);/*pointer cast as int*/
+	volatile struct process_info *	pi = procinfo->info+procindex;
+
+	return (pi ? core_proc_name(pi->type) : "Core heartbeat process");
+	
+}
+
 /* Log things about registered core processes */
 static void
 CoreProcessRegistered(ProcTrack* p)
 {
+	int	procindex = POINTER_TO_SIZE_T(p->privatedata);/*pointer cast as int*/
 	++CoreProcessCount;
 
+	if (procindex < 0 || procindex >= MAXPROCS) {
+		cl_log(LOG_ERR, "%s: invalid procindex [%d]", __FUNCTION__, procindex);
+		return;
+	}
+
 	if (p->pid > 0) {
-		processes[procinfo->nprocs] = p->pid;
-		procinfo->info[procinfo->nprocs].pstat = FORKED;
-		procinfo->info[procinfo->nprocs].pid = p->pid;
-		procinfo->nprocs++;
+		processes[procindex] = p->pid;
+		procinfo->info[procindex].pstat = FORKED;
+		procinfo->info[procindex].pid = p->pid;
 	}
 
 }
+
+static gboolean
+restart_comm_medium(gpointer data)
+{
+	int	medianum = POINTER_TO_SIZE_T(data);/*pointer cast as int*/
+	struct hb_media*	mp;
+
+	if (medianum < 0 || medianum >= MAXMEDIA || (mp=sysmedia[medianum]) == NULL
+	||	(mp->recovery_state != MEDIA_DELAYEDRECOVERY)) {
+		cl_log(LOG_ERR, "%s: media index is invalid [%d]"
+		,	__FUNCTION__, medianum);
+		cause_shutdown_restart();
+		return FALSE;
+	}
+	mp->recovery_state = MEDIA_OK;
+	if (make_io_childpair(medianum, mp->ourproc) == HA_OK) {
+		/* We succeeded. Stop repeating. */
+		return FALSE;
+	}
+	return TRUE;
+}
+
 
 /* Handle the death of a core heartbeat process */
 static void
 CoreProcessDied(ProcTrack* p, int status, int signo
 ,	int exitcode, int waslogged)
 {
+	int	procindex = POINTER_TO_SIZE_T(p->privatedata);/*pointer cast as int*/
+	volatile struct process_info *	pi = procinfo->info+procindex;
+
 	-- CoreProcessCount;
+	pi->pstat = PROCDEAD;
 
 	if (shutdown_in_progress) {
 		p->privatedata = NULL;
@@ -3547,28 +3789,77 @@ CoreProcessDied(ProcTrack* p, int status, int signo
 				,	"Heartbeat restart triggered.");
 				restart_heartbeat();
 			}
+			cl_flush_logs();
 			cleanexit(0);
 		}
 		return;
 	}
+
+
+	/* Was it the fifo process that died?  */
+	if (pi->type == PROC_HBFIFO) {
+		p->privatedata = NULL;
+		cl_log(LOG_WARNING
+		,	"Restarting %s process.", core_proc_name(pi->type));
+		if (SetupFifoChild() != HA_OK) {
+			cl_log(LOG_ERR, "%s restart failed.  Restarting heartbeat."
+			,	core_proc_name(pi->type));
+			goto restart;
+		}
+		return;
+	/* Was it an I/O child that died? */
+	}else if (pi->type == PROC_HBREAD || pi->type == PROC_HBWRITE) {
+		int	medianum = pi->medianum;
+		struct hb_media*	mp;
+
+		p->privatedata = NULL;
+		if (medianum < 0 || medianum >= MAXMEDIA
+		||	(mp=sysmedia[medianum]) == NULL) {
+			cl_log(LOG_ERR, "%s: media index is invalid [%d]"
+			,	__FUNCTION__, medianum);
+			goto restart;
+		}
+		switch(mp->recovery_state) {
+		case MEDIA_DELAYEDRECOVERY:
+			return;
+		case MEDIA_OK:
+			cl_log(LOG_ERR, "%s process died.  Beginning"
+			" communications restart process for comm channel %d."
+			,	core_proc_name(pi->type), medianum);
+			shutdown_io_childpair(medianum);
+			mp->recovery_state = MEDIA_INRECOVERY;
+			return;
+		case MEDIA_INRECOVERY:
+			cl_log(LOG_ERR
+			,	"Both comm processes for channel %d have died"
+			".  Restarting."
+			,	medianum);
+			mp->recovery_state = MEDIA_OK;
+			if (make_io_childpair(medianum,mp->ourproc)!=HA_OK) {
+				mp->recovery_state = MEDIA_DELAYEDRECOVERY;
+				cl_log(LOG_ERR
+				,	"Communications restart failed"
+				". Will try again later.");
+				Gmain_timeout_add(10000, restart_comm_medium
+				,	GINT_TO_POINTER(medianum));
+				goto restart;
+			}
+			cl_log(LOG_INFO, "Communications restart succeeded.");
+			return;
+		}
+	}
+
+
+restart:
 	/* UhOh... */
 	cl_log(LOG_ERR
-	,	"Core heartbeat process died! Restarting.");
+	,	"Core heartbeat process %s (pid %d) died! Restarting."
+	,	CoreProcessName(p), p->pid);
 	cause_shutdown_restart();
 	p->privatedata = NULL;
 	return;
 }
 
-static const char *
-CoreProcessName(ProcTrack* p)
-{
-	/* This is perfectly safe - procindex is a small int */
-	int	procindex = POINTER_TO_SIZE_T(p->privatedata);/*pointer cast as int*/
-	volatile struct process_info *	pi = procinfo->info+procindex;
-
-	return (pi ? core_proc_name(pi->type) : "Core heartbeat process");
-	
-}
 
 /***********************************************************************
  * Track our managed child processes...
@@ -3609,10 +3900,21 @@ ManagedChildDied(ProcTrack* p, int status, int signo, int exitcode
 		}
 		if (0 != signo) {
 			cl_log(shutdown_in_progress ? LOG_DEBUG : LOG_ERR
-			,	"Client %s(pid=%d) killed by signal %d."
+			,	"Client %s (pid=%d) killed by signal %d."
 			,	managedchild->command
-		       ,	(int)p->pid
+			,	(int)p->pid
 			,	signo);
+		}
+	}
+	if (managedchild->rebootifitdies) {
+		if (signo != 0 || ((exitcode != 0 && !shutdown_in_progress))) {
+			/* Fail fast and safe - reboot this machine.
+			 * I'm not 100% sure whether we should do this for all
+			 * exits outside of shutdown intervals, but it's
+			 * clear that we should reboot in case of abnormal
+			 * exits...
+ 		 	 */
+			cl_reboot(config->heartbeat_ms, managedchild->command);
 		}
 	}
 
@@ -3809,7 +4111,7 @@ start_a_child_client(gpointer childentry, gpointer dummy)
 		struct rlimit		oflimits;
 		char *cmdexec = NULL;
 		size_t		cmdsize;
-#define		PREFIX	"exec "
+#define		CMDPREFIX	"exec "
 
 		CL_SIGNAL(SIGCHLD, SIG_DFL);
 		alarm(0);
@@ -3823,11 +4125,11 @@ start_a_child_client(gpointer childentry, gpointer dummy)
 		(void)open(devnull, O_RDONLY);	/* Stdin:  fd 0 */
 		(void)open(devnull, O_WRONLY);	/* Stdout: fd 1 */
 		(void)open(devnull, O_WRONLY);	/* Stderr: fd 2 */
-		cmdsize = STRLEN_CONST(PREFIX)+strlen(centry->command)+1;
+		cmdsize = STRLEN_CONST(CMDPREFIX)+strlen(centry->command)+1;
 
 		cmdexec = cl_malloc(cmdsize);
 		if (cmdexec != NULL) {
-			strlcpy(cmdexec, PREFIX, cmdsize);
+			strlcpy(cmdexec, CMDPREFIX, cmdsize);
 			strlcat(cmdexec, centry->command, cmdsize);
 			(void)execl("/bin/sh", "sh", "-c", cmdexec
 			, (const char *)NULL); 
@@ -3949,12 +4251,13 @@ restart_heartbeat(void)
 
 	cl_log(LOG_INFO, "Performing heartbeat restart exec.");
 
+	hb_close_watchdog();
+
 	getrlimit(RLIMIT_NOFILE, &oflimits);
 	for (j=3; j < oflimits.rlim_cur; ++j) {
 		close(j);
 	}
 
-	hb_close_watchdog();
 	
 	if (quickrestart) {
 		/* THIS IS RESOURCE WORK!  FIXME */
@@ -5983,13 +6286,21 @@ add2_xmit_hist (struct msg_xmit_hist * hist, struct ha_msg* msg
 	hist->lastmsg = slot;
 	
 	if (enable_flow_control
-	&&	live_node_count > 1
-	&&	(hist->hiseq - hist->lowseq) > ((MAXMSGHIST*3)/4)) {
-		cl_log(LOG_ERR
-		,	"Message hist queue is filling up"
-		" (%d messages in queue)"
-		,       (int)(hist->hiseq - hist->lowseq));
-		hist_display(hist);
+	&&	live_node_count > 1) {
+		int priority = 0;
+
+		if ((hist->hiseq - hist->lowseq) > ((MAXMSGHIST*9)/10)) {
+			priority = LOG_ERR;
+		} else if ((hist->hiseq - hist->lowseq) > ((MAXMSGHIST*3)/4)) {
+			priority = LOG_WARNING;
+		}
+		if (priority > 0) {
+			cl_log(priority
+			,	"Message hist queue is filling up"
+			" (%d messages in queue)"
+			,       (int)(hist->hiseq - hist->lowseq));
+			hist_display(hist);
+		}
 	}
 
 	AUDITXMITHIST;

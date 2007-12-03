@@ -43,6 +43,12 @@
 
 #define XML_BUFFER_SIZE	4096
 
+static const char *filter[] = {
+    XML_ATTR_ORIGIN,
+    XML_DIFF_MARKER,
+    XML_CIB_ATTR_WRITTEN,		
+};
+
 int is_comment_start(const char *input, size_t offset, size_t max);
 int is_comment_end(const char *input, size_t offset, size_t max);
 gboolean drop_comments(const char *input, size_t *offset, size_t max);
@@ -305,7 +311,10 @@ add_node_nocopy(crm_data_t *parent, const char *name, crm_data_t *child)
 	if(name == NULL) {
 		name = crm_element_name(child);
 	}
-	CRM_ASSERT(name != NULL && name[0] != 0);
+	if(name == NULL || name[0] == 0) {
+	    crm_err("Cannot add object with no name");
+	    return HA_FAIL;
+	}
 	
 	if (parent->nfields >= parent->nalloc
 		&& ha_msg_expand(parent) != HA_OK ){
@@ -606,7 +615,7 @@ write_xml_file(crm_data_t *xml_node, const char *filename, gboolean compress)
 	time_t now;
 	char *buffer = NULL;
 	char *now_str = NULL;
-	gboolean is_done = FALSE;
+	unsigned int in = 0, out = 0;
 	FILE *file_output_strm = NULL;
 	static mode_t cib_mode = S_IRUSR|S_IWUSR;
 	
@@ -619,6 +628,15 @@ write_xml_file(crm_data_t *xml_node, const char *filename, gboolean compress)
 		return -1;
 	}
 
+	file_output_strm = fopen(filename, "w");
+	if(file_output_strm == NULL) {
+		cl_perror("Cannot open %s for writing", filename);
+		return -1;
+	} 
+
+	/* establish the correct permissions */
+	fchmod(fileno(file_output_strm), cib_mode);
+	
 	crm_validate_data(xml_node);
 	crm_log_xml_debug_4(xml_node, "Writing out");
 	crm_validate_data(xml_node);
@@ -630,78 +648,61 @@ write_xml_file(crm_data_t *xml_node, const char *filename, gboolean compress)
 	crm_validate_data(xml_node);
 	
 	buffer = dump_xml_formatted(xml_node);
-	CRM_CHECK(buffer != NULL && strlen(buffer) > 0, return -1);
-
-	/* establish the file with correct permissions */
-	file_output_strm = fopen(filename, "w");
-	if(file_output_strm == NULL) {
-		cl_perror("Cannot open %s for writing", filename);
-		crm_free(buffer);
-		return -1;
-	}
-	
-	fclose(file_output_strm);
-	chmod(filename, cib_mode);
-
-	/* now write it */
-	file_output_strm = fopen(filename, "w");
-	if(file_output_strm == NULL) {
-		cl_perror("Cannot open %s for writing", filename);
-		crm_free(buffer);
-		return -1;		
-	} 
+	CRM_CHECK(buffer != NULL && strlen(buffer) > 0, goto bail);	
 
 	if(compress) {
 #if HAVE_BZLIB_H
-		int rc = BZ_OK;
-		BZFILE *bz_file = NULL;
-		unsigned int in = 0, out = 0;
-		is_done = TRUE;
-		bz_file = BZ2_bzWriteOpen(&rc, file_output_strm, 5,0,0);
+	    int rc = BZ_OK;
+	    BZFILE *bz_file = NULL;
+	    bz_file = BZ2_bzWriteOpen(&rc, file_output_strm, 5,0,0);
+	    if(rc != BZ_OK) {
+		crm_err("bzWriteOpen failed: %d", rc);
+	    } else {
+		BZ2_bzWrite(&rc,bz_file,buffer,strlen(buffer));
 		if(rc != BZ_OK) {
-			is_done = FALSE;
-			crm_err("bzWriteOpen failed: %d", rc);
+		    crm_err("bzWrite() failed: %d", rc);
 		}
-		if(is_done) {
-			BZ2_bzWrite(&rc,bz_file,buffer,strlen(buffer));
-			if(rc != BZ_OK) {
-				crm_err("bzWrite() failed: %d", rc);
-				is_done = FALSE;
-			}
+	    }
+	    
+	    if(rc == BZ_OK) {
+		BZ2_bzWriteClose(&rc, bz_file, 0, &in, &out);
+		if(rc != BZ_OK) {
+		    crm_err("bzWriteClose() failed: %d",rc);
+		    out = -1;
+		} else {
+		    crm_debug_2("%s: In: %d, out: %d", filename, in, out);
 		}
-		if(is_done) {
-			BZ2_bzWriteClose(&rc, bz_file, 0, &in, &out);
-			if(rc != BZ_OK) {
-				crm_err("bzWriteClose() failed: %d",rc);
-				is_done = FALSE;
-			} else {
-				crm_debug_2("%s: In: %d, out: %d",
-					    filename, in, out);
-			}
-		}
+	    }
 #else
-		crm_err("Cannot write compressed files:"
-			" bzlib was not available at compile time");		
+	    crm_err("Cannot write compressed files:"
+		    " bzlib was not available at compile time");		
 #endif
 	}
 	
-	if(is_done == FALSE) {
-		res = fprintf(file_output_strm, "%s", buffer);
-		if(res < 0) {
-			cl_perror("Cannot write output to %s", filename);
-		}
-		
-		if(fflush(file_output_strm) == EOF || fsync(fileno(file_output_strm)) < 0) {
-			cl_perror("fflush or fsync error on %s", filename);
-			fclose(file_output_strm);
-			crm_free(buffer);
-			return -1;
-		}
+	if(out <= 0) {
+	    res = fprintf(file_output_strm, "%s", buffer);
+	    if(res < 0) {
+		cl_perror("Cannot write output to %s", filename);
+		goto bail;
+	    }		
 	}
+	
+  bail:
+	
+	if(fflush(file_output_strm) != 0) {
+	    cl_perror("fflush for %s failed:", filename);
+	    res = -1;
+	}
+	
+	if(fsync(fileno(file_output_strm)) < 0) {
+	    cl_perror("fsync for %s failed:", filename);
+	    res = -1;
+	}
+	    
 	fclose(file_output_strm);
-	crm_free(buffer);
-
+	
 	crm_debug_3("Saved %d bytes to the Cib as XML", res);
+	crm_free(buffer);
 
 	return res;
 }
@@ -723,13 +724,80 @@ print_xml_formatted(int log_level, const char *function,
 crm_data_t *
 get_message_xml(HA_Message *msg, const char *field) 
 {
+	int type = 0;
 	crm_data_t *xml_node = NULL;
-	crm_data_t *tmp_node = NULL;
-	crm_validate_data(msg);
-	tmp_node = cl_get_struct(msg, field);
-	if(tmp_node != NULL) {
-		xml_node = copy_xml(tmp_node);
+	
+	type = cl_get_type(msg, field);
+	if(type < 0) {
+	    /* not found */
+	    return NULL;
+	    
+	} else if(type == FT_STRING) {
+	    /* Future proof */
+	    const char *xml_text = cl_get_string(msg, field);
+	    xml_node = string2xml(xml_text);
+
+	} else if(type > FT_BINARY) {
+	    HA_Message *tmp_node = NULL;
+	    crm_validate_data(msg);
+	    tmp_node = cl_get_struct(msg, field);
+	    if(tmp_node != NULL) {
+		const char *name = cl_get_string(tmp_node, F_XML_TAGNAME);
+		if(name == NULL || safe_str_neq(field, name)) {
+		    /* Deprecated */
+		    xml_node = copy_xml(tmp_node);
+		    
+		} else {
+		    /* Valid XML */
+		    xml_child_iter(tmp_node, child, return copy_xml(child));
+		}
+	    }
+
+	} else if(type == FT_BINARY) {
+	    /* Future proof */
+	    int rc = BZ_OK;
+	    size_t orig_len = 0;
+	    unsigned int used = 0;
+	    char *uncompressed = NULL;
+	    const char *const_value = cl_get_binary(msg, field, &orig_len);
+	    char *compressed = NULL;
+	    int size = orig_len * 10;
+
+	    if(orig_len < 1) {
+		crm_err("Invalid binary field: %s", field);
+		return NULL;
+	    }
+	    crm_malloc0(compressed, orig_len);
+	    memcpy(compressed, const_value, orig_len);
+	    
+	    crm_debug_2("Trying to decompress %d bytes", (int)orig_len);
+	  retry:
+	    crm_realloc(uncompressed, size);
+	    memset(uncompressed, 0, size);
+	    used = size;
+	    
+	    rc = BZ2_bzBuffToBuffDecompress(
+		uncompressed, &used, compressed, orig_len, 1, 0);
+	    
+	    if(rc == BZ_OUTBUFF_FULL) {
+		size = size * 2;
+		/* dont try to allocate more memory than we have */
+		if(size > 0) {
+		    goto retry;
+		}
+	    }
+	    
+	    if(rc != BZ_OK) {
+		crm_err("Decompression of %d bytes into %d failed: %d", (int)orig_len, size, rc);
+		
+	    } else {
+		xml_node = string2xml(uncompressed);
+	    }
+	    
+	    crm_free(compressed);		
+	    crm_free(uncompressed);
 	}
+	
 	return xml_node;
 }
 
@@ -849,10 +917,8 @@ log_data_element(
 	xml_prop_iter(
 		data, prop_name, prop_value,
 
-		if(prop_name == NULL) {
-			CRM_ASSERT(prop_name != NULL);
-			
-		} else if(safe_str_eq(F_XML_TAGNAME, prop_name)) {
+		if(prop_name == NULL
+		   || safe_str_eq(F_XML_TAGNAME, prop_name)) {
 			continue;
 
 		} else if(hidden != NULL
@@ -914,14 +980,20 @@ dump_data_element(
 	int has_children = 0;
 	const char *name = NULL;
 
-	CRM_ASSERT(data != NULL);
+	if(data == NULL) {
+	    return 0;
+	}
+	
 	CRM_ASSERT(buffer != NULL && *buffer != NULL);
 
 	name = crm_element_name(data);
 	if(name == NULL && depth == 0) {
 		name = "__fake__";
+
+	} else if(name == NULL) {
+	    return 0;
 	}
-	CRM_ASSERT(name != NULL);
+	
 	crm_debug_5("Dumping %s...", name);
 
 	if(formatted) {
@@ -1431,7 +1503,8 @@ parse_xml(const char *input, size_t *offset)
 					if(len < 0) {
 						error = "couldnt find tag";
 						
-					} else if(strncmp(our_input+lpc, tag_name, len) == 0) {
+					} else if(strlen(tag_name) == len
+						  && strncmp(our_input+lpc, tag_name, len) == 0) {
 						more = FALSE;
 						lpc += len;
 						if(our_input[lpc] != '>') {
@@ -1572,6 +1645,7 @@ gboolean
 apply_xml_diff(crm_data_t *old, crm_data_t *diff, crm_data_t **new)
 {
 	gboolean result = TRUE;
+	const char *digest = crm_element_value(diff, XML_ATTR_DIGEST);
 	crm_data_t *added = find_xml_node(diff, "diff-added", FALSE);
 	crm_data_t *removed = find_xml_node(diff, "diff-removed", FALSE);
 
@@ -1613,6 +1687,17 @@ apply_xml_diff(crm_data_t *old, crm_data_t *diff, crm_data_t **new)
 			" saw %d", root_nodes_seen);
 		result = FALSE;
 
+	} else if(result && digest) {
+	    char *new_digest = calculate_xml_digest(*new, FALSE, TRUE);
+	    if(safe_str_neq(new_digest, digest)) {
+		crm_info("Digest mis-match: expected %s, calculated %s",
+			 digest, new_digest);
+ 		result = FALSE;
+	    } else {
+		crm_debug_2("Digest matched: expected %s, calculated %s",
+			    digest, new_digest);
+	    }
+	    
 	} else if(result) {
 		int lpc = 0;
 		crm_data_t *intermediate = NULL;
@@ -1627,7 +1712,7 @@ apply_xml_diff(crm_data_t *old, crm_data_t *diff, crm_data_t **new)
 			XML_ATTR_GENERATION,
 			XML_ATTR_GENERATION_ADMIN
 		};
-		
+
 		crm_debug_2("Verification Phase");
 		intermediate = diff_xml_object(old, *new, FALSE);
 		calc_added = find_xml_node(intermediate, "diff-added", FALSE);
@@ -1643,7 +1728,7 @@ apply_xml_diff(crm_data_t *old, crm_data_t *diff, crm_data_t **new)
 			value = crm_element_value(removed, name);
 			crm_xml_add(calc_removed, name, value);	
 		}
-		
+
 		diff_of_diff = diff_xml_object(intermediate, diff, TRUE);
 		if(diff_of_diff != NULL) {
 			crm_info("Diff application failed!");
@@ -1813,11 +1898,6 @@ subtract_xml_object(crm_data_t *left, crm_data_t *right, const char *marker)
 	const char *right_val = NULL;
 
 	int lpc = 0;
-	const char *filter[] = {
-		XML_ATTR_ORIGIN,
-		XML_DIFF_MARKER,
-		XML_CIB_ATTR_WRITTEN,		
-	};
 	static int filter_len = DIMOF(filter);
 	
 	crm_log_xml(LOG_DEBUG_5, "left:",  left);
@@ -2422,7 +2502,7 @@ free_pair(gpointer data, gpointer user_data)
 }
 
 static crm_data_t *
-sorted_xml(const crm_data_t *input)
+sorted_xml(const crm_data_t *input, crm_data_t *parent, gboolean recursive)
 {
 	GListPtr sorted = NULL;
 	GListPtr unsorted = NULL;
@@ -2435,7 +2515,7 @@ sorted_xml(const crm_data_t *input)
 	name = crm_element_name(input);
 	CRM_CHECK(name != NULL, return NULL);
 
-	result = create_xml_node(NULL, name);
+	result = create_xml_node(parent, name);
 	
 	xml_prop_iter(input, p_name, p_value,
 		      crm_malloc0(pair, sizeof(name_value_t));
@@ -2449,12 +2529,35 @@ sorted_xml(const crm_data_t *input)
 	g_list_foreach(sorted, dump_pair, result);
 	g_list_foreach(sorted, free_pair, NULL);
 	g_list_free(sorted);
+
+	if(recursive) {
+	    xml_child_iter(input, child, sorted_xml(child, result, recursive));
+	} else {
+	    xml_child_iter(input, child, add_node_copy(result, child));
+	}
+	
 	return result;
+}
+
+static void
+filter_xml(crm_data_t *data, const char **filter, int filter_len, gboolean recursive) 
+{
+    int lpc = 0;
+    
+    for(lpc = 0; lpc < filter_len; lpc++) {
+	xml_remove_prop(data, filter[lpc]);
+    }
+
+    if(recursive == FALSE) {
+	return;
+    }
+    
+    xml_child_iter(data, child, filter_xml(child, filter, filter_len, recursive));
 }
 
 /* "c048eae664dba840e1d2060f00299e9d" */
 char *
-calculate_xml_digest(crm_data_t *input, gboolean sort)
+calculate_xml_digest(crm_data_t *input, gboolean sort, gboolean do_filter)
 {
 	int i = 0;
 	int digest_len = 16;
@@ -2464,11 +2567,16 @@ calculate_xml_digest(crm_data_t *input, gboolean sort)
 	char *buffer = NULL;
 	size_t buffer_len = 0;
 
-	if(sort) {
-		sorted = sorted_xml(input);
+	if(sort || do_filter) {
+	    sorted = sorted_xml(input, NULL, TRUE);
 	} else {
-		sorted = copy_xml(input);
+	    sorted = copy_xml(input);
 	}
+
+	if(do_filter) {
+	    filter_xml(sorted, filter, DIMOF(filter), TRUE);
+	}
+	
 	buffer = dump_xml_formatted(sorted);
 	buffer_len = strlen(buffer);
 	
@@ -2533,8 +2641,6 @@ validate_with_dtd(
 	}
 	
 	if (!xmlValidateDtd(cvp, doc, dtd)) {
-		crm_err("CIB does not validate against %s", dtd_file);
-		crm_log_xml_debug(xml_blob, "invalid");
 		valid = FALSE;
 	}
 	

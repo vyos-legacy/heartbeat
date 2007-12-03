@@ -237,6 +237,7 @@ hbaping_new(const char * host)
 
 	ret = (struct hb_media *) MALLOC(sizeof(struct hb_media));
 	if (ret != NULL) {
+		memset(ret, 0, sizeof(*ret));
 		char * name;
 		ret->pd = (void*)ipi;
 		name = MALLOC(strlen(host)+1);
@@ -251,7 +252,7 @@ hbaping_new(const char * host)
 }
 
 /*
- *	Close UDP/IP broadcast heartbeat interface
+ *	Close HBA connection
  */
 
 static int
@@ -263,7 +264,10 @@ hbaping_close(struct hb_media* mp)
 	PINGASSERT(mp);
 	ei = (struct hbaping_private *) mp->pd;
 
-	HBA_CloseAdapter(ei->handle);
+	if (ei->handle >= 0) {
+		HBA_CloseAdapter(ei->handle);
+		ei->handle=-1;
+	}
 
 	return(rc);
 }

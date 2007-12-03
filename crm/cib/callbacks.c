@@ -73,6 +73,7 @@ void send_cib_replace(const HA_Message *sync_request, const char *host);
 void cib_process_request(
 	HA_Message *request, gboolean privileged, gboolean force_synchronous,
 	gboolean from_peer, cib_client_t *cib_client);
+HA_Message *cib_construct_reply(HA_Message *request, HA_Message *output, int rc);
 
 gboolean syncd_once = FALSE;
 
@@ -132,7 +133,7 @@ cib_prepare_common(HA_Message *root, const char *section)
 	}
 
 	crm_log_xml_debug_4(root, "cib:input");
-	return data;
+	return copy_xml(data);
 }
 
 static gboolean
@@ -171,9 +172,11 @@ cib_prepare_none(HA_Message *request, HA_Message **data, const char **section)
 static enum cib_errors
 cib_prepare_data(HA_Message *request, HA_Message **data, const char **section)
 {
-	HA_Message *input_fragment = cl_get_struct(request, F_CIB_CALLDATA);
+	HA_Message *input_fragment = get_message_xml(request, F_CIB_CALLDATA);
 	*section = cl_get_string(request, F_CIB_SECTION);
 	*data = cib_prepare_common(input_fragment, *section);
+	free_xml(input_fragment);
+	
 	if(verify_section(*section) == FALSE) {
 		return cib_bad_section;
 	}
@@ -201,15 +204,15 @@ cib_prepare_diff(HA_Message *request, HA_Message **data, const char **section)
 	*section = NULL;
 
 	if(crm_is_true(update)) {
-		input_fragment = cl_get_struct(request,F_CIB_UPDATE_DIFF);
+	    input_fragment = get_message_xml(request, F_CIB_UPDATE_DIFF);  
 		
 	} else {
-		input_fragment = cl_get_struct(request, F_CIB_CALLDATA);
+	    input_fragment = get_message_xml(request, F_CIB_CALLDATA); 
 	}
 
 	CRM_CHECK(input_fragment != NULL,crm_log_message(LOG_WARNING, request));
 	*data = cib_prepare_common(input_fragment, NULL);
-
+	free_xml(input_fragment);
 	return cib_ok;
 }
 
@@ -217,6 +220,14 @@ static enum cib_errors
 cib_cleanup_query(const char *op, HA_Message **data, HA_Message **output) 
 {
 	CRM_DEV_ASSERT(*data == NULL);
+	return cib_ok;
+}
+
+static enum cib_errors
+cib_cleanup_data(const char *op, HA_Message **data, HA_Message **output) 
+{
+	free_xml(*output);
+	free_xml(*data);
 	return cib_ok;
 }
 
@@ -263,19 +274,19 @@ typedef struct cib_operation_s
 cib_operation_t cib_server_ops[] = {
 	{NULL,		   FALSE, FALSE, FALSE, cib_prepare_none, cib_cleanup_none,   cib_process_default},
 	{CIB_OP_QUERY,     FALSE, FALSE, FALSE, cib_prepare_none, cib_cleanup_query,  cib_process_query},
-	{CIB_OP_MODIFY,    TRUE,  TRUE,  TRUE,  cib_prepare_data, cib_cleanup_output, cib_process_modify},
-	{CIB_OP_UPDATE,    TRUE,  TRUE,  TRUE,  cib_prepare_data, cib_cleanup_output, cib_process_change},
-	{CIB_OP_APPLY_DIFF,TRUE,  TRUE,  TRUE,  cib_prepare_diff, cib_cleanup_sync,   cib_process_diff},
+	{CIB_OP_MODIFY,    TRUE,  TRUE,  TRUE,  cib_prepare_data, cib_cleanup_data,   cib_process_modify},
+	{CIB_OP_UPDATE,    TRUE,  TRUE,  TRUE,  cib_prepare_data, cib_cleanup_data,   cib_process_change},
+	{CIB_OP_APPLY_DIFF,TRUE,  TRUE,  TRUE,  cib_prepare_diff, cib_cleanup_data,   cib_process_diff},
 	{CIB_OP_SLAVE,     FALSE, TRUE,  FALSE, cib_prepare_none, cib_cleanup_none,   cib_process_readwrite},
 	{CIB_OP_SLAVEALL,  FALSE, TRUE,  FALSE, cib_prepare_none, cib_cleanup_none,   cib_process_readwrite},
 	{CIB_OP_SYNC_ONE,  FALSE, TRUE,  FALSE, cib_prepare_sync, cib_cleanup_sync,   cib_process_sync_one},
 	{CIB_OP_MASTER,    FALSE, TRUE,  FALSE, cib_prepare_none, cib_cleanup_none,   cib_process_readwrite},
 	{CIB_OP_ISMASTER,  FALSE, TRUE,  FALSE, cib_prepare_none, cib_cleanup_none,   cib_process_readwrite},
 	{CIB_OP_BUMP,      TRUE,  TRUE,  TRUE,  cib_prepare_none, cib_cleanup_output, cib_process_bump},
-	{CIB_OP_REPLACE,   TRUE,  TRUE,  TRUE,  cib_prepare_data, cib_cleanup_output, cib_process_replace},
-	{CIB_OP_CREATE,    TRUE,  TRUE,  TRUE,  cib_prepare_data, cib_cleanup_output, cib_process_change},
-	{CIB_OP_DELETE,    TRUE,  TRUE,  TRUE,  cib_prepare_data, cib_cleanup_output, cib_process_delete},
-	{CIB_OP_DELETE_ALT,TRUE,  TRUE,  TRUE,  cib_prepare_data, cib_cleanup_output, cib_process_change},
+	{CIB_OP_REPLACE,   TRUE,  TRUE,  TRUE,  cib_prepare_data, cib_cleanup_data,   cib_process_replace},
+	{CIB_OP_CREATE,    TRUE,  TRUE,  TRUE,  cib_prepare_data, cib_cleanup_data,   cib_process_change},
+	{CIB_OP_DELETE,    TRUE,  TRUE,  TRUE,  cib_prepare_data, cib_cleanup_data,   cib_process_delete},
+	{CIB_OP_DELETE_ALT,TRUE,  TRUE,  TRUE,  cib_prepare_data, cib_cleanup_data,   cib_process_change},
 	{CIB_OP_SYNC,      FALSE, TRUE,  FALSE, cib_prepare_sync, cib_cleanup_sync,   cib_process_sync},
 	{CRM_OP_QUIT,	   FALSE, TRUE,  FALSE, cib_prepare_none, cib_cleanup_none,   cib_process_quit},
 	{CRM_OP_PING,	   FALSE, FALSE, FALSE, cib_prepare_none, cib_cleanup_output, cib_process_ping},
@@ -367,8 +378,8 @@ cib_client_connect_common(
 		crm_debug_3("Created channel %p for channel %s",
 			  new_client, new_client->channel_name);
 
-		channel->ops->set_recv_qlen(channel, 100);
-		channel->ops->set_send_qlen(channel, 400);
+		channel->ops->set_recv_qlen(channel, 1024);
+		channel->ops->set_send_qlen(channel, 1024);
 
 		if(callback != NULL) {
 			new_client->source = G_main_add_IPC_Channel(
@@ -964,6 +975,8 @@ send_peer_reply(
 		int diff_del_updates = 0;
 		int diff_del_epoch   = 0;
 		int diff_del_admin_epoch = 0;
+
+		char *digest = NULL;
 		
 		cib_diff_version_details(
 			result_diff,
@@ -978,6 +991,11 @@ send_peer_reply(
 		ha_msg_add(reply_copy, F_CIB_GLOBAL_UPDATE, XML_BOOLEAN_TRUE);
 		ha_msg_mod(reply_copy, F_CIB_OPERATION, CIB_OP_APPLY_DIFF);
 
+		digest = calculate_xml_digest(the_cib, FALSE, TRUE);
+		ha_msg_mod(result_diff, XML_ATTR_DIGEST, digest);
+/* 		crm_log_xml_debug(the_cib, digest); */
+		crm_free(digest);
+		
  		add_message_xml(reply_copy, F_CIB_UPDATE_DIFF, result_diff);
 		crm_log_message(LOG_DEBUG_3, reply_copy);
   		send_ha_message(hb_conn, reply_copy, NULL, TRUE);
@@ -1070,7 +1088,14 @@ cib_process_request(
 		return;
 	}
 
-	if(process) {
+	if(cib_status != cib_ok) {
+	    rc = cib_status;
+	    crm_err("Operation ignored, cluster configuration is invalid."
+		    " Please repair and restart: %s",
+		    cib_error2string(cib_status));
+	    op_reply = cib_construct_reply(request, the_cib, cib_status);
+
+	} else if(process) {
 		cib_num_local++;
 		crm_debug_2("Performing local processing:"
 			    " op=%s origin=%s/%s,%s (update=%s)",
@@ -1152,7 +1177,7 @@ cib_process_request(
 	return;	
 }
 
-static HA_Message *
+HA_Message *
 cib_construct_reply(HA_Message *request, HA_Message *output, int rc) 
 {
 	int lpc = 0;
@@ -1201,12 +1226,17 @@ cib_process_command(HA_Message *request, HA_Message **reply,
 	enum cib_errors rc = cib_ok;
 	enum cib_errors rc2 = cib_ok;
 
+	int log_level = LOG_DEBUG_3;
+	crm_data_t *filtered = NULL;
+	
 	const char *op = NULL;
 	const char *section = NULL;
 	gboolean config_changed = FALSE;
 	gboolean global_update = crm_is_true(
 		cl_get_string(request, F_CIB_GLOBAL_UPDATE));
 	
+	CRM_ASSERT(cib_status == cib_ok);
+
 	*reply = NULL;
 	*cib_diff = NULL;
 	if(per_action_cib) {
@@ -1226,14 +1256,6 @@ cib_process_command(HA_Message *request, HA_Message **reply,
 	   && privileged == FALSE) {
 		/* abort */
 		rc = cib_not_authorized;
-	}
-
-	if(cib_status != cib_ok) {
-		*reply = cib_construct_reply(request, the_cib, cib_status);
-		if(per_action_cib) {
-			uninitializeCib();
-		}
-		return cib_status;
 	}
 	
 	if(rc == cib_ok
@@ -1257,115 +1279,111 @@ cib_process_command(HA_Message *request, HA_Message **reply,
 	
 	if(rc != cib_ok) {
 		crm_debug_2("Call setup failed: %s", cib_error2string(rc));
+		goto done;
 		
-	} else if(cib_server_ops[call_type].modifies_cib) {
-		int log_level = LOG_DEBUG_3;
-		crm_data_t *filtered = NULL;
-		
-		if((call_options & cib_inhibit_notify) == 0) {
-			cib_pre_notify(
-				call_options, op,
-				get_object_root(section, current_cib), input);
-		}
-
-		if(rc == cib_ok) {
-			result_cib = copy_xml(current_cib);
-
-			rc = cib_server_ops[call_type].fn(
-				op, call_options, section, input,
-				current_cib, &result_cib, &output);
-		}
-		
-		if(rc == cib_ok) {
-			
-			CRM_DEV_ASSERT(result_cib != NULL);
-			CRM_DEV_ASSERT(current_cib != result_cib);
-
-			update_counters(__FILE__, __FUNCTION__, result_cib);
-			config_changed = cib_config_changed(
-				current_cib, result_cib, &filtered);
-
-			if(global_update) {
-				/* skip */
-				CRM_CHECK(call_type == 4 || call_type == 11,
-					  crm_err("Call type: %d", call_type);
-					  crm_log_message(LOG_ERR, request));
-				crm_debug_2("Skipping update: global replace");
-				
-			} else if(cib_server_ops[call_type].fn == cib_process_change
-				  && (call_options & cib_inhibit_bcast)) {
-				/* skip */
-				crm_debug_2("Skipping update: inhibit broadcast");
-
-			} else {
-				cib_update_counter(
-					result_cib, XML_ATTR_NUMUPDATES, FALSE);
-
-				if(config_changed) {
-					cib_update_counter(
-						result_cib, XML_ATTR_NUMUPDATES, TRUE);
-					cib_update_counter(
-						result_cib, XML_ATTR_GENERATION, FALSE);
-				}
-			}
-			
-			if(do_id_check(result_cib, NULL, TRUE, FALSE)) {
-				rc = cib_id_check;
-				if(call_options & cib_force_diff) {
-					crm_err("Global update introduces id collision!");
-				}
-
-			} else {
-				*cib_diff = diff_cib_object(
-					current_cib, result_cib, FALSE);
-			}
-		}		
-		
-		if(rc != cib_ok) {
-			free_xml(result_cib);
-			
-		} else {
-		    rc = activateCibXml(result_cib, config_changed);
-		    if(rc != cib_ok) {
-			crm_warn("Activation failed");
-		    }
-		}
-
-		if((call_options & cib_inhibit_notify) == 0) {
-			const char *call_id = cl_get_string(
-				request, F_CIB_CALLID);
-			const char *client = cl_get_string(
-				request, F_CIB_CLIENTNAME);
-			cib_post_notify(call_options, op, input, rc, the_cib);
-			cib_diff_notify(call_options, client, call_id, op,
-					input, rc, *cib_diff);
-		}
-
-		if(rc != cib_ok) {
-			log_level = LOG_DEBUG_4;
-		} else if(cib_is_master && config_changed) {
-			log_level = LOG_INFO;
-		} else if(cib_is_master) {
-			log_level = LOG_DEBUG;
-			log_xml_diff(LOG_DEBUG_2, filtered, "cib:diff:filtered");
-			
-		} else if(config_changed) {
-			log_level = LOG_DEBUG_2;
-		} else {
-			log_level = LOG_DEBUG_3;
-		}
-		
-		log_xml_diff(log_level, *cib_diff, "cib:diff");
-		free_xml(filtered);
-		
-	} else {
+	} else if(cib_server_ops[call_type].modifies_cib == FALSE) {
 		rc = cib_server_ops[call_type].fn(
 			op, call_options, section, input,
 			current_cib, &result_cib, &output);
 
 		CRM_CHECK(result_cib == NULL, free_xml(result_cib));
+		goto done;
 	}	
+
+	/* Handle a valid write action */
+
+	if((call_options & cib_inhibit_notify) == 0) {
+	    cib_pre_notify(call_options, op,
+			   get_object_root(section, current_cib), input);
+	}
+
+	if(rc == cib_ok) {
+	    result_cib = copy_xml(current_cib);
+	    
+	    rc = cib_server_ops[call_type].fn(
+		op, call_options, section, input,
+		current_cib, &result_cib, &output);
+	}
+		
+	if(rc == cib_ok) {
+	    
+	    CRM_DEV_ASSERT(result_cib != NULL);
+	    CRM_DEV_ASSERT(current_cib != result_cib);
+	    
+	    update_counters(__FILE__, __FUNCTION__, result_cib);
+	    config_changed = cib_config_changed(current_cib, result_cib, &filtered);
+	    
+	    if(global_update) {
+		/* skip */
+		CRM_CHECK(call_type == 4 || call_type == 11,
+			  crm_err("Call type: %d", call_type);
+			  crm_log_message(LOG_ERR, request));
+		crm_debug_2("Skipping update: global replace");
+		
+	    } else if(cib_server_ops[call_type].fn == cib_process_change
+		      && (call_options & cib_inhibit_bcast)) {
+		/* skip */
+		crm_debug_2("Skipping update: inhibit broadcast");
+		
+	    } else {
+		cib_update_counter(result_cib, XML_ATTR_NUMUPDATES, FALSE);
+
+		if(config_changed) {
+		    cib_update_counter(result_cib, XML_ATTR_NUMUPDATES, TRUE);
+		    cib_update_counter(result_cib, XML_ATTR_GENERATION, FALSE);
+		}
+	    }
+			
+	    if(do_id_check(result_cib, NULL, TRUE, FALSE)) {
+		rc = cib_id_check;
+		if(call_options & cib_force_diff) {
+		    crm_err("Global update introduces id collision!");
+		}
+		
+	    } else {
+		*cib_diff = diff_cib_object(current_cib, result_cib, FALSE);
+	    }
+	}		
 	
+	if(rc != cib_ok) {
+	    free_xml(result_cib);
+	    
+	} else {
+	    rc = activateCibXml(result_cib, config_changed);
+	    if(rc != cib_ok) {
+		crm_warn("Activation failed");
+	    }
+	}
+	
+	if((call_options & cib_inhibit_notify) == 0) {
+	    const char *call_id = cl_get_string(request, F_CIB_CALLID);
+	    const char *client = cl_get_string(request, F_CIB_CLIENTNAME);
+	    cib_post_notify(call_options, op, input, rc, the_cib);
+	    cib_diff_notify(call_options, client, call_id, op,
+			    input, rc, *cib_diff);
+	}
+
+	if(rc == cib_dtd_validation && global_update) {
+	    log_level = LOG_WARNING;
+	    crm_log_xml_info(input, "cib:global_update");
+	} else if(rc != cib_ok) {
+	    log_level = LOG_DEBUG_4;
+	} else if(cib_is_master && config_changed) {
+	    log_level = LOG_INFO;
+	} else if(cib_is_master) {
+	    log_level = LOG_DEBUG;
+	    log_xml_diff(LOG_DEBUG_2, filtered, "cib:diff:filtered");
+	    
+	} else if(config_changed) {
+	    log_level = LOG_DEBUG_2;
+	} else {
+	    log_level = LOG_DEBUG_3;
+	}
+	
+	log_xml_diff(log_level, *cib_diff, "cib:diff");
+	free_xml(filtered);		
+
+  done:
 	if((call_options & cib_discard_reply) == 0) {
 		*reply = cib_construct_reply(request, output, rc);
 	}
@@ -1639,7 +1657,7 @@ cib_msg_copy(HA_Message *msg, gboolean with_data)
 	int lpc = 0;
 	const char *field = NULL;
 	const char *value = NULL;
-	const HA_Message *value_struct = NULL;
+	HA_Message *value_struct = NULL;
 
 	static const char *field_list[] = {
 		F_TYPE		,
@@ -1688,10 +1706,11 @@ cib_msg_copy(HA_Message *msg, gboolean with_data)
 	}
 	for(lpc = 0; with_data && lpc < DIMOF(data_list); lpc++) {
 		field = data_list[lpc];
-		value_struct = cl_get_struct(msg, field);
+		value_struct = get_message_xml(msg, field);
 		if(value_struct != NULL) {
 			add_message_xml(copy, field, value_struct);
 		}
+		free_xml(value_struct);
 	}
 	return copy;
 }
@@ -1756,29 +1775,37 @@ gboolean cib_ccm_dispatch(int fd, gpointer user_data)
 	if(0 == rc) {
 		return TRUE;
 
-	} else {
-		crm_err("CCM connection appears to have failed: rc=%d.", rc);
-		return FALSE;
 	}
+
+	crm_err("CCM connection appears to have failed: rc=%d.", rc);
+
+	/* eventually it might be nice to recover and reconnect... but until then... */
+	crm_err("Exiting to recover from CCM connection failure");
+	exit(2);
+	
+	return FALSE;
 }
 
+int current_instance = 0;
 void 
 cib_ccm_msg_callback(
 	oc_ed_t event, void *cookie, size_t size, const void *data)
 {
-	int instance = -1;
 	gboolean update_id = FALSE;
 	gboolean update_quorum = FALSE;
-	
 	const oc_ev_membership_t *membership = data;
 
-	if(membership != NULL) {
-		instance = membership->m_instance;
+	CRM_ASSERT(membership != NULL);
+
+	crm_debug("Process CCM event=%s (id=%d)",
+		  ccm_event_name(event), membership->m_instance);
+
+	if(current_instance > membership->m_instance) {
+		crm_err("Membership instance ID went backwards! %d->%d",
+			current_instance, membership->m_instance);
+		CRM_ASSERT(current_instance <= membership->m_instance);
 	}
-
-	crm_debug("Process CCM event=%s (id=%d)", 
-		 ccm_event_name(event), instance);
-
+	
 	switch(event) {
 		case OC_EV_MS_NEW_MEMBERSHIP:
 		case OC_EV_MS_INVALID:
@@ -1807,7 +1834,8 @@ cib_ccm_msg_callback(
 			crm_free(ccm_transition_id);
 			ccm_transition_id = NULL;
 		}
-		ccm_transition_id = crm_itoa(instance);
+		current_instance = membership->m_instance;
+		ccm_transition_id = crm_itoa(membership->m_instance);
 		set_transition(the_cib);
 	}
 	
@@ -1828,7 +1856,7 @@ cib_ccm_msg_callback(
 		
 		crm_debug("Quorum %s after event=%s (id=%d)", 
 			  cib_have_quorum?"(re)attained":"lost",
-			  ccm_event_name(event), instance);
+			  ccm_event_name(event), membership->m_instance);
 		
 		if(membership != NULL && membership->m_n_out != 0) {
 			members = membership->m_n_out;
@@ -1912,7 +1940,6 @@ terminate_ha_connection(const char *caller)
 	if(hb_conn != NULL) {
 		crm_info("%s: Disconnecting heartbeat", caller);
 		hb_conn->llc_ops->signoff(hb_conn, FALSE);
-		
 	} else {
 		crm_err("%s: No heartbeat connection", caller);
 		exit(LSB_EXIT_OK);

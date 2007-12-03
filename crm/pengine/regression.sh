@@ -24,6 +24,9 @@ fi
 . regression.core.sh
 create_mode="true"
 echo Generating test outputs for these tests...
+
+# do_test
+
 echo Done.
 echo ""
 
@@ -86,6 +89,14 @@ do_test order4 "Order (multiple)  "
 do_test order5 "Order (move)  "
 do_test order6 "Order (move w/ restart)  "
 do_test order7 "Order (manditory)  "
+do_test order-optional "Order (score=0)  "
+do_test order-required "Order (score=INFINITY)  "
+
+echo ""
+do_test coloc-loop "Colocation - loop"
+do_test coloc-many-one "Colocation - many-to-one"
+do_test coloc-list "Colocation - many-to-one with list"
+do_test coloc-group "Colocation - groups"
 
 #echo ""
 #do_test agent1 "version: lt (empty)"
@@ -176,6 +187,7 @@ do_test group11 "Group target_role"
 do_test group14 "Group stop (graph terminated)"
 do_test group15 "-ve group colocation"
 do_test bug-1573 "Partial stop of a group with two children"
+do_test bug-1718 "Mandatory group ordering - Stop group_FUN"
 
 echo ""
 do_test inc0 "Incarnation start" 
@@ -191,6 +203,7 @@ do_test inc9 "Non-unique clone"
 do_test inc10 "Non-unique clone (stop)"
 do_test inc11 "Primitive colocation with clones" 
 do_test inc12 "Clone shutdown" 
+do_test cloned-group "Make sure only the correct number of cloned groups are started"
 
 echo ""
 do_test master-0 "Stopped -> Slave"
@@ -207,6 +220,12 @@ do_test master-10 "Stopped -> Promotable : notify with monitor"
 do_test master-11 "Stopped -> Promote : colocation"
 do_test novell-239082 "Demote/Promote ordering"
 do_test novell-239087 "Stable master placement"
+do_test master-12 "Promotion based solely on rsc_location constraints"
+do_test master-13 "Include preferences of colocated resources when placing master"
+do_test master-demote "Ordering when actions depends on demoting a slave resource" 
+do_test master-ordering "Prevent resources from starting that need a master"
+do_test bug-1765 "Master-Master Colocation (dont stop the slaves)"
+do_test master-group "Promotion of cloned groups"
 
 echo ""
 do_test managed-0 "Managed (reference)"
@@ -241,9 +260,11 @@ do_test 1360 "OSDL #1360 - Clone stickiness"
 do_test 1484 "OSDL #1484 - on_fail=stop"
 do_test 1494 "OSDL #1494 - Clone stability"
 do_test unrunnable-1 "Unrunnable"
-do_test stonith-0 "Stonith loop"
+do_test stonith-0 "Stonith loop - 1"
+do_test stonith-1 "Stonith loop - 2"
 do_test bug-1572-1 "Recovery of groups depending on master/slave"
 do_test bug-1572-2 "Recovery of groups depending on master/slave when the master is never re-promoted"
+do_test bug-1685 "Depends-on-master ordering"
 
 echo ""
 

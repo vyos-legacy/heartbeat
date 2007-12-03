@@ -59,7 +59,7 @@
 #include <hb_config.h>
 #include <hb_api_core.h>
 #include <clplumbing/cl_syslog.h>
-#include  <clplumbing/cl_misc.h>
+#include <clplumbing/cl_misc.h>
 
 #define	DIRTYALIASKLUDGE
 
@@ -86,6 +86,7 @@ static int set_stonith_info(const char *);
 static int set_stonith_host_info(const char *);
 static int set_realtime_prio(const char *);
 static int add_client_child(const char *);
+static int add_failfast_child(const char *);
 static int set_compression(const char *);
 static int set_compression_threshold(const char *);
 static int set_traditional_compression(const char *);
@@ -108,6 +109,7 @@ static int set_uuidfrom(const char*);
 static int ha_config_check_boolean(const char *);
 static int set_memreserve(const char *);
 static int set_quorum_server(const char * value);
+static int set_syslog_logfilefmt(const char * value);
 #ifdef ALLOWPOLLCHOICE
   static int set_normalpoll(const char *);
 #endif
@@ -155,6 +157,7 @@ struct directive {
 , {KEY_CONNINTVAL,set_logdconntime, TRUE, "60", "the interval to reconnect to logd"}  
 , {KEY_REGAPPHBD, set_register_to_apphbd, FALSE, NULL, "register with apphbd"}
 , {KEY_BADPACK,   set_badpack_warn, TRUE, "true", "warn about bad packets"}
+, {KEY_SYSLOGFMT, set_syslog_logfilefmt, TRUE, "false", "log to files in syslog format"}
 , {KEY_COREDUMP,  set_coredump, TRUE, "true", "enable Linux-HA core dumps"}
 , {KEY_COREROOTDIR,set_corerootdir, TRUE, NULL, "set root directory of core dump area"}
 , {KEY_REL2,      set_release2mode, TRUE, "false"
@@ -181,7 +184,8 @@ static const struct WholeLineDirective {
 {	{KEY_STONITH,  	   set_stonith_info}
 ,	{KEY_STONITHHOST,  set_stonith_host_info}
 ,	{KEY_APIPERM,	   set_api_authorization}
-,	{KEY_CLIENT_CHILD,  add_client_child}
+,	{KEY_CLIENT_CHILD, add_client_child}
+,	{KEY_FAILFAST,	   add_failfast_child}
 };
 
 extern const char *			cmdname;
@@ -212,11 +216,11 @@ GSList*					del_node_list;
 
 static int	islegaldirective(const char *directive);
 static int	parse_config(const char * cfgfile, char *nodename);
-static long	get_msec(const char * input);
 static int	add_option(const char *	option, const char * value);
 
 
 int	num_hb_media_types;
+static gboolean	any_media_statements_yet = FALSE;
 
 struct hb_media_fns**	hbmedia_types;
 
@@ -397,7 +401,6 @@ init_config(const char * cfgfile)
 			}
 		}
 		write_cache_file(config);
-		unlink(HOSTUUIDCACHEFILETMP); /* Can't hurt. */
 	}
 	if ((curnode = lookup_node(localnodename)) == NULL) {
 		if (config->rtjoinconfig == HB_JOIN_ANY) {
@@ -578,6 +581,94 @@ init_node_link_info(struct node_info *   node)
 	}
 }
 
+#if 0
+/*
+ * This code does _not_ (permanently) affect the value of nummedia
+ * This can be seen as an advantage, or a disadvantage ;-)
+ * This 
+ */
+
+static int
+create_medium(const char * directive, const char * optionstring, int mediaslot)
+{
+	struct hb_media* mp = NULL;
+	int			retval=1;
+	char*			type;
+	char*			descr;
+	struct hb_media_fns*	funs;
+
+	/* Load the medium plugin if its not already loaded... */
+
+	if ((funs=g_hash_table_lookup(CommFunctions, directive)) == NULL) {
+		if (PILPluginExists(PluginLoadingSystem
+		,	HB_COMM_TYPE_S, directive) == PIL_OK) {
+			PIL_rc rc;
+			if ((rc = PILLoadPlugin(PluginLoadingSystem
+			,	HB_COMM_TYPE_S, directive, NULL))
+			!=	PIL_OK) {
+				ha_log(LOG_ERR, "Cannot load comm"
+				" plugin %s [%s]", directive
+				,	PIL_strerror(rc));
+			}
+
+			funs=g_hash_table_lookup(CommFunctions
+			,	directive);
+		}
+	}else{
+		PILIncrIFRefCount(PluginLoadingSystem
+		,	HB_COMM_TYPE_S, directive, +1);
+	}
+	if ((funs=g_hash_table_lookup(CommFunctions, directive)) == NULL) {
+		return -1;
+	}
+
+	if (funs->new != NULL) {
+		mp = funs->new(optionstring);
+		if (mp) {
+			sysmedia[mediaslot]=mp;
+		}
+	}else if (funs->parse)  {
+		int	savenummedia = nummedia;
+		nummedia=mediaslot;
+		if (funs->parse(optionstring) == HA_OK) {
+			mp=NULL;
+		}else{
+			mp=sysmedia[mediaslot];
+			nummedia=savenummedia;
+			retval = (nummedia > mediaslot)? 1 : -1;
+		}
+	}
+
+	funs->descr(&descr);
+	funs->mtype(&type);
+
+	if (mp == NULL) {
+		ha_log(LOG_ERR, "Illegal %s [%s] in config file [%s]"
+		,	type, descr, optionstring);
+		PILIncrIFRefCount(PluginLoadingSystem
+		,	HB_COMM_TYPE_S, directive, -1);
+		/* By default, PILS modules use g_malloc and g_free */
+		g_free(descr); descr = NULL;
+		g_free(type);  type = NULL;
+		return -1;
+	}
+	mp->vf =		funs;
+	mp->type =		type;
+	mp->description =	descr;
+	g_assert(mp->type);
+	g_assert(mp->description);
+	g_assert(mp->type[0] != '(');
+	g_assert(mp->description[0] != '(');
+
+	if (!mp->name) {
+		mp->name = cl_strdup(directive);
+	}
+	PILIncrIFRefCount(PluginLoadingSystem
+	,	HB_COMM_TYPE_S, directive, +1);
+}
+#endif
+
+
 /*
  *	Parse the configuration file and stash away the data
  */
@@ -633,12 +724,12 @@ parse_config(const char * cfgfile, char *nodename)
 
 		/* Skip over white space */
 		bp += strspn(bp, WHITESPACE);
-		
+
 		/* Zap comments on the line */
 		if ((cp = strchr(bp, COMMENTCHAR)) != NULL)  {
 			*cp = EOS;
 		}
-		
+
 		/* Strip '\n' and '\r' chars */
 		if ((cp = strpbrk(bp, CRLF)) != NULL) {
 			*cp = EOS;
@@ -717,6 +808,7 @@ parse_config(const char * cfgfile, char *nodename)
 			funs->descr(&sysmedia[num_save]->description);
 			g_assert(sysmedia[num_save]->type);
 			g_assert(sysmedia[num_save]->description);
+			any_media_statements_yet = TRUE;
 
 			*bp = EOS;
 		}
@@ -733,6 +825,7 @@ parse_config(const char * cfgfile, char *nodename)
 					errcount++;
 				}
 				*bp = EOS;
+				any_media_statements_yet = TRUE;
 			}
 		}
 		/* Now Check for  the options-list stuff */
@@ -1435,7 +1528,7 @@ set_hopfudge(const char * value)
 static int
 set_keepalive_ms(const char * value)
 {
-	config->heartbeat_ms = get_msec(value);
+	config->heartbeat_ms = cl_get_msec(value);
 
 	if (config->heartbeat_ms > 0) {
 		return(HA_OK);
@@ -1448,7 +1541,7 @@ set_keepalive_ms(const char * value)
 static int
 set_deadtime_ms(const char * value)
 {
-	config->deadtime_ms = get_msec(value);
+	config->deadtime_ms = cl_get_msec(value);
 	if (config->deadtime_ms >= 0) {
 		return(HA_OK);
 	}
@@ -1459,7 +1552,7 @@ set_deadtime_ms(const char * value)
 static int
 set_deadping_ms(const char * value)
 {
-	config->deadping_ms = get_msec(value);
+	config->deadping_ms = cl_get_msec(value);
 	if (config->deadping_ms >= 0) {
 		return(HA_OK);
 	}
@@ -1470,7 +1563,7 @@ set_deadping_ms(const char * value)
 static int
 set_initial_deadtime_ms(const char * value)
 {
-	config->initial_deadtime_ms = get_msec(value);
+	config->initial_deadtime_ms = cl_get_msec(value);
 	if (config->initial_deadtime_ms >= 0) {
 		return(HA_OK);
 	}
@@ -1545,6 +1638,12 @@ set_baudrate(const char * value)
 		,	cmdname, value);
 		return(HA_FAIL);
 	}
+	if (any_media_statements_yet) {
+		fprintf(stderr
+		,	"%s: baudrate setting must precede media statements"
+		,	cmdname);
+		
+	}
 	return(HA_OK);
 }
 
@@ -1574,6 +1673,9 @@ set_udpport(const char * value)
 		}
 	}
 	endservent();
+	fprintf(stderr
+	,	"%s: udpport setting must precede media statements"
+	,	cmdname);
 	return(HA_OK);
 }
 
@@ -1677,78 +1779,14 @@ set_register_to_apphbd(const char * value)
 	return cl_str_to_boolean(value, &UseApphbd);
 }
 
-/*
- *	Convert a string into a positive, rounded number of milliseconds.
- *
- *	Returns -1 on error.
- *
- *	Permissible forms:
- *		[0-9]+			units are seconds
- *		[0-9]*.[0-9]+		units are seconds
- *		[0-9]+ *[Mm][Ss]	units are milliseconds
- *		[0-9]*.[0-9]+ *[Mm][Ss]	units are milliseconds
- *		[0-9]+ *[Uu][Ss]	units are microseconds
- *		[0-9]*.[0-9]+ *[Uu][Ss]	units are microseconds
- *
- *	Examples:
- *
- *		1		= 1000 milliseconds
- *		1000ms		= 1000 milliseconds
- *		1000000us	= 1000 milliseconds
- *		0.1		= 100 milliseconds
- *		100ms		= 100 milliseconds
- *		100000us	= 100 milliseconds
- *		0.001		= 1 millisecond
- *		1ms		= 1 millisecond
- *		1000us		= 1 millisecond
- *		499us		= 0 milliseconds
- *		501us		= 1 millisecond
- */
-#define	NUMCHARS	"0123456789."
-static long
-get_msec(const char * input)
-{
-	const char *	cp = input;
-	const char *	units;
-	long		multiplier = 1000;
-	long		divisor = 1;
-	long		ret = -1;
-	double		dret;
 
-	cp += strspn(cp, WHITESPACE);
-	units = cp + strspn(cp, NUMCHARS);
-	units += strspn(units, WHITESPACE);
-
-	if (strchr(NUMCHARS, *cp) == NULL) {
-		return ret;
-	}
-
-	if (strncasecmp(units, "ms", 2) == 0
-	||	strncasecmp(units, "msec", 4) == 0) {
-		multiplier = 1;
-		divisor = 1;
-	}else if (strncasecmp(units, "us", 2) == 0
-	||	strncasecmp(units, "usec", 4) == 0) {
-		multiplier = 1;
-		divisor = 1000;
-	}else if (*units != EOS && *units != '\n'
-	&&	*units != '\r') {
-		return ret;
-	}
-	dret = atof(cp);
-	dret *= (double)multiplier;
-	dret /= (double)divisor;
-	dret += 0.5;
-	ret = (long)dret;
-	return(ret);
-}
 
 /* Set warntime interval */
 static int
 set_warntime_ms(const char * value)
 {
 	long	warntime;
-	warntime = get_msec(value);
+	warntime = cl_get_msec(value);
 
 	if (warntime <= 0) {
 		fprintf(stderr, "Warn time [%s] is invalid.\n", value);
@@ -2043,7 +2081,7 @@ static int
 set_logdconntime(const char * value)
 {
 	int logdtime;
-	logdtime = get_msec(value);
+	logdtime = cl_get_msec(value);
 	
 	cl_log_set_logdtime(logdtime);
 	
@@ -2068,7 +2106,7 @@ set_badpack_warn(const char* value)
 }
 
 static int
-add_client_child(const char * directive)
+add_client_child_base(const char * directive, gboolean failfast)
 {
 	struct client_child*	child;
 	const char *		uidp;
@@ -2155,6 +2193,7 @@ add_client_child(const char * directive)
 	}
 	memset(child, 0, sizeof(*child));
 	child->respawn = 1;
+	child->rebootifitdies = failfast;
 	child->u_runas = pw->pw_uid;
 	child->g_runas = pw->pw_gid;
 	child->command = command;
@@ -2163,6 +2202,16 @@ add_client_child(const char * directive)
 	config->last_client = g_list_last(config->client_list);
 
 	return HA_OK;
+}
+static int
+add_client_child(const char * directive)
+{
+	return add_client_child_base(directive, FALSE);
+}
+static int
+add_failfast_child(const char * directive)
+{
+	return add_client_child_base(directive, TRUE);
 }
 
 static int
@@ -2473,6 +2522,16 @@ set_coredump(const char* value)
 	}
 	return rc;
 }
+static int
+set_syslog_logfilefmt(const char * value)
+{
+	gboolean	dosyslogfmt = HA_OK;
+	int		rc;
+	if ((rc = cl_str_to_boolean(value, &dosyslogfmt)) == HA_OK) {
+		cl_log_enable_syslog_filefmt(dosyslogfmt);
+	}
+	return rc;
+}
 
 static int
 set_corerootdir(const char* value)
@@ -2529,13 +2588,13 @@ set_release2mode(const char* value)
 #endif
 	,	{"apiauth", "pingd   	uid=root"}
 
-	,	{"respawn", " "HA_CCMUSER " " HA_LIBHBDIR "/ccm"}
-	,	{"respawn", " "HA_CCMUSER " " HA_LIBHBDIR "/cib" }
+	,	{"failfast"," "HA_CCMUSER " " HA_LIBHBDIR "/ccm"}
+	,	{"failfast"," "HA_CCMUSER " " HA_LIBHBDIR "/cib" }
 		
 	,	{"respawn", "root "           HA_LIBHBDIR "/lrmd -r"}
 	,	{"respawn", "root "	      HA_LIBHBDIR "/stonithd"}
 	,	{"respawn", " "HA_CCMUSER " " HA_LIBHBDIR "/attrd" }
-	,	{"respawn", " "HA_CCMUSER " " HA_LIBHBDIR "/crmd" }
+	,	{"failfast"," "HA_CCMUSER " " HA_LIBHBDIR "/crmd" }
 #ifdef MGMT_ENABLED
 	,	{"respawn", "root "  	      HA_LIBHBDIR "/mgmtd -v"}
 #endif
@@ -2547,10 +2606,10 @@ set_release2mode(const char* value)
 		{"apiauth", "cib 	uid=" HA_CCMUSER}
 	,	{"apiauth", "crmd   	uid=" HA_CCMUSER}
 
-	,	{"respawn", " "HA_CCMUSER " " HA_LIBHBDIR "/ccm"}
-	,	{"respawn", " "HA_CCMUSER " " HA_LIBHBDIR "/cib"}
+	,	{"failfast"," "HA_CCMUSER " " HA_LIBHBDIR "/ccm"}
+	,	{"failfast"," "HA_CCMUSER " " HA_LIBHBDIR "/cib"}
 	,	{"respawn", "root "           HA_LIBHBDIR "/lrmd"}
-	,	{"respawn", " "HA_CCMUSER " " HA_LIBHBDIR "/crmd"}
+	,	{"failfast"," "HA_CCMUSER " " HA_LIBHBDIR "/crmd"}
 		/* Don't 'respawn' pingd - it's a resource agent */
 	};
 
@@ -2561,12 +2620,12 @@ set_release2mode(const char* value)
 	,	{"apiauth", "attrd   	uid=" HA_CCMUSER}
 	,	{"apiauth", "crmd   	uid=" HA_CCMUSER}
 
-	,	{"respawn", " "HA_CCMUSER                   " "HA_LIBHBDIR"/ccm"}
-	,	{"respawn", " "HA_CCMUSER " "VALGRIND_PREFIX" "HA_LIBHBDIR"/cib"}
+	,	{"failfast"," "HA_CCMUSER                   " "HA_LIBHBDIR"/ccm"}
+	,	{"failfast"," "HA_CCMUSER " "VALGRIND_PREFIX" "HA_LIBHBDIR"/cib"}
 	,	{"respawn", "root "                            HA_LIBHBDIR"/lrmd -r"}
 	,	{"respawn", "root "	                       HA_LIBHBDIR"/stonithd"}
 	,	{"respawn", " "HA_CCMUSER " "VALGRIND_PREFIX" "HA_LIBHBDIR"/attrd" }
-	,	{"respawn", " "HA_CCMUSER " "VALGRIND_PREFIX" "HA_LIBHBDIR"/crmd"}
+	,	{"failfast"," "HA_CCMUSER " "VALGRIND_PREFIX" "HA_LIBHBDIR"/crmd"}
 		/* Don't 'respawn' pingd - it's a resource agent */
 	};
     
@@ -2584,7 +2643,7 @@ set_release2mode(const char* value)
 		r2size = DIMOF(r2minimal_dirs);
 
 	} else if (0 == strcasecmp("valgrind", value)) {
-#if ENABLE_LIBC_MALLOC	
+#if CL_USE_LIBC_MALLOC
 		r2dirs = &r2valgrind_dirs[0];
 		r2size = DIMOF(r2valgrind_dirs);
 		setenv("HA_VALGRIND_ENABLED", "1", 1);

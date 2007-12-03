@@ -42,6 +42,7 @@
 #include <clplumbing/coredumps.h>
 #include <clplumbing/setproctitle.h>
 #include <clplumbing/cl_signal.h>
+#include <clplumbing/cl_misc.h>
 #include <sys/wait.h>
 #include <clplumbing/cl_pidfile.h>
 #include <clplumbing/cl_syslog.h>
@@ -93,14 +94,16 @@ struct {
 	int		log_facility;
 	gboolean	useapphbd;
 	mode_t		logmode;
+	gboolean	syslogfmtmsgs;
 } logd_config =
 	{
 		"",
 		"",
 		"logd",
-		LOG_LOCAL7,
+		HA_LOG_FACILITY,
 		FALSE,
-		0644
+		0644,
+		FALSE
 	};
 
 static void	logd_log(const char * fmt, ...) G_GNUC_PRINTF(1,2);
@@ -112,6 +115,7 @@ static int	set_useapphbd(const char* option);
 static int	set_sendqlen(const char * option);
 static int	set_recvqlen(const char * option);
 static int	set_logmode(const char * option);
+static int	set_syslogfmtmsgs(const char * option);
 
 
 static char*			cmdname = NULL;
@@ -128,7 +132,8 @@ struct directive{
 	{"useapphbd",	set_useapphbd},
 	{"sendqlen",	set_sendqlen},
 	{"recvqlen",	set_recvqlen},
-	{"logmode",	set_logmode}
+	{"logmode",	set_logmode},
+	{"syslogmsgfmt",set_syslogfmtmsgs}
 };
 
 struct _syslog_code {
@@ -297,6 +302,18 @@ set_logmode(const char * option)
 		,	option);
 	}
 	logd_config.logmode = (mode_t)mode;
+	return TRUE;
+}
+static int
+set_syslogfmtmsgs(const char * option)
+{
+	gboolean	dosyslogfmt;
+
+	if (cl_str_to_boolean(option, &dosyslogfmt) == HA_OK) {
+		cl_log_enable_syslog_filefmt(dosyslogfmt);
+	}else{
+		return FALSE;
+	}
 	return TRUE;
 }
 
@@ -773,17 +790,13 @@ logd_term_action(int sig, gpointer userdata)
 		       (int)client->logchan->send_queue->current_qlen,
 		       client->app_name);
 		
-		while(client->logchan->send_queue->current_qlen > 0) {
-			sleep(1);
-		}
+		client->logchan->ops->waitout(client->logchan);
 	}
 
-	cl_log(LOG_DEBUG, "logd_term_action:"
-	       " waiting for %d messages to be read by write process",
-	       (int)chanspair[WRITE_PROC_CHAN]->send_queue->current_qlen);
-	while(chanspair[WRITE_PROC_CHAN]->send_queue->current_qlen > 0) {
-		sleep(1);
-	}
+	cl_log(LOG_DEBUG, "logd_term_action"
+	": waiting for %d messages to be read by write process"
+	,	(int)chanspair[WRITE_PROC_CHAN]->send_queue->current_qlen);
+	chanspair[WRITE_PROC_CHAN]->ops->waitout(chanspair[WRITE_PROC_CHAN]);
 	
         cl_log(LOG_DEBUG, "logd_term_action: sending SIGTERM to write process");
 	if (CL_KILL(write_process_pid, SIGTERM) >= 0){
@@ -862,8 +875,6 @@ direct_log(IPC_Channel* ch, gpointer user_data)
 {
 	
 	IPC_Message*		ipcmsg;
-	LogDaemonMsg*		logmsg;
-	int			priority;
 	GMainLoop*		loop;
 	
 
@@ -885,14 +896,22 @@ direct_log(IPC_Channel* ch, gpointer user_data)
 		
 		if( ipcmsg->msg_body 
 		    && ipcmsg->msg_len > 0 ){
+			LogDaemonMsg*	logmsg;
+			LogDaemonMsg	copy;
 			
 			logmsg = (LogDaemonMsg*) ipcmsg->msg_body;
-			priority = logmsg->priority;
+#define	COPYFIELD(copy, msg, field) memcpy(((u_char*)&copy.field), ((u_char*)&msg->field), sizeof(copy.field))
+			COPYFIELD(copy, logmsg, use_pri_str);
+			COPYFIELD(copy, logmsg, entity);
+			COPYFIELD(copy, logmsg, entity_pid);
+			COPYFIELD(copy, logmsg, timestamp);
+			COPYFIELD(copy, logmsg, priority);
+			/* Don't want to copy logmsg->message */
 		
-			cl_direct_log(priority, logmsg->message
-			,	logmsg->use_pri_str
-			,	logmsg->entity, logmsg->entity_pid
-			,	logmsg->timestamp);
+			cl_direct_log(copy.priority, logmsg->message
+			,	copy.use_pri_str
+			,	copy.entity, copy.entity_pid
+			,	copy.timestamp);
 		
 
 			(void)logd_log;
@@ -900,9 +919,9 @@ direct_log(IPC_Channel* ch, gpointer user_data)
 			if (verbose){
 				logd_log("%s[%d]: %s %s\n", 
 					 logmsg->entity[0]=='\0'?
-					 "unknown": logmsg->entity,
-					 logmsg->entity_pid, 
-					 ha_timestamp(logmsg->timestamp),
+					 "unknown": copy.entity,
+					 copy.entity_pid, 
+					 ha_timestamp(copy.timestamp),
 					 logmsg->message);
 				 }
  */

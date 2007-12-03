@@ -54,6 +54,7 @@
 #include <clplumbing/ipc.h>
 #include <clplumbing/proctrack.h>
 #include <clplumbing/cl_malloc.h>
+#include <clplumbing/GSource.h>
 #define index FooIndex
 #define time FooTime
 #include <glib.h>
@@ -191,7 +192,7 @@
 
 typedef unsigned long seqno_t;
 
-#define	MAXMSGHIST	200
+#define	MAXMSGHIST	500
 #define	MAXMISSING	MAXMSGHIST
 
 #define	NOSEQUENCE	0xffffffffUL
@@ -290,6 +291,11 @@ struct sys_config {
 	GList*		last_client;/* Last in client_list */
 };
 
+typedef enum {
+	MEDIA_OK = 0,
+	MEDIA_INRECOVERY=1,
+	MEDIA_DELAYEDRECOVERY=2
+}media_recov_t;
 
 struct hb_media {
 	void *		pd;		/* Private Data */
@@ -297,10 +303,15 @@ struct hb_media {
 	char*		type;		/* Medium type */
 	char*		description;	/* Medium description */
 	const struct hb_media_fns*vf;	/* Virtual Functions */
+	media_recov_t	recovery_state;	/* What's up with media? */
+	gboolean	suppresserrs;	/* TRUE if errors shouldn't be logged */
+	int		ourproc;	/* Value of ourproc for 1st process */
 	IPC_Channel*	wchan[2];
 		/* Read by the write child processes.  */
 	IPC_Channel*	rchan[2];
 		/* Written to by the read child processes.  */
+	GCHSource*	readsource;
+	GCHSource*	writesource;
 };
 
 int parse_authfile(void);
@@ -325,7 +336,8 @@ struct msg_xmit_hist {
 struct client_child {
 	pid_t		pid;		/* Process id of child process */
 	ProcTrack*	proctrack;	/* Process tracking structure */
-	int		respawn;	/* Respawn it if it dies? */
+	gboolean	respawn;	/* Respawn it if it dies? */
+	gboolean	rebootifitdies;	/* Reboot system it if it dies? */
 	uid_t		u_runas;	/* Which user to run as? */
 	gid_t		g_runas;	/* Which group id to run as? */
 	int		respawncount;	/* Last time we respawned */

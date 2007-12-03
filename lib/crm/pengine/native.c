@@ -51,7 +51,7 @@ native_add_running(resource_t *rsc, node_t *node, pe_working_set_t *data_set)
 			node->details->running_rsc, rsc);
 	}
 
-	if(rsc->is_managed == FALSE) {
+	if(is_not_set(rsc->flags, pe_rsc_managed)) {
 		crm_info("resource %s isnt managed", rsc->id);
 		resource_location(rsc, node, INFINITY,
 				  "not_managed_default", data_set);
@@ -84,7 +84,7 @@ native_add_running(resource_t *rsc, node_t *node, pe_working_set_t *data_set)
 				);
 			
 		} else if(rsc->recovery_type == recovery_block) {
-			rsc->is_managed = FALSE;
+		    clear_bit(rsc->flags, pe_rsc_managed);
 		}
 		
 	} else {
@@ -114,16 +114,18 @@ gboolean native_unpack(resource_t *rsc, pe_working_set_t *data_set)
 	return TRUE;
 }
 
-		
 resource_t *
 native_find_child(resource_t *rsc, const char *id)
 {
-	return NULL;
+    if(rsc->children) {
+	return pe_find_resource(rsc->children, id);
+    }
+    return NULL;
 }
 
 GListPtr native_children(resource_t *rsc)
 {
-	return NULL;
+	return rsc->children;
 }
 
 static void
@@ -239,10 +241,10 @@ native_print(
 	}
 	
 	if(options & pe_print_html) {
-		if(rsc->is_managed == FALSE) {
+		if(is_not_set(rsc->flags, pe_rsc_managed)) {
 			status_print("<font color=\"yellow\">");
 
-		} else if(rsc->failed) {
+		} else if(is_set(rsc->flags, pe_rsc_failed)) {
 			status_print("<font color=\"red\">");
 			
 		} else if(rsc->variant == pe_native
@@ -264,7 +266,7 @@ native_print(
 			     pre_text?pre_text:"", rsc->id,
 			     prov?prov:"", prov?"::":"",
 			     class, crm_element_value(rsc->xml, XML_ATTR_TYPE),
-			     rsc->orphan?" ORPHANED":"",
+			     is_set(rsc->flags, pe_rsc_orphan)?" ORPHANED":"",
 			     desc?": ":"", desc?desc:"");
 
 	} else {
@@ -272,10 +274,11 @@ native_print(
 			     pre_text?pre_text:"", rsc->id,
 			     prov?prov:"", prov?"::":"",
 			     class, crm_element_value(rsc->xml, XML_ATTR_TYPE),
-			     rsc->orphan?" ORPHANED":"",
+			     is_set(rsc->flags, pe_rsc_orphan)?" ORPHANED":"",
 			     (rsc->variant!=pe_native)?"":role2text(rsc->role),
 			     (rsc->variant!=pe_native)?"":node!=NULL?node->details->uname:"",
-			     rsc->is_managed?"":" (unmanaged)", rsc->failed?" FAILED":"");
+			     is_set(rsc->flags, pe_rsc_managed)?"":" (unmanaged)",
+			     is_set(rsc->flags, pe_rsc_failed)?" FAILED":"");
 		
 #if CURSES_ENABLED
 		if(options & pe_print_ncurses) {
@@ -342,9 +345,9 @@ native_print(
 	}
 
 	if(options & pe_print_dev) {
-		status_print("%s\t(%s%svariant=%s, priority=%f)",
-			     pre_text, rsc->provisional?"provisional, ":"",
-			     rsc->runnable?"":"non-startable, ",
+		status_print("%s\t(%s%svariant=%s, priority=%f)", pre_text,
+			     is_set(rsc->flags, pe_rsc_provisional)?"provisional, ":"",
+			     is_set(rsc->flags, pe_rsc_runnable)?"":"non-startable, ",
 			     crm_element_name(rsc->xml),
 			     (double)rsc->priority);
 		status_print("%s\tAllowed Nodes", pre_text);
@@ -373,7 +376,7 @@ void native_free(resource_t *rsc)
 
 
 enum rsc_role_e
-native_resource_state(resource_t *rsc, gboolean current)
+native_resource_state(const resource_t *rsc, gboolean current)
 {
 	enum rsc_role_e role = rsc->next_role;
 	if(current) {
@@ -381,4 +384,37 @@ native_resource_state(resource_t *rsc, gboolean current)
 	}
 	crm_debug_2("%s state: %s", rsc->id, role2text(role));
 	return role;
+}
+
+node_t *native_location(resource_t *rsc, GListPtr *list, gboolean current) 
+{
+    node_t *one = NULL;
+    GListPtr result = NULL;
+
+    if(rsc->children) {
+	slist_iter(child, resource_t, rsc->children, lpc,
+		   child->fns->location(child, &result, current);
+	    );
+	
+    } else if(current && rsc->running_on) {
+	result = g_list_copy(rsc->running_on);
+	
+    } else if(current == FALSE && rsc->allocated_to) {
+	result = g_list_append(NULL, rsc->allocated_to);
+    }
+
+    if(result && g_list_length(result) == 1) {
+	one = g_list_nth_data(result, 0);
+    }
+    
+    if(list) {
+	slist_iter(node, node_t, result, lpc,
+		   if(*list == NULL || pe_find_node_id(*list, node->details->id) == NULL) {
+		       *list = g_list_append(*list, node);
+		   }
+	    );
+    }
+
+    g_list_free(result);	
+    return one;
 }

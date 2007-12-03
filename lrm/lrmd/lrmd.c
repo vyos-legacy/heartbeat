@@ -70,7 +70,7 @@ ProcTrack_ops ManagedChildTrackOps = {
 typedef int (*msg_handler)(lrmd_client_t* client, struct ha_msg* msg);
 struct msg_map
 {
-	const char* 	msg_type;
+	const char 	*msg_type;
 	int	reply_time;
 	msg_handler	handler;
 };
@@ -82,8 +82,8 @@ struct msg_map
  */
 #define REPLY_NOW 0
 #define NO_MSG 1
-#define send_msg_now(i) \
-	(msg_maps[i].reply_time==REPLY_NOW)
+#define send_msg_now(p) \
+	(p->reply_time==REPLY_NOW)
 /* magic number, must be different from other return codes! */
 #define POSTPONED 32
 
@@ -103,6 +103,7 @@ struct msg_map msg_maps[] = {
 	{GETRSCSTATE,	NO_MSG,	on_msg_get_state},
 	{GETRSCMETA,	NO_MSG, 	on_msg_get_metadata},
 };
+#define MSG_NR sizeof(msg_maps)/sizeof(struct msg_map)
 
 GHashTable* clients		= NULL;	/* a GHashTable indexed by pid */
 GHashTable* resources 		= NULL;	/* a GHashTable indexed by rsc_id */
@@ -318,6 +319,10 @@ lrmd_op_new(void)
 	op->rapop = NULL;
 	op->first_line_ra_stdout[0] = EOS;
 	op->t_recv = time_longclock();
+ 	op->t_perform = zero_longclock;
+ 	op->t_done = zero_longclock;
+ 	op->t_rcchange = zero_longclock;
+ 
 	memset(op->killseq, 0, sizeof(op->killseq));
 	++lrm_objectstats.opcount;
 	return op;
@@ -350,6 +355,10 @@ lrmd_op_copy(const lrmd_op_t* op)
 	ret->first_line_ra_stdout[0] = EOS;
 	ret->repeat_timeout_tag = 0;
 	ret->exec_pid = -1;
+	ret->t_recv = op->t_recv;
+ 	ret->t_perform = op->t_perform;
+ 	ret->t_done = op->t_done;
+ 	ret->t_rcchange = op->t_rcchange;
 	ret->is_copy = TRUE;
 	return ret;
 }
@@ -413,10 +422,6 @@ lrmd_op_dump(const lrmd_op_t* op, const char * text)
 	int		target_rc = -1;
 	const char *	pidstat;
 	longclock_t	now = time_longclock();
-	long		t_recv;
-	long		t_addtolist;
-	long		t_perform;
-	long		t_done;
 
 	CHECK_ALLOCATED(op, "op", );
 	if (op->exec_pid < 1
@@ -438,30 +443,11 @@ lrmd_op_dump(const lrmd_op_t* op, const char * text)
 	,	"%s: lrmd_op2: rt_tag: %d, interval: %d, delay: %d"
 	,	text,  op->repeat_timeout_tag
 	,	op->interval, op->delay);
-	if (cmp_longclock(op->t_recv, zero_longclock) <= 0) {
-		t_recv = -1;
-	}else{
-		t_recv = longclockto_ms(sub_longclock(now, op->t_recv));
-	}
-	if (cmp_longclock(op->t_addtolist, zero_longclock) <= 0) {
-		t_addtolist = -1;
-	}else{
-		t_addtolist = longclockto_ms(sub_longclock(now, op->t_addtolist));
-	}
-	if (cmp_longclock(op->t_perform, zero_longclock) <= 0) {
-		t_perform = -1;
-	}else{
-		t_perform = longclockto_ms(sub_longclock(now, op->t_perform));
-	}
-	if (cmp_longclock(op->t_done, zero_longclock) <= 0) {
-		t_done = -1;
-	}else{
-		t_done = longclockto_ms(sub_longclock(now, op->t_recv));
-	}
 	lrmd_debug(LOG_DEBUG
 	,	"%s: lrmd_op3: t_recv: %ldms, t_add: %ldms"
-	", t_perform: %ldms, t_done: %ldms"
-	,	text, t_recv, t_addtolist, t_perform, t_done);
+	", t_perform: %ldms, t_done: %ldms, t_rcchange: %ldms"
+	,	text, tm2age(op->t_recv), tm2age(op->t_addtolist)
+	,	tm2age(op->t_perform), tm2age(op->t_done), tm2age(op->t_rcchange));
 	lrmd_rsc_dump(op->rsc_id, text);
 }
 
@@ -823,12 +809,10 @@ main(int argc, char ** argv)
 
 	cl_log_set_entity(lrm_system_name);
 	cl_log_enable_stderr(debug_level?TRUE:FALSE);
-	cl_log_set_facility(LOG_DAEMON);
+	cl_log_set_facility(HA_LOG_FACILITY);
 
 	/* Use logd if it's enabled by heartbeat */
-	cl_inherit_use_logd(ENV_PREFIX""KEY_LOGDAEMON, 0);
-
-	inherit_logconfig_from_environment();
+	cl_inherit_logging_environment(0);
 
 	if (req_status){
 		return init_status(PID_FILE, lrm_system_name);
@@ -1102,6 +1086,8 @@ init_start ()
 		{"RAExec", &RAExecFuncs, NULL, NULL, NULL},
 		{ NULL, NULL, NULL, NULL, NULL} };
 
+	qsort(msg_maps, MSG_NR, sizeof(struct msg_map), msg_type_cmp);
+
 	if (cl_lock_pidfile(PID_FILE) < 0) {
 		lrmd_log(LOG_ERR, "already running: [pid %d].", cl_read_pidfile(PID_FILE));
 		lrmd_log(LOG_ERR, "Startup aborted (already running).  Shutting down."); 
@@ -1213,7 +1199,11 @@ init_start ()
 	G_main_add_IPC_WaitConnection( G_PRIORITY_HIGH, conn_cbk, auth, FALSE,
 	                               on_connect_cbk, conn_cbk, NULL);
 
-	set_sigchld_proctrack(G_PRIORITY_HIGH);
+	/* our child signal handling involves calls with
+	 * unpredictable timing; so we raise the limit to
+	 * reduce the number of warnings
+	 */
+	set_sigchld_proctrack(G_PRIORITY_HIGH,10*DEFAULT_MAXDISPATCHTIME);
 
 	lrmd_debug(LOG_DEBUG, "Enabling coredumps");
 	/* Although lrmd can count on the parent to enable coredump, still
@@ -1285,7 +1275,6 @@ init_start ()
 	if (cl_unlock_pidfile(PID_FILE) == 0) {
 		lrmd_debug(LOG_DEBUG, "[%s] stopped", lrm_system_name);
 	}
-
 	return 0;
 }
 
@@ -1387,13 +1376,22 @@ on_connect_cbk (IPC_Channel* ch, gpointer user_data)
 	return TRUE;
 }
 
+int
+msg_type_cmp(const void *p1, const void *p2)
+{
+
+	return strncmp(
+		((const struct msg_map *)p1)->msg_type,
+		((const struct msg_map *)p2)->msg_type,
+		MAX_MSGTYPELEN);
+}
+
 gboolean
 on_receive_cmd (IPC_Channel* ch, gpointer user_data)
 {
-	int i;
+	struct msg_map *msgmap_p, in_type;
 	lrmd_client_t* client = NULL;
 	struct ha_msg* msg = NULL;
-	const char* type = NULL;
 
 	client = (lrmd_client_t*)user_data;
 
@@ -1427,34 +1425,33 @@ on_receive_cmd (IPC_Channel* ch, gpointer user_data)
 	}
 
 	/*dispatch the message*/
-	type = ha_msg_value(msg, F_LRM_TYPE);
-	if( !type ) {
+	in_type.msg_type = ha_msg_value(msg, F_LRM_TYPE);
+	if( !in_type.msg_type ) {
 		LOG_FAILED_TO_GET_FIELD(F_LRM_TYPE);
 		return TRUE;
 	}
 	lrmd_debug2(LOG_DEBUG,"dumping request: %s",msg2string(msg));
 
-	for (i=0; i<DIMOF(msg_maps); i++) {
-		if (0 == strncmp(type, msg_maps[i].msg_type, MAX_MSGTYPELEN)) {
-			int ret;
+	if (!(msgmap_p = bsearch(&in_type, msg_maps,
+			MSG_NR, sizeof(struct msg_map), msg_type_cmp)
+		)) {
 
-			strncpy(client->lastrequest, type, sizeof(client->lastrequest));
-			client->lastrequest[sizeof(client->lastrequest)-1]='\0';
-			client->lastreqstart = time(NULL);
-			/*call the handler of the message*/
-			ret = msg_maps[i].handler(client, msg);
-			client->lastreqend = time(NULL);
-
-			/*return rc to client if need*/
-			if (send_msg_now(i)) {
-				send_ret_msg(ch, ret);
-				client->lastrcsent = time(NULL);
-			}
-			break;
-		}
-	}
-	if (i == DIMOF(msg_maps)) {
 		lrmd_log(LOG_ERR, "on_receive_cmd: received an unknown msg");
+	} else {
+		int ret;
+
+		strncpy(client->lastrequest, in_type.msg_type, sizeof(client->lastrequest));
+		client->lastrequest[sizeof(client->lastrequest)-1]='\0';
+		client->lastreqstart = time(NULL);
+		/*call the handler of the message*/
+		ret = msgmap_p->handler(client, msg);
+		client->lastreqend = time(NULL);
+
+		/*return rc to client if need*/
+		if (send_msg_now(msgmap_p)) {
+			send_ret_msg(ch, ret);
+			client->lastrcsent = time(NULL);
+		}
 	}
 
 	/*delete the msg*/
@@ -1574,16 +1571,7 @@ on_repeat_op_readytorun(gpointer data)
 	op->exec_pid = -1;
 
 	if (!shutdown_in_progress) {
-		op->t_addtolist = time_longclock();
-		rsc->op_list = g_list_append(rsc->op_list, op);
-		if (g_list_length(rsc->op_list) >= 4) {
-			lrmd_log(LOG_WARNING
-			,	"%s: Operations list for %s is suspicously"
-			" long [%d]"
-			,	__FUNCTION__, rsc->id
-			,	g_list_length(rsc->op_list));
-			lrmd_rsc_dump(rsc->id, "rsc->op_list: too many ops");
-		}
+		add_op_to_runlist(rsc,op);
 	}
 	perform_op(rsc);
 
@@ -2282,7 +2270,17 @@ on_msg_perform_op(lrmd_client_t* client, struct ha_msg* msg)
 	op->delay = delay;
 
 	op->msg = ha_msg_copy(msg);
-	op->t_recv = time_longclock();
+
+	if( ha_msg_value_int(msg,F_LRM_COPYPARAMS,&op->copyparams) == HA_OK
+			&& op->copyparams ) {
+		lrmd_debug(LOG_DEBUG
+			, "%s:%d: copying parameters for rsc %s"
+			, __FUNCTION__, __LINE__,rsc->id);
+		if (rsc->params) {
+			free_str_table(rsc->params);
+		}
+		rsc->params = ha_msg_value_str_table(msg, F_LRM_PARAM);
+	}
 	
 	lrmd_debug2(LOG_DEBUG
 	, "%s: client [%d] want to add an operation %s on resource %s."
@@ -2306,17 +2304,7 @@ on_msg_perform_op(lrmd_client_t* client, struct ha_msg* msg)
 		, "%s: add an operation %s to the operation list."
 		, __FUNCTION__
 		, op_info(op));
-		op->t_addtolist = time_longclock();
-		rsc->op_list = g_list_append(rsc->op_list, op);
-
-		if (g_list_length(rsc->op_list) >= 4) {
-			lrmd_log(LOG_WARNING
-			,	"%s: Operations list for %s is suspicously"
-			" long [%d]"
-			,	__FUNCTION__, rsc->id
-			,	g_list_length(rsc->op_list));
-			lrmd_rsc_dump(rsc->id, "rsc->op_list: too many ops");
-		}
+		add_op_to_runlist(rsc,op);
 	}
 
 	perform_op(rsc);
@@ -2572,6 +2560,21 @@ remove_op_history(lrmd_op_t* op)
 	LRMAUDIT();
 }
 
+static void
+add_op_to_runlist(lrmd_rsc_t* rsc, lrmd_op_t* op)
+{
+	op->t_addtolist = time_longclock();
+	rsc->op_list = g_list_append(rsc->op_list, op);
+	if (g_list_length(rsc->op_list) >= 4) {
+		lrmd_log(LOG_WARNING
+		,	"operations list for %s is suspicously"
+		" long [%d]"
+		,	rsc->id
+		,	g_list_length(rsc->op_list));
+		lrmd_rsc_dump(rsc->id, "rsc->op_list: too many ops");
+	}
+}
+
 /* 1. this function sends a message to the client:
  *   a) on operation instance exit using the callback channel
  *   b) in case a client requested that operation to be cancelled,
@@ -2606,11 +2609,13 @@ on_op_done(lrmd_rsc_t* rsc, lrmd_op_t* op)
 
 	lrmd_debug2(LOG_DEBUG, "on_op_done: %s", op_info(op));
 	lrmd_debug2(LOG_DEBUG
-		 ,"TimeStamp:  Recv:%ld,Add to List:%ld,Perform:%ld, Done %ld"
+		 ,"Timestamps: Recv:%ld, Add to List:%ld, Perform:%ld"
+		 ", Done: %ld, Rc change: %ld"
 		 ,longclockto_ms(op->t_recv)
 		 ,longclockto_ms(op->t_addtolist)
 		 ,longclockto_ms(op->t_perform)
-		 ,longclockto_ms(op->t_done));
+		 ,longclockto_ms(op->t_done)
+		 ,longclockto_ms(op->t_rcchange));
 
 	if (HA_OK != ha_msg_value_int(op->msg,F_LRM_TARGETRC,&target_rc)){
 		lrmd_log(LOG_ERR
@@ -2650,6 +2655,9 @@ on_op_done(lrmd_rsc_t* rsc, lrmd_op_t* op)
 			"the message op->msg.");
 		return HA_FAIL;
 	}
+	if ((last_rc == -1) || (last_rc != op_rc)) {
+		op->t_rcchange = op->t_perform;
+	}
 
 	/* remove the op from op_list and copy to last_op */
 	rsc->op_list = g_list_remove(rsc->op_list,op);
@@ -2677,6 +2685,7 @@ on_op_done(lrmd_rsc_t* rsc, lrmd_op_t* op)
 	} else {
 		remove_op_history(op);
 	}
+
 	if ( need_notify ) {
 		notify_client(op);
 	}
@@ -2762,7 +2771,7 @@ perform_op(lrmd_rsc_t* rsc)
 	if (rsc_frozen(rsc)) {
 		lrmd_log(LOG_DEBUG,"%s: resource %s is frozen, "
 		"no ops allowed to run"
-		, __FUNCTION__, lrm_str(op->rsc_id));
+		, __FUNCTION__, rsc->id);
 		return HA_OK;
 	}
 
@@ -2832,6 +2841,9 @@ struct ha_msg*
 op_to_msg(lrmd_op_t* op)
 {
 	struct ha_msg* msg = NULL;
+	longclock_t	now = time_longclock(),
+		exec_time = zero_longclock,
+		queue_time = zero_longclock;
 
 	CHECK_ALLOCATED(op, "op", NULL);
 	if (op->exec_pid == 0) {
@@ -2844,11 +2856,37 @@ op_to_msg(lrmd_op_t* op)
 		return NULL;
 	}
 	if (HA_OK != ha_msg_add_int(msg, F_LRM_CALLID, op->call_id)) {
-		ha_msg_del(msg);
 		LOG_FAILED_TO_ADD_FIELD("call_id");
-		return NULL;
+		goto error;
+	}
+	if (HA_OK != ha_msg_add_ul(msg, F_LRM_T_RUN, tm2age(op->t_perform))) {
+		LOG_FAILED_TO_ADD_FIELD("t_run")
+		goto error;
+	}
+	if (HA_OK != ha_msg_add_ul(msg, F_LRM_T_RCCHANGE, tm2age(op->t_rcchange))) {
+		LOG_FAILED_TO_ADD_FIELD("t_rcchange")
+		goto error;
+	}
+	if (op->t_perform) {
+		queue_time =
+			longclockto_ms(sub_longclock(op->t_perform,op->t_addtolist));
+		if (op->t_done) {
+			exec_time =
+				longclockto_ms(sub_longclock(op->t_done,op->t_perform));
+		}
+	}
+	if (HA_OK != ha_msg_add_ul(msg, F_LRM_EXEC_TIME, exec_time)) {
+		LOG_FAILED_TO_ADD_FIELD("exec_time")
+		goto error;
+	}
+	if (HA_OK != ha_msg_add_ul(msg, F_LRM_QUEUE_TIME, queue_time)) {
+		LOG_FAILED_TO_ADD_FIELD("queue_time")
+		goto error;
 	}
 	return msg;
+
+error:	ha_msg_del(msg);
+	return NULL;
 }
 
 /* //////////////////////////////RA wrap funcs/////////////////////////////////// */
@@ -2884,6 +2922,10 @@ perform_ra_op(lrmd_op_t* op)
 		return HA_FAIL;
 	}
 
+	op_type = ha_msg_value(op->msg, F_LRM_OP);
+	if (!op->interval) { /* log non-repeating ops */
+		lrmd_log(LOG_INFO,"rsc:%s: %s",rsc->id,op_type);
+	}
 	op_params = ha_msg_value_str_table(op->msg, F_LRM_PARAM);
 	params = merge_str_tables(rsc->params,op_params);
 	ha_msg_mod_str_table(op->msg, F_LRM_PARAM, params);
@@ -2891,6 +2933,7 @@ perform_ra_op(lrmd_op_t* op)
 	op_params = NULL;
 	free_str_table(params);
 	params = NULL;
+	op->t_perform = time_longclock();
 	check_queue_duration(op);
 
 	if(HA_OK != ha_msg_value_int(op->msg, F_LRM_TIMEOUT, &timeout)){
@@ -2974,7 +3017,6 @@ perform_ra_op(lrmd_op_t* op)
 				lrmd_log(LOG_ERR,"perform_ra_op: can not find RAExec");
 				exit(EXECRA_EXEC_UNKNOWN_ERROR);
 			}
-			op_type = ha_msg_value(op->msg, F_LRM_OP);
 			/*should we use logging daemon or not in script*/
 			setenv(HALOGD, cl_log_get_uselogd()?"yes":"no",1);
 
@@ -3014,7 +3056,7 @@ on_ra_proc_finished(ProcTrack* p, int status, int signo, int exitcode
 	lrmd_rsc_t* rsc = NULL;
 	struct RAExecOps * RAExec = NULL;
 	const char* op_type;
-        int rc = EXECRA_UNKNOWN_ERROR;
+        int rc = EXECRA_EXEC_UNKNOWN_ERROR;
         int ret;
 	int op_status;
 
@@ -3605,7 +3647,6 @@ check_queue_duration(lrmd_op_t* op)
 {
 	unsigned long t_stay_in_list = 0;
 	CHECK_ALLOCATED(op, "op", );
-	op->t_perform = time_longclock();
 	t_stay_in_list = longclockto_ms(op->t_perform - op->t_addtolist);
 	if ( t_stay_in_list > WARNINGTIME_IN_LIST) 
 	{

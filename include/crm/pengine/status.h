@@ -57,6 +57,8 @@ typedef struct pe_working_set_s
 		gboolean symmetric_cluster;
 		gboolean is_managed_default;
 
+		gboolean start_failure_fatal;
+	
 		gboolean remove_after_stop;
 		gboolean stop_rsc_orphans;
 		gboolean stop_action_orphans;
@@ -71,6 +73,7 @@ typedef struct pe_working_set_s
 		GListPtr resources;
 		GListPtr placement_constraints;
 		GListPtr ordering_constraints;
+		GListPtr colocation_constraints;
 		
 		GListPtr actions;
 		crm_data_t *failed;
@@ -112,6 +115,25 @@ struct node_s {
 
 #include <crm/pengine/complex.h>
 
+#define pe_rsc_orphan		0x00000001ULL
+#define pe_rsc_managed		0x00000002ULL
+
+#define pe_rsc_notify		0x00000010ULL
+#define pe_rsc_unique		0x00000020ULL
+#define pe_rsc_can_migrate	0x00000040ULL
+
+#define pe_rsc_provisional	0x00000100ULL
+#define pe_rsc_allocating	0x00000200ULL
+#define pe_rsc_merging		0x00000400ULL
+
+#define pe_rsc_failed		0x00010000ULL
+#define pe_rsc_shutdown		0x00020000ULL
+#define pe_rsc_runnable		0x00040000ULL
+#define pe_rsc_start_pending	0x00080000ULL
+
+#define pe_rsc_starting		0x00100000ULL
+#define pe_rsc_stopping		0x00200000ULL
+
 struct resource_s { 
 		char *id; 
 		char *clone_name; 
@@ -130,24 +152,13 @@ struct resource_s {
 
 		int	 priority; 
 		int	 stickiness; 
+		int	 sort_index; 
 		int	 fail_stickiness;
 		int	 effective_priority; 
 
-		gboolean notify;
-		gboolean is_managed;
-		gboolean can_migrate;
-		gboolean starting;
-		gboolean stopping;
-		gboolean runnable;
-		gboolean provisional;
-		gboolean globally_unique;
-		gboolean is_allocating;
-		
-		gboolean failed;
-		gboolean start_pending;
-		
-		gboolean orphan;
-		
+		unsigned long long flags;
+	
+		GListPtr rsc_cons_lhs;     /* rsc_colocation_t* */
 		GListPtr rsc_cons;         /* rsc_colocation_t* */
 		GListPtr rsc_location;     /* rsc_to_node_t*    */
 		GListPtr actions;	   /* action_t*         */
@@ -161,7 +172,9 @@ struct resource_s {
 		enum rsc_role_e next_role;
 
 		GHashTable *meta;	   
-		GHashTable *parameters;	   
+		GHashTable *parameters;
+
+		GListPtr children;	  /* resource_t* */	
 };
 
 struct action_s 
@@ -180,6 +193,7 @@ struct action_s
 		gboolean runnable;
 		gboolean optional;
 		gboolean failure_is_fatal;
+		gboolean implied_by_stonith;
 		gboolean allow_reload_conversion;
 
 		enum rsc_start_requirement needs;

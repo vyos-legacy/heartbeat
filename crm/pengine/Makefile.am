@@ -39,7 +39,6 @@ crmuid		= @HA_CCMUID@
 
 COMMONLIBS	= 					\
 		$(top_builddir)/lib/clplumbing/libplumb.la		\
-		$(top_builddir)/lib/pils/libpils.la			\
 		$(top_builddir)/lib/crm/common/libcrmcommon.la		\
 		$(top_builddir)/lib/crm/pengine/libpe_status.la		\
 		libpengine.la						\
@@ -63,7 +62,7 @@ noinst_HEADERS	= allocate.h utils.h pengine.h
 
 libpengine_la_LDFLAGS	= -version-info 3:0:0
 # -L$(top_builddir)/lib/pils -lpils -export-dynamic -module -avoid-version 
-libpengine_la_SOURCES	= pengine.c allocate.c utils.c \
+libpengine_la_SOURCES	= pengine.c allocate.c utils.c constraints.c \
 			native.c group.c clone.c master.c graph.c
 
 pengine_SOURCES	= main.c

@@ -128,6 +128,7 @@ typedef void(*flow_callback_t)(IPC_Channel*, void*);
 /* channel structure.*/
 struct IPC_CHANNEL{
 	int		ch_status;	/* identify the status of channel.*/
+	int		refcount;	/* reference count */
 	pid_t		farside_pid;	/* far side pid */
 	void*		ch_private;	/* channel private data. */
 					/* (may contain conn. info.) */
@@ -148,6 +149,9 @@ struct IPC_CHANNEL{
 
 	/* is the send blocking or nonblocking*/
 	gboolean	should_send_block;
+	
+	/* if send would block, should an error be returned or not */
+	gboolean	should_block_fail;
 	
 /*  There are two queues in channel. One is for sending and the other
  *  is for receiving. 
@@ -702,6 +706,7 @@ struct SOCKET_MSG_HEAD{
 /* MAXMSG is the maximum final message size on the wire. */
 #define	MAXMSG		(256*1024)
 /* MAXUNCOMPRESSED is the maximum, raw data size prior to compression. */
+/* 1:8 compression ratio is to be expected on data such as xml */
 #define	MAXUNCOMPRESSED	(2048*1024)
 #define HEADMAGIC	0xabcd
 #define POOL_SIZE (4*1024)

@@ -107,6 +107,35 @@ int hbagent_trap(int online, const char * node);
 
 int ping_membership(int * mem_fd);
 
+/* LHAHeartbeatConfigInfo partial-mode */
+#define DEFAULT_REFRESH_TIMING  (0)
+
+int  init_hbconfig(void);
+void free_hbconfig(void);
+int  hbconfig_get_str_value(const char * attr, char * * value);
+
+static int    hbconfig_partial = 0;
+static char * hbconfig[LHA_CONF_END];
+static struct hbconfig_map {
+	lha_hbconfig_t  attr_no;
+	const char *    attr;
+} hbconfig_map[] =
+{
+	{LHA_CONF_HBVERSION,   KEY_HBVERSION},
+	{LHA_CONF_KEEPALIVE,   KEY_KEEPALIVE},
+	{LHA_CONF_DEADTIME,    KEY_DEADTIME},
+	{LHA_CONF_DEADPING,    KEY_DEADPING},
+	{LHA_CONF_WARNTIME,    KEY_WARNTIME},
+	{LHA_CONF_INITDEAD,    KEY_INITDEAD},
+	{LHA_CONF_BAUDRATE,    KEY_BAUDRATE},
+	{LHA_CONF_AUTOFAIL,    KEY_AUTOFAIL},
+	{LHA_CONF_STONITH,     KEY_STONITH},
+	{LHA_CONF_STONITHHOST, KEY_STONITHHOST},
+	{LHA_CONF_RESPAWN,     KEY_CLIENT_CHILD},
+	{LHA_CONF_END,         NULL}
+};
+
+
 uint32_t get_status_value(const char * status, const char * * status_array, uint32_t * value_array);
 
 const char * NODE_STATUS [] = 
@@ -280,6 +309,73 @@ clusterinfo_get_int_value(lha_attribute_t attr, size_t index, uint32_t * value)
     return HA_OK;
 }
 
+/* LHAHeartbeatConfigInfo partial-mode */
+int
+init_hbconfig(void)
+{
+    lha_hbconfig_t      attr_no;
+    char *              value;
+
+    for (attr_no = LHA_CONF_HBVERSION; attr_no < LHA_CONF_END; ++attr_no) {
+
+        hbconfig[attr_no] = NULL;
+
+        if(!hbconfig_partial)
+            continue;
+
+        if (hbconfig_get_str_value(hbconfig_map[attr_no].attr, &value)
+                                                                != HA_OK) {
+            cl_log(LOG_INFO, "LHAHeartbeatConfigInfo initialization error.  "
+                             "maybe get_parameter returned NULL.");
+            continue;
+        }
+
+        hbconfig[attr_no] = value;
+    }
+
+    return HA_OK;
+}
+
+void
+free_hbconfig(void)
+{
+    lha_hbconfig_t      attr_no;
+
+    if (!hbconfig_partial)
+        return;
+
+    for (attr_no = LHA_CONF_HBVERSION; attr_no < LHA_CONF_END; ++attr_no) {
+
+        if (hbconfig[attr_no] != NULL)
+            cl_free(hbconfig[attr_no]);
+
+    }
+}
+
+int
+hbconfig_get_str(lha_hbconfig_t attr_no, char * * value)
+{
+    static char err[] = "N/A";
+
+    if (hbconfig[attr_no] != NULL) {
+
+        *value = cl_strdup(hbconfig[attr_no]);
+
+    } else {
+
+        if (hbconfig_get_str_value(hbconfig_map[attr_no].attr, value)
+                                                                != HA_OK) {
+            cl_log(LOG_INFO, "LHAHeartbeatConfigInfo getting parameter error.  "
+                             "maybe get_parameter returned NULL.");
+            *value  = cl_strdup(err);
+        }
+
+    }
+
+    return HA_OK;
+}
+
+
 int
 hbconfig_get_str_value(const char * attr, char * * value)
 {
@@ -298,7 +394,7 @@ hbconfig_get_str_value(const char * attr, char * * value)
 	return HA_OK;
     };
 
-    *value = cl_strdup(ret);
+    *value = ret;
 
     return HA_OK;
 }
@@ -442,27 +538,27 @@ void
 free_storage(void)
 {
     	free_nodetable();
-	g_ptr_array_free(gNodeTable, 0);
+	g_ptr_array_free(gNodeTable, 1);
 	gNodeTable = NULL;
 
 	free_iftable();
-	g_ptr_array_free(gIFTable, 0);
+	g_ptr_array_free(gIFTable, 1);
 	gIFTable = NULL;
 
 	free_resourcetable();
-	g_ptr_array_free(gResourceTable, 0);
+	g_ptr_array_free(gResourceTable, 1);
 	gResourceTable = NULL;
 
 	free_membershiptable();
-	g_ptr_array_free(gMembershipTable, 0);
-	gResourceTable = NULL;
+	g_ptr_array_free(gMembershipTable, 1);
+	gMembershipTable = NULL;
 
 }
 
 int
 init_heartbeat(void)
 {
-	const char * parameter;
+	char * parameter;
 	hb = NULL;
 
 	cl_log_set_entity("lha-snmpagent");
@@ -483,6 +579,7 @@ init_heartbeat(void)
 	parameter = hb->llc_ops->get_parameter(hb, KEY_COREROOTDIR);
 	if (parameter) {
 		cl_set_corerootdir(parameter);
+		cl_free(parameter);
 	}
 	cl_cdtocoredir();
 
@@ -1190,7 +1287,15 @@ membership_trap(const char * node, SaClmClusterChangesT status)
 static void
 usage(void)
 {
-    	fprintf(stderr, "Usage: hbagent -d\n");
+    	fprintf(stderr, "Usage: hbagent [Options]\n"
+    			"Options:\n"
+    			" -d         enable logging to STDERR\n"
+    			" -r SECOND  set LHAHeartbeatConfigInfo to partial-mode\n"
+    			"            SECOND -- time interval between update "
+    			"LHAHeartbeatConfigInfo\n"
+    			"                      o multiple of 5\n"
+    			"                      o '0' keeps initial value (not update)\n"
+    	);
 }
 
 int
@@ -1212,11 +1317,28 @@ main(int argc, char ** argv)
 	/* change this if you want to use syslog */
 	int syslog = 1; 
 
-	while ((flag = getopt(argc, argv, "d")) != EOF) {
+	/* LHAHeartbeatConfigInfo partial-mode */
+	int hbconfig_refresh_timing = 0;
+	int hbconfig_refresh_cnt;
+
+	while ((flag = getopt(argc, argv, "dr:h")) != EOF) {
+	    	int i;
+
 	    	switch (flag) {
 		    case 'd':
 			debug++ ;
 			break;
+		    case 'r': /* LHAHeartbeatConfigInfo partial-mode */
+			hbconfig_partial = 1;
+			i = atoi(optarg);
+			if (i > 0)
+				hbconfig_refresh_timing = i / DEFAULT_TIME_OUT;
+			else
+				hbconfig_refresh_timing = DEFAULT_REFRESH_TIMING;
+			break;
+		    case 'h':
+			usage();
+			exit(0);
 		    default: 
 			usage();
 			exit(1);
@@ -1281,6 +1403,11 @@ main(int argc, char ** argv)
 	} 
 	*/
 
+	/* LHAHeartbeatConfigInfo partial-mode */
+	if ((ret = init_hbconfig()) != HA_OK) {
+	    	return -3;
+	}
+
 	init_LHAClusterInfo();
 	init_LHANodeTable();
 	init_LHAIFStatusTable();
@@ -1303,6 +1430,8 @@ main(int argc, char ** argv)
 	snmp_log(LOG_INFO,"LHA-agent is up and running.\n");
 
 	hbagent_trap(1, myid);
+
+	hbconfig_refresh_cnt = 0;
 
 	/* you're main loop here... */
 	while(keep_running) {
@@ -1358,6 +1487,13 @@ main(int argc, char ** argv)
 		} else if (ret == 0) {
 			/* timeout */
 			ping_membership(&mem_fd);
+			/* LHAHeartbeatConfigInfo partial-mode */
+			if (hbconfig_refresh_timing
+			&& ++hbconfig_refresh_cnt >= hbconfig_refresh_timing) {
+				free_hbconfig();
+				init_hbconfig();
+				hbconfig_refresh_cnt = 0;
+			}
 			snmp_timeout();
 			goto process_pending;
 		} 
@@ -1394,6 +1530,7 @@ process_pending:
 	hbagent_trap(0, myid);
 	snmp_shutdown("LHA-agent");
 
+	free_hbconfig();
 	cl_free(myid);
 	free_storage();
 

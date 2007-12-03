@@ -289,11 +289,13 @@ bcast_close(struct hb_media* mp)
 		if (close(ei->rsocket) < 0) {
 			rc = HA_FAIL;
 		}
+		ei->rsocket=-1;
 	}
 	if (ei->wsocket >= 0) {
 		if (close(ei->wsocket) < 0) {
 			rc = HA_FAIL;
 		}
+		ei->wsocket=-1;
 	}
 	PILCallLog(LOG, PIL_INFO
 	, "UDP Broadcast heartbeat closed on port %d interface %s - Status: %d"
@@ -374,14 +376,19 @@ bcast_write(struct hb_media* mp, void *pkt, int len)
 		struct ha_msg* m;
 
 		int		err = errno;
-		PILCallLog(LOG, PIL_CRIT, "Unable to send bcast [%d] packet(len=%d): %s",
-			   rc,len,  strerror(err));
-		
-		m =  wirefmt2msg(pkt, len,MSG_NEEDAUTH);
-		if (m){
-			cl_log_message(LOG_ERR, m);
-			ha_msg_del(m);
+		if (!mp->suppresserrs) {
+			PILCallLog(LOG, PIL_CRIT, "Unable to send bcast [%d] packet(len=%d): %s"
+			,	rc,len, strerror(err));
 		}
+		
+		if (ANYDEBUG) {
+			m =  wirefmt2msg(pkt, len,MSG_NEEDAUTH);
+			if (m){
+				cl_log_message(LOG_ERR, m);
+				ha_msg_del(m);
+			}
+		}
+
 		errno = err;
 		return(HA_FAIL);
 	}
@@ -635,6 +642,7 @@ new_ip_interface(const char * ifn, int port)
 	if (ep == NULL)  {
 		return(NULL);
 	}
+	memset(ep, 0, sizeof(*ep));
 
 	ep->bcast = broadaddr;
 

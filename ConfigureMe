@@ -71,17 +71,21 @@ ConfigureLinux() {
   then
     distro="SuSE Linux"
     PACKAGECMD="$MAKE_CMD rpm"
-    export CFLAGS="$CFLAGS -fno-unit-at-a-time"
+    # -fno-unit-at-a-time is replaced by -fno-toplevel-reorder in gcc4.2
+    # But apparently it shouldn't be required
+    # http://www.gnu.org/software/gcc/gcc-4.2/changes.html
+    #export CFLAGS="$CFLAGS -fno-unit-at-a-time"
     DFLAGS="--with-group-id=90 --with-ccmuser-id=90"
     R=`cat /etc/SuSE-release | grep 'VERSION *= *' | sed -e 's%.*= *%%'`
     case $R in
-      [78].*) DFLAGS="$DFLAGS --disable-snmp-subagent --disable-swig --with-ucd-snmp-devel=ucdsnmp";;
+      [78].*) DFLAGS="$DFLAGS --mandir=/usr/share/man --disable-snmp-subagent --disable-swig --with-ucd-snmp-devel=ucdsnmp";;
     esac
   elif
     [ -f /etc/redhat-release -a -s /etc/redhat-release ] 
   then
     distro="RedHat Linux"
     PACKAGECMD="$MAKE_CMD rpm"
+    DFLAGS="--mandir=/usr/share/man"
   elif
     [ -f /etc/conectiva-release -a -s /etc/conectiva-release ]
   then
@@ -105,19 +109,6 @@ ConfigureLinux() {
   fi
   CFENV="$distro"
   FLAGS="--prefix=/usr --sysconfdir=/etc --localstatedir=/var $DFLAGS --disable-rpath"
-  case `uname -m` in 	 
-    x86_64) 	 
-	# Hmmm... Let's check for building from chrooted 32-bit environment... 	 
-	case `file /bin/uname` in 	 
-	  *Intel*80?86*)        ;; 	 
-	  *)    FLAGS="$FLAGS --libexecdir=/usr/lib64 --libdir=/usr/lib64";; 	 
-	esac 	 
-       ;; 	 
- # FIXME. I don't think it's a general fixing. 	 
-    s390*) 	 
-	FLAGS="$FLAGS --libexecdir=/usr/lib64 --libdir=/usr/lib64";; 	 
-    *)  ;; 	 
-  esac 	 
 }
 
 ConfigureAIX() {

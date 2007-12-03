@@ -114,25 +114,33 @@ GuessIFname() {
   #  for those that have it
 
   external_host=123.0.0.1
-  if [ -x /sbin/ip ]; then
-      /sbin/ip r g $external_host | head -n 1 | awk '{print $5}'
-  elif [ `uname -s` = "Darwin" ]; then
-      route get $external_host | grep interface | awk '{print $2}'
+  if
+    [ -x /sbin/ip ]
+  then
+    /sbin/ip r g $external_host | head -n 1 | awk '{print $5}'
+  else
+    route get $external_host | grep interface | awk '{print $2}'
   fi
 }
 
 INTERFACE=`GuessIFname`
-if [ "x" = "x$INTERFACE" ]; then
-    INTERFACE=`GetAllIFNames | grep -v '^lo' | head -n 1`
+if
+  [ "x" = "x$INTERFACE" ]
+then
+  INTERFACE=`GetAllIFNames | grep -v '^lo' | head -n 1`
 fi
 
-if [ "x" = "x$INTERFACE" ]; then
-    INTERFACE=$DEFAULTINTERFACE
+if
+  [ "x" = "x$INTERFACE" ]
+then
+  INTERFACE=$DEFAULTINTERFACE
 fi
 
-if [ "x" = "x$INTERFACE" ]; then
-    echo "No valid interface found.  Please modify DEFAULTINTERFACE in this script and re-execute"
-    exit 1
+if
+  [ "x" = "x$INTERFACE" ]
+then
+  echo "No valid interface found.  Please modify DEFAULTINTERFACE in this script and re-execute"
+  exit 1
 fi
 
 echo "Using interface: $INTERFACE"
@@ -203,6 +211,7 @@ GenerateHaCf() {
 GenerateCrmdHaCf() {
   cat <<-! >$1
 	#	$IDENTSTRING
+	syslogmsgfmt true
 	logfile   /dev/null
 	debugfile $LOGFILE
 	keepalive 10ms
@@ -783,7 +792,7 @@ StonithDaemonTest() {
 	then
 		:
 	else
-		echo "cannot start heartbeat, so donnot start stonith daemon test." | tee -a $LOGFILE
+		echo "Cannot start heartbeat, so do not start stonith daemon test." | tee -a $LOGFILE
 		return 1
 	fi
 
@@ -806,7 +815,7 @@ StonithDaemonTest() {
 	then
 		:
 	else
-		echo "There are internal errors in heartbeat, so donnot start stonith daemon test." | tee -a $LOGFILE
+		echo "There are internal errors in heartbeat, so do not start stonith daemon test." | tee -a $LOGFILE
 		return 1
 	fi
 
@@ -851,7 +860,7 @@ TestMgmtd() {
 	then
 		:
 	else
-		echo "cannot start heartbeat, so donnot start mgmt daemon test." | tee -a $LOGFILE
+		echo "cannot start heartbeat, so do not start mgmt daemon test." | tee -a $LOGFILE
 		return 1
 	fi
 
@@ -874,7 +883,8 @@ TestMgmtd() {
 	then
 		:
 	else
-		echo "There are internal errors in heartbeat, so donnot start mgmt daemon test." | tee -a $LOGFILE
+		echo "There are internal errors in heartbeat, so do not start mgmt daemon test." | tee -a $LOGFILE
+		$CLSTATUS hbstatus
 		return 1
 	fi
 
@@ -1017,6 +1027,14 @@ if
   [ -f "$COREPID" ]
 then
   echo 1 > $COREPID
+fi
+
+# Create temp rsc dir if it doesn't yet exist, RAs depend on it
+HARSCTMP=@HA_VARRUNHBRSCDIR@
+if
+  [ ! -d "$HARSCTMP" ]
+then
+  mkdir $HARSCTMP
 fi
 
 Base64MD5Test

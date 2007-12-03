@@ -134,6 +134,7 @@ typedef struct{
 	int			user_data_len;
 	int			interval;
 	int			start_delay;
+	int			copyparams; /* copy parameters to the rsc */
 	int			target_rc;
 
 	/*output fields*/
@@ -143,6 +144,10 @@ typedef struct{
 	char*			output;
 	char*			rsc_id;
 	char*			app_name;
+	unsigned long		t_run; /* when did the op run (as age) */
+	unsigned long		t_rcchange; /* last rc change (as age) */
+	unsigned long		exec_time; /* time it took the op to run */
+	unsigned long		queue_time; /* time spent in queue */
 }lrm_op_t;
 
 extern const lrm_op_t lrm_zero_op;	/* an all-zeroes lrm_op_t value */

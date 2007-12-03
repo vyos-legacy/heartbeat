@@ -27,10 +27,13 @@ EXTRA_DIST		= apply changelog compat control copyright \
 			  heartbeat.preinst \
 			  heartbeat-dev.dirs heartbeat-dev.files \
 			  heartbeat-gui.dirs heartbeat-gui.files \
-			  ldirectord.files ldirectord.postinst \
+			  ldirectord.files ldirectord.postinst
+
+DEBIAN_DIST		= \
 			  ldirectord.postrm \
 			  patches/chown-check-2.patch \
-			  patches/series/2.1.1-1
+			  patches/ipv6-check.patch \
+			  patches/series/2.1.2-1
 
 
 clean-local:

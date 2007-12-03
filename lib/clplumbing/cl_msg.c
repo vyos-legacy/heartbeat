@@ -145,7 +145,7 @@ cl_msg_stats_open(const char* filename)
 		return -1;
 	}
 	
-	return open(filename, O_WRONLY|O_CREAT|O_APPEND);
+	return open(filename, O_WRONLY|O_CREAT|O_APPEND, 0755);
 
 }
 
@@ -775,6 +775,33 @@ ha_msg_value_int(const struct ha_msg * msg, const char * name, int* value)
 	return HA_OK;
 }
 
+int
+ha_msg_add_ul(struct ha_msg * msg, const char * name, unsigned long value)
+{
+	char buf[MAX_INT_LEN];
+	snprintf(buf, MAX_INT_LEN, "%lu", value);
+	return (ha_msg_add(msg, name, buf));	
+}
+
+int
+ha_msg_mod_ul(struct ha_msg * msg, const char * name, unsigned long value)
+{
+	char buf[MAX_INT_LEN];
+	snprintf(buf, MAX_INT_LEN, "%lu", value);
+	return (cl_msg_modstring(msg, name, buf));	
+}
+
+int
+ha_msg_value_ul(const struct ha_msg * msg, const char * name, unsigned long* value)
+{
+	const char* svalue = ha_msg_value(msg, name);
+	if(NULL == svalue) {
+		return HA_FAIL;
+	}
+	*value = strtoul(svalue, NULL, 10);
+	return HA_OK;
+}
+
 /*
  * ha_msg_value_str_list()/ha_msg_add_str_list():
  * transform a string list suitable for putting into an ha_msg is by a convention
@@ -1038,7 +1065,7 @@ cl_get_value(const struct ha_msg * msg, const char * name,
 	
 	int	j;
 	if (!msg || !msg->names || !msg->values) {
-		cl_log(LOG_ERR, "%s: wrong arugment (%s)",
+		cl_log(LOG_ERR, "%s: wrong argument (%s)",
 		       __FUNCTION__, name);
 		return(NULL);
 	}
@@ -1067,7 +1094,7 @@ cl_get_value_mutate(struct ha_msg * msg, const char * name,
 	
 	int	j;
 	if (!msg || !msg->names || !msg->values) {
-		cl_log(LOG_ERR, "%s: wrong arugment",
+		cl_log(LOG_ERR, "%s: wrong argument",
 		       __FUNCTION__);
 		return(NULL);
 	}
@@ -1966,7 +1993,7 @@ IPC_Message*
 hamsg2ipcmsg(struct ha_msg* m, IPC_Channel* ch)
 {
 	size_t		len;
-	char *		s  = msg2wirefmt_ll(m, &len, FALSE);
+	char *		s  = msg2wirefmt_ll(m, &len, MSG_NEEDCOMPRESS);
 	IPC_Message*	ret = NULL;
 
 	if (s == NULL) {
@@ -2347,7 +2374,7 @@ msg2wirefmt_ll(struct ha_msg*m, size_t* len, int flag)
 	
 	if (msgfmt == MSGFMT_NETSTRING || must_use_netstring(m)){
 		wirefmtlen = get_netstringlen(m);		
-		if (wirefmtlen >= MAXMSG){
+		if (!(flag&MSG_NOSIZECHECK) && wirefmtlen >= MAXMSG){
 			cl_log(LOG_ERR, "%s: msg too big(%d)"
 			       "for netstring fmt",
 			       __FUNCTION__, wirefmtlen);
@@ -2397,7 +2424,13 @@ msg2wirefmt(struct ha_msg*m, size_t* len){
 char*
 msg2wirefmt_noac(struct ha_msg*m, size_t* len){
 	
-	return msg2wirefmt_ll(m, len, 0);
+	/* in this execution path the size check is not necessary;
+	 * still, the msg2wirefmt_ll is invoked more than once for
+	 * the same message (or parts of it) which is somewhat
+	 * strange, though perhaps it helps reduce the code
+	 * complexity
+	 */
+	return msg2wirefmt_ll(m, len, MSG_NOSIZECHECK);
 }
 
 

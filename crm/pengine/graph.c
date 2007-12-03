@@ -53,26 +53,76 @@ update_action(action_t *action)
 	int log_level = LOG_DEBUG_2;
 	gboolean changed = FALSE;
 	
-	do_crm_log(log_level, "Processing action %s: %s",
-		    action->uuid, action->optional?"optional":"required");
+	do_crm_log(log_level, "Processing action %s: %s %s %s",
+		   action->uuid,
+		   action->optional?"optional":"required",
+		   action->runnable?"runnable":"unrunnable",
+		   action->pseudo?"pseudo":action->task);
 
 	slist_iter(
 		other, action_wrapper_t, action->actions_before, lpc,
 
 		gboolean other_changed = FALSE;
-		do_crm_log(log_level, "   Checking action %s: %s 0x%.6x",
+		node_t *node = other->action->node;
+		resource_t *other_rsc = other->action->rsc;
+		enum rsc_role_e other_role = RSC_ROLE_UNKNOWN;
+
+		if(other_rsc) {
+		    other_role = other_rsc->fns->state(other_rsc, TRUE);
+		}
+		
+		do_crm_log(log_level, "   Checking action %s: %s %s %s (flags=0x%.6x)",
 			   other->action->uuid,
 			   other->action->optional?"optional":"required",
+			   other->action->runnable?"runnable":"unrunnable",
+			   other->action->pseudo?"pseudo":other->action->task,
 			   other->type);
 
 		local_type = other->type;
-/* 		local_type |= pe_order_optional; */
-/* 		local_type ^= pe_order_optional; */
+
+		if((local_type & pe_order_demote)
+		   && other->action->pseudo == FALSE
+		   && other_role > RSC_ROLE_SLAVE
+		   && node != NULL
+		   && node->details->online) {
+		    local_type |= pe_order_runnable_left;
+		    do_crm_log(log_level,"Upgrading restart constraint to runnable_left");
+		}
+
+		if((local_type & pe_order_shutdown)
+		   && other->action->optional == FALSE
+		   && is_set(other_rsc->flags, pe_rsc_shutdown)) {
+		    action->optional = FALSE;
+		    changed = TRUE;
+		    do_crm_log(log_level-1,
+			       "   * Marking action %s manditory because of %s (complex)",
+			       action->uuid, other->action->uuid);
+		}
 		
+		if((local_type & pe_order_restart)
+		   && other_role > RSC_ROLE_STOPPED) {
+
+		    if(other_rsc->variant == pe_native) {
+			local_type |= pe_order_implies_left;
+			do_crm_log(log_level,"Upgrading restart constraint to implies_left");
+		    }
+		    
+		    if(other->action->optional
+		       && other->action->runnable
+		       && action->runnable == FALSE) {
+			do_crm_log(log_level-1,
+				   "   * Marking action %s manditory because %s is unrunnable",
+				   other->action->uuid, action->uuid);
+			other->action->optional = FALSE;
+			set_bit(other_rsc->flags, pe_rsc_shutdown);
+			other_changed = TRUE;
+		    } 
+		}
+
 		if((local_type & pe_order_runnable_left)
 			&& other->action->runnable == FALSE) {
-			if(other->action->pseudo) {
-				do_crm_log(log_level, "Ignoring un-runnable - pseudo");
+			if(other->action->implied_by_stonith) {
+				do_crm_log(log_level, "Ignoring un-runnable - implied_by_stonith");
 
 			} else if(action->runnable == FALSE) {
 				do_crm_log(log_level+1, "Already un-runnable");
@@ -101,19 +151,23 @@ update_action(action_t *action)
 					   other->action->uuid, action->uuid);
 				other_changed = TRUE;
 			}
-		}
+		}		
 		
-		if(other->type & pe_order_implies_left) {
+		if(local_type & pe_order_implies_left) {
 			if(other->action->optional == FALSE) {
 				/* nothing to do */
 				do_crm_log(log_level+1, "      Ignoring implies left - redundant");
 				
 			} else if(safe_str_eq(other->action->task, CRMD_ACTION_STOP)
-				  && other->action->rsc->fns->state(
-					  other->action->rsc, TRUE) == RSC_ROLE_STOPPED) {
+				  && other_role == RSC_ROLE_STOPPED) {
 				do_crm_log(log_level-1, "      Ignoring implies left - %s already stopped",
-					other->action->rsc->id);
+					other_rsc->id);
 
+			} else if((local_type & pe_order_demote)
+				  && other_rsc->role < RSC_ROLE_MASTER) {
+			    do_crm_log(log_level-1, "      Ignoring implies left - %s already demoted",
+				       other_rsc->id);
+			    
 			} else if(action->optional == FALSE) {
 				other->action->optional = FALSE;
 				do_crm_log(log_level-1,
@@ -126,7 +180,7 @@ update_action(action_t *action)
 			}
 		}
 		
-		if(other->type & pe_order_implies_right) {
+		if(local_type & pe_order_implies_right) {
 			if(action->optional == FALSE) {
 				/* nothing to do */
 				do_crm_log(log_level+1, "      Ignoring implies right - redundant");
@@ -177,7 +231,7 @@ shutdown_constraints(
 	slist_iter(
 		rsc, resource_t, node->details->running_rsc, lpc,
 
-		if(rsc->is_managed == FALSE) {
+		if(is_not_set(rsc->flags, pe_rsc_managed)) {
 			continue;
 		}
 		
@@ -395,7 +449,7 @@ should_dump_action(action_t *action)
 		return FALSE;
 
 	} else if(action->rsc != NULL
-		  && action->rsc->is_managed == FALSE) {
+		  && is_not_set(action->rsc->flags, pe_rsc_managed)) {
 
 		/* make sure probes go through */
 		if(safe_str_neq(action->task, CRMD_ACTION_STATUS)) {
@@ -416,7 +470,7 @@ should_dump_action(action_t *action)
 	   || safe_str_eq(action->task,  CRM_OP_SHUTDOWN)) {
 		/* skip the next checks */
 		return TRUE;
-	}
+	}	
 
 	if(action->node == NULL) {
 		pe_err("action %d (%s) was not allocated",
@@ -462,6 +516,55 @@ static gint sort_action_id(gconstpointer a, gconstpointer b)
 	return 0;
 }
 
+static gboolean
+should_dump_input(int last_action, action_t *action, action_wrapper_t *wrapper)
+{
+    wrapper->state = pe_link_not_dumped;	
+    if(last_action == wrapper->action->id) {
+	crm_debug_2("Input (%d) %s duplicated",
+		    wrapper->action->id,
+		    wrapper->action->uuid);
+	wrapper->state = pe_link_dup;
+	return FALSE;
+	
+    } else if(wrapper->type == pe_order_none) {
+	crm_debug_2("Input (%d) %s suppressed",
+		    wrapper->action->id,
+		    wrapper->action->uuid);
+	return FALSE;
+	
+    } else if(wrapper->action->optional == TRUE) {
+	crm_debug_2("Input (%d) %s optional",
+		    wrapper->action->id,
+		    wrapper->action->uuid);
+	return FALSE;
+	
+    } else if(wrapper->action->runnable == FALSE
+	      && wrapper->action->pseudo == FALSE
+	      && wrapper->type == pe_order_optional) {
+	crm_debug("Input (%d) %s optional (ordering)",
+		  wrapper->action->id,
+		  wrapper->action->uuid);
+	return FALSE;
+
+    } else if(action->pseudo
+	      && (wrapper->type & pe_order_stonith_stop)) {
+	crm_debug("Input (%d) %s suppressed",
+		  wrapper->action->id,
+		  wrapper->action->uuid);
+	return FALSE;
+    }
+    crm_debug_3("Input (%d) %s n=%p p=%d r=%d f=0x%.6x dumped for %s",
+		wrapper->action->id,
+		wrapper->action->uuid,
+		wrapper->action->node,
+		wrapper->action->pseudo,
+		wrapper->action->runnable,      
+		wrapper->type,      
+		action->uuid);
+    return TRUE;
+}
+		   
 void
 graph_element_from_action(action_t *action, pe_working_set_t *data_set)
 {
@@ -497,43 +600,24 @@ graph_element_from_action(action_t *action, pe_working_set_t *data_set)
 	}
 	
 	xml_action = action2xml(action, FALSE);
-	add_node_copy(set, xml_action);
-	free_xml(xml_action);
+	add_node_nocopy(set, crm_element_name(xml_action), xml_action);
 
 	action->actions_before = g_list_sort(
 		action->actions_before, sort_action_id);
 	
 	slist_iter(wrapper,action_wrapper_t,action->actions_before,lpc,
 
-		   if(last_action == wrapper->action->id) {
-			   crm_debug_2("Input (%d) %s duplicated",
-				       wrapper->action->id,
-				       wrapper->action->uuid);
-			   continue;
-			   
-		   } else if(wrapper->action->optional == TRUE) {
-			   crm_debug_2("Input (%d) %s optional",
-				       wrapper->action->id,
-				       wrapper->action->uuid);
-			   continue;
-
-		   } else if(wrapper->action->runnable == FALSE
-			     && wrapper->action->pseudo == FALSE
-			     && wrapper->type == pe_order_optional) {
-			   crm_debug("Input (%d) %s optional (ordering)",
-				     wrapper->action->id,
-				     wrapper->action->uuid);
-			   continue;
+		   if(should_dump_input(last_action, action, wrapper) == FALSE) {
+		       continue;
 		   }
 
+		   wrapper->state = pe_link_dumped;	
 		   CRM_CHECK(last_action < wrapper->action->id, ;);
 		   last_action = wrapper->action->id;
 		   input = create_xml_node(in, "trigger");
 		   
 		   xml_action = action2xml(wrapper->action, TRUE);
-		   add_node_copy(input, xml_action);
-		   free_xml(xml_action);
-		   
+		   add_node_nocopy(input, crm_element_name(xml_action), xml_action);
 		);
 }
 

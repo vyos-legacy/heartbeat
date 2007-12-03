@@ -184,6 +184,7 @@ process_te_message(HA_Message *msg, crm_data_t *xml_data, IPC_Channel *sender)
 
 	crm_debug_2("Processing %s (%s) message", op, ref);
 	crm_log_message(LOG_DEBUG_3, msg);
+/* 	G_main_set_trigger(stonith_reconnect); */
 	
 	if(op == NULL){
 		/* error */
@@ -242,31 +243,33 @@ process_te_message(HA_Message *msg, crm_data_t *xml_data, IPC_Channel *sender)
 				INFINITY, tg_restart, "Transition Active", NULL);
 
 		}  else {
-			destroy_graph(transition_graph);
+			crm_data_t *graph_data = xml_data;
 			crm_debug("Processing graph derived from %s", graph_input);
 
-			if(graph_file == NULL) {
-				transition_graph = unpack_graph(xml_data);
-
-			} else {
-				crm_data_t *graph_data = NULL;
+			if(graph_file != NULL) {
 				FILE *graph_fd = fopen(graph_file, "r");
+
 				CRM_CHECK(graph_fd != NULL,
 					  cl_perror("Could not open graph file %s", graph_file);
 					  return TRUE);
 
 				graph_data = file2xml(graph_fd, FALSE);
-				transition_graph = unpack_graph(graph_data);
 
-				free_xml(graph_data);
 				unlink(graph_file);
 				fclose(graph_fd);
 			}
-			
+
+			destroy_graph(transition_graph);
+			transition_graph = unpack_graph(graph_data);				
 			start_global_timer(transition_timer,
 					   transition_graph->transition_timeout);
+
 			trigger_graph();
 			print_graph(LOG_DEBUG_2, transition_graph);
+
+			if(graph_data != xml_data) {
+			    free_xml(graph_data);
+			}
 		}
 		
 	} else if(strcasecmp(op, CRM_OP_TE_HALT) == 0) {
@@ -362,16 +365,18 @@ tengine_stonith_callback(stonith_ops_t * op)
 	return;
 }
 
+
 void
 tengine_stonith_connection_destroy(gpointer user_data)
 {
-#if 0
-	crm_err("Fencing daemon has left us: Shutting down...NOW");
-	/* shutdown properly later */
-	CRM_CHECK(FALSE/* fencing daemon died */);
-#else
 	crm_err("Fencing daemon has left us");
-#endif
+	stonith_src = NULL;
+	if(stonith_src == NULL) {
+	    G_main_set_trigger(stonith_reconnect);
+	}
+
+	/* cbchan will be garbage at this point, arrange for it to be reset */
+	set_stonithd_input_IPC_channel_NULL(); 
 	return;
 }
 
@@ -466,6 +471,8 @@ unconfirmed_actions(gboolean send_updates)
 	int unconfirmed = 0;
 	const char *key = NULL;
 	const char *task = NULL;
+	const char *node = NULL;
+	
 	crm_debug_2("Unconfirmed actions...");
 	slist_iter(
 		synapse, synapse_t, transition_graph->synapses, lpc,
@@ -481,11 +488,12 @@ unconfirmed_actions(gboolean send_updates)
 			}
 			
 			unconfirmed++;
-			task = crm_element_value(action->xml,XML_LRM_ATTR_TASK);
-			key = crm_element_value(
-				action->xml,XML_LRM_ATTR_TASK_KEY);
-			crm_info("Action %s %d unconfirmed from peer",
-				 key, action->id);
+			task = crm_element_value(action->xml, XML_LRM_ATTR_TASK);
+			node = crm_element_value(action->xml, XML_LRM_ATTR_TARGET);
+			key  = crm_element_value(action->xml, XML_LRM_ATTR_TASK_KEY);
+			
+			crm_info("Action %s %d unconfirmed from %s",
+				 key, action->id, node);
 			if(action->type != action_type_rsc) {
 				continue;
 			} else if(send_updates == FALSE) {
@@ -501,7 +509,7 @@ unconfirmed_actions(gboolean send_updates)
 			);
 		);
 	if(unconfirmed > 0) {
-		crm_err("Waiting on %d unconfirmed actions", unconfirmed);
+	    crm_warn("Waiting on %d unconfirmed actions", unconfirmed);
 	}
 	return unconfirmed;
 }

@@ -216,7 +216,7 @@ process_pe_message(HA_Message *msg, crm_data_t * xml_data, IPC_Channel *sender)
 crm_data_t *
 do_calculations(pe_working_set_t *data_set, crm_data_t *xml_input, ha_time_t *now)
 {
-	int rsc_log_level = LOG_INFO;
+	int rsc_log_level = LOG_NOTICE;
 /*	pe_debug_on(); */
 	set_working_set_defaults(data_set);
 	data_set->input = xml_input;
@@ -237,7 +237,8 @@ do_calculations(pe_working_set_t *data_set, crm_data_t *xml_input, ha_time_t *no
 #endif
 
 	slist_iter(rsc, resource_t, data_set->resources, lpc,
-		   if(rsc->orphan && rsc->role == RSC_ROLE_STOPPED) {
+		   if(is_set(rsc->flags, pe_rsc_orphan)
+		      && rsc->role == RSC_ROLE_STOPPED) {
 			   continue;
 		   }
 		   rsc->fns->print(rsc, NULL, pe_print_log, &rsc_log_level);

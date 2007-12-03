@@ -88,7 +88,7 @@ int request_id = 0;
 int operation_status = 0;
 cib_t *the_cib = NULL;
 
-#define OPTARGS	"V?o:QDUCEX:t:Srwlsh:MmBfbdRx:pP"
+#define OPTARGS	"V?o:QDUCEX:t:Srwlsh:MmBfbdRx:pP5"
 
 int
 main(int argc, char **argv)
@@ -119,6 +119,7 @@ main(int argc, char **argv)
 		{CIB_OP_SLAVE,   0, 0, 'r'},
 		{CIB_OP_MASTER,  0, 0, 'w'},
 		{CIB_OP_ISMASTER,0, 0, 'm'},
+		{"md5-sum",	 0, 0, '5'},
 		
 		{"force-quorum",0, 0, 'f'},
 		{"local",	0, 0, 'l'},
@@ -140,9 +141,7 @@ main(int argc, char **argv)
 	};
 #endif
 
-	cl_log_set_entity("cibadmin");
-	cl_log_set_facility(LOG_USER);
-	set_crm_log_level(LOG_CRIT);
+	crm_log_init("cibadmin", LOG_CRIT, FALSE, FALSE, argc, argv);
 	
 	if(argc < 2) {
 		usage(crm_system_name, LSB_EXIT_EINVAL);
@@ -207,6 +206,9 @@ main(int argc, char **argv)
 				break;
 			case 'D':
 				cib_action = CIB_OP_DELETE;
+				break;
+			case '5':
+				cib_action = "md5-sum";
 				break;
 			case 'd':
 				cib_action = CIB_OP_DELETE_ALT;
@@ -319,6 +321,21 @@ main(int argc, char **argv)
 	if(input != NULL) {
 		crm_log_xml_debug(input, "[admin input]");
 	}
+
+	if(safe_str_eq(cib_action, "md5-sum")) {
+	    char *digest = NULL;
+	    if(input == NULL) {
+		fprintf(stderr,
+			"Please supply XML to process with -X, -x or -p\n");
+		exit(1);
+	    }
+	    
+	    digest = calculate_xml_digest(input, FALSE, FALSE);
+	    fprintf(stderr, "Digest: ");
+	    fprintf(stdout, "%s\n", crm_str(digest));
+	    crm_free(digest);
+	    exit(0);
+	}
 	
 	exit_code = do_init();
 	if(exit_code != cib_ok) {
@@ -327,8 +344,6 @@ main(int argc, char **argv)
 		return -exit_code;
 	}	
 
-	cl_log_args(argc, argv);
-	
 	exit_code = do_work(input, command_options, &output);
 	if (exit_code > 0) {
 		/* wait for the reply by creating a mainloop and running it until
@@ -449,6 +464,8 @@ usage(const char *cmd, int exit_status)
 	fprintf(stream, "\t--%s (-%c)\tErase the contents of the whole CIB\n", CIB_OP_ERASE,  'E');
 	fprintf(stream, "\t--%s (-%c)\t\n", CIB_OP_QUERY,  'Q');
 	fprintf(stream, "\t--%s (-%c)\t\n", CIB_OP_CREATE, 'C');
+	fprintf(stream, "\t--%s (-%c)\tCalculate an XML file's digest."
+		"  Requires either -X, -x or -p\n", "md5-sum", '5');
 	fprintf(stream, "\t--%s (-%c)\tRecursivly replace an object in the CIB\n", CIB_OP_REPLACE,'R');
 	fprintf(stream, "\t--%s (-%c)\tRecursivly update an object in the CIB\n", CIB_OP_UPDATE, 'U');
 	fprintf(stream, "\t--%s (-%c)\tFind the object somewhere in the CIB's XML tree and update is as --"CIB_OP_UPDATE" would\n", CIB_OP_MODIFY, 'M');

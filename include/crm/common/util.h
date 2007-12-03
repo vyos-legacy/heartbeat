@@ -34,7 +34,9 @@ extern gboolean crm_config_warning;
 #define crm_config_err(fmt...) { crm_config_error = TRUE; crm_err(fmt); }
 #define crm_config_warn(fmt...) { crm_config_warning = TRUE; crm_warn(fmt); }
 
-extern gboolean crm_log_init(const char *entity, gboolean coredir);
+extern gboolean crm_log_init(
+    const char *entity, int level, gboolean coredir, gboolean to_stderr,
+    int argc, char **argv);
 
 /* returns the old value */
 extern unsigned int set_crm_log_level(unsigned int level);
@@ -122,7 +124,7 @@ extern int crm_int_helper(const char *text, char **end_text);
 #define crm_atoi(text, default_text) crm_parse_int(text, default_text)
 
 extern void crm_abort(const char *file, const char *function, int line,
-		      const char *condition, gboolean do_fork);
+		      const char *condition, gboolean do_core, gboolean do_fork);
 
 extern char *generate_series_filename(
 	const char *directory, const char *series, int sequence, gboolean bzip);
@@ -172,5 +174,19 @@ extern char *score2char(int score);
 extern gboolean crm_is_writable(
 	const char *dir, const char *file,
 	const char *user, const char *group, gboolean need_both);
+
+extern long long crm_set_bit(const char *function, long long word, long long bit);
+extern long long crm_clear_bit(const char *function, long long word, long long bit);
+
+
+#define set_bit(word, bit) word = crm_set_bit(__PRETTY_FUNCTION__, word, bit) 
+#define clear_bit(word, bit) word = crm_clear_bit(__PRETTY_FUNCTION__, word, bit) 
+
+#define set_bit_inplace(word, bit) word |= bit 
+#define clear_bit_inplace(word, bit) word &= ~bit 
+
+extern gboolean is_set(long long action_list, long long action);
+extern gboolean is_not_set(long long action_list, long long action);
+extern gboolean is_set_any(long long action_list, long long action);
 
 #endif

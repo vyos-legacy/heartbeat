@@ -22,24 +22,6 @@
 #include <utils.h>
 #include <lib/crm/pengine/utils.h>
 
-gint sort_cons_strength(gconstpointer a, gconstpointer b)
-{
-	const rsc_colocation_t *rsc_constraint1 = (const rsc_colocation_t*)a;
-	const rsc_colocation_t *rsc_constraint2 = (const rsc_colocation_t*)b;
-
-	if(a == NULL) { return 1; }
-	if(b == NULL) { return -1; }
-  
-	if(rsc_constraint1->score > rsc_constraint2->score) {
-		return 1;
-	}
-	
-	if(rsc_constraint1->score < rsc_constraint2->score) {
-		return -1;
-	}
-	return 0;
-}
-
 void
 print_rsc_to_node(const char *pre_text, rsc_to_node_t *cons, gboolean details)
 { 
@@ -277,7 +259,7 @@ native_assign_node(resource_t *rsc, GListPtr nodes, node_t *chosen)
 	int multiple = 0;
 	CRM_ASSERT(rsc->variant == pe_native);
 
-	rsc->provisional = FALSE;
+	clear_bit(rsc->flags, pe_rsc_provisional);
 	
 	slist_iter(candidate, node_t, nodes, lpc, 
 		   crm_debug("Color %s, Node[%d] %s: %d", rsc->id, lpc,
@@ -387,7 +369,7 @@ convert_non_atomic_task(resource_t *rsc, order_constraint_t *order)
 	}
 	
 	if(task != no_action) {
-		if(rsc->notify) {
+		if(is_set(rsc->flags, pe_rsc_notify)) {
 			order->lh_action_task = generate_notify_key(
 				rsc->id, "confirmed-post",
 				task2text(task));
@@ -530,4 +512,46 @@ resource_t *uber_parent(resource_t *rsc)
 	return parent;
 }
 
+
+action_t *get_pseudo_op(const char *name, pe_working_set_t *data_set) 
+{
+    action_t *op = NULL;
+    const char *op_s = name;
+    GListPtr possible_matches = NULL;
+
+    possible_matches = find_actions(data_set->actions, name, NULL);
+    if(possible_matches != NULL) {
+	if(g_list_length(possible_matches) > 1) {
+	    pe_warn("Action %s exists %d times",
+		    name, g_list_length(possible_matches));
+	}
+		
+	op = g_list_nth_data(possible_matches, 0);
+	g_list_free(possible_matches);
+
+    } else {
+	op = custom_action(NULL, crm_strdup(op_s), op_s,
+			   NULL, TRUE, TRUE, data_set);
+	op->pseudo = TRUE;
+	op->runnable = TRUE;
+    }
+
+    return op;
+}
+
+gboolean can_run_any(GListPtr nodes)
+{
+	if(nodes == NULL) {
+	    return FALSE;
+	}
+
+	slist_iter(
+	    node, node_t, nodes, lpc,
+	    if(can_run_resources(node) && node->weight >= 0) {
+		return TRUE;
+	    }
+	    );
+
+	return FALSE;
+}
 

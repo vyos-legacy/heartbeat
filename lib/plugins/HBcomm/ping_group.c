@@ -287,10 +287,11 @@ ping_group_new(const char *name)
 	priv->ident = getpid() & 0xFFFF;
 
 	media = (struct hb_media *) MALLOC(sizeof(struct hb_media));
-	if(!media) {
+	if (!media) {
 		FREE(priv);
 		return(NULL);
 	}
+	memset(media, 0, sizeof(*media));
 
 	media->pd = (void*)priv;
 	tmp = STRDUP(name);
@@ -365,6 +366,7 @@ ping_group_close(struct hb_media* mp)
 		if (close(ei->sock) < 0) {
 			rc = HA_FAIL;
 		}
+		ei->sock=-1;
 	}
 
 	ping_group_destroy_data(mp);
@@ -614,16 +616,21 @@ retry:
 	}
 
 	for(node = ei->node; node; node = node->next) {
-		if ((rc=sendto(ei->sock, (void *) icmp_pkt, pktsize, 0
+		if ((rc=sendto(ei->sock, (void *) icmp_pkt, pktsize
+		,	MSG_DONTWAIT
 		,	(struct sockaddr *)&node->addr
 		,	sizeof(struct sockaddr))) != (ssize_t)pktsize) {
 			if (errno == EPERM && !needroot) {
 				needroot=TRUE;
 				goto retry;
 			}
-
-			PILCallLog(LOG, PIL_CRIT, "Error sending packet: %s"
-			,	strerror(errno));
+			if (!mp->suppresserrs) {
+				PILCallLog(LOG, PIL_CRIT, "Error sending packet: %s"
+				,	strerror(errno));
+				PILCallLog(LOG, PIL_INFO, "euid=%lu egid=%lu"
+				,	(unsigned long) geteuid()
+				,	(unsigned long) getegid());
+			}
 			FREE(icmp_pkt);
 			ha_msg_del(msg);
 			return(HA_FAIL);

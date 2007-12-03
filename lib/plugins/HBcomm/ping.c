@@ -248,6 +248,7 @@ ping_new(const char * host)
 		FREE(ipi); ipi = NULL;
 		return(NULL);
 	}
+	memset(ret, 0, sizeof(*ret));
 
 	ret->pd = (void*)ipi;
 	name = STRDUP(host);
@@ -279,6 +280,7 @@ ping_close(struct hb_media* mp)
 		if (close(ei->sock) < 0) {
 			rc = HA_FAIL;
 		}
+		ei->sock = -1;
 	}
 	return(rc);
 }
@@ -499,14 +501,19 @@ retry:
 		return_to_orig_privs();
 	}
 
-	if ((rc=sendto(ei->sock, (void *) icmp_pkt, pktsize, 0
+	if ((rc=sendto(ei->sock, (void *) icmp_pkt, pktsize, MSG_DONTWAIT
 	,	(struct sockaddr *)&ei->addr
 	,	sizeof(struct sockaddr))) != (ssize_t)pktsize) {
 		if (errno == EPERM && !needroot) {
 			needroot=TRUE;
 			goto retry;
 		}
-		PILCallLog(LOG, PIL_CRIT, "Error sending packet: %s", strerror(errno));
+		if (!mp->suppresserrs) {
+			PILCallLog(LOG, PIL_CRIT, "Error sending packet: %s", strerror(errno));
+			PILCallLog(LOG, PIL_INFO, "euid=%lu egid=%lu"
+			,	(unsigned long) geteuid()
+			,	(unsigned long) getegid());
+		}
 		FREE(icmp_pkt);
 		ha_msg_del(msg);
 		return(HA_FAIL);

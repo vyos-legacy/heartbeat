@@ -36,36 +36,40 @@ resource_object_functions_t resource_class_functions[] = {
 		native_print,
 		native_active,
 		native_resource_state,
+		native_location,
 		native_free
 	},
 	{
 		group_unpack,
-		group_find_child,
-		group_children,
+		native_find_child,
+		native_children,
 		native_parameter,
 		group_print,
 		group_active,
 		group_resource_state,
+		native_location,
 		group_free
 	},
 	{
 		clone_unpack,
-		clone_find_child,
-		clone_children,
+		native_find_child,
+		native_children,
 		native_parameter,
 		clone_print,
 		clone_active,
 		clone_resource_state,
+		native_location,
 		clone_free
 	},
 	{
 		master_unpack,
-		clone_find_child,
-		clone_children,
+		native_find_child,
+		native_children,
 		native_parameter,
 		clone_print,
 		clone_active,
 		clone_resource_state,
+		native_location,
 		clone_free
 	}
 };
@@ -186,19 +190,18 @@ common_unpack(crm_data_t * xml_obj, resource_t **rsc,
 			parent->parameters, dup_attr, (*rsc)->parameters);
 	}
 
-	(*rsc)->runnable	   = TRUE; 
-	(*rsc)->provisional	   = TRUE; 
-	(*rsc)->starting	   = FALSE; 
-	(*rsc)->stopping	   = FALSE; 
+	(*rsc)->flags = 0;
+	set_bit((*rsc)->flags, pe_rsc_runnable); 
+	set_bit((*rsc)->flags, pe_rsc_provisional); 
+
+	if(data_set->is_managed_default) {
+	    set_bit((*rsc)->flags, pe_rsc_managed); 
+	}
 
 	(*rsc)->rsc_cons	   = NULL; 
 	(*rsc)->actions            = NULL;
-	(*rsc)->failed		   = FALSE;
-	(*rsc)->start_pending	   = FALSE;	
-	(*rsc)->globally_unique    = TRUE;
 	(*rsc)->role		   = RSC_ROLE_STOPPED;
 	(*rsc)->next_role	   = RSC_ROLE_UNKNOWN;
-	(*rsc)->is_managed	   = data_set->is_managed_default;
 
 	(*rsc)->recovery_type      = recovery_stop_start;
 	(*rsc)->stickiness         = data_set->default_resource_stickiness;
@@ -209,17 +212,23 @@ common_unpack(crm_data_t * xml_obj, resource_t **rsc,
 	(*rsc)->effective_priority = (*rsc)->priority;
 
 	value = g_hash_table_lookup((*rsc)->meta, XML_RSC_ATTR_NOTIFY);
-	(*rsc)->notify		   = crm_is_true(value); 
+	if(crm_is_true(value)) {
+	    set_bit((*rsc)->flags, pe_rsc_notify); 
+	}
 	
 	value = g_hash_table_lookup((*rsc)->meta, "is_managed");
 	if(value != NULL && safe_str_neq("default", value)) {
-		cl_str_to_boolean(value, &((*rsc)->is_managed));
+	    gboolean bool_value = TRUE;
+	    cl_str_to_boolean(value, &bool_value);
+	    if(bool_value == FALSE) {
+		clear_bit((*rsc)->flags, pe_rsc_managed); 
+	    } 
 	}
 
 	crm_debug_2("Options for %s", (*rsc)->id);
 	value = g_hash_table_lookup((*rsc)->meta, "globally_unique");
-	if(value != NULL) {
-		cl_str_to_boolean(value, &((*rsc)->globally_unique));
+	if(value == NULL || crm_is_true(value)) {
+	    set_bit((*rsc)->flags, pe_rsc_unique); 
 	}
 	
 	value = g_hash_table_lookup((*rsc)->meta, XML_RSC_ATTR_RESTART);
@@ -273,7 +282,7 @@ common_unpack(crm_data_t * xml_obj, resource_t **rsc,
 		return FALSE;
 	}
 	
-	if((*rsc)->is_managed == FALSE) {
+	if(is_not_set((*rsc)->flags, pe_rsc_managed)) {
 		crm_warn("Resource %s is currently not managed", (*rsc)->id);
 
 	} else if(data_set->symmetric_cluster) {
@@ -281,13 +290,85 @@ common_unpack(crm_data_t * xml_obj, resource_t **rsc,
 	}
 	
 	crm_debug_2("\tAction notification: %s",
-		    (*rsc)->notify?"required":"not required");
+		    is_set((*rsc)->flags, pe_rsc_notify)?"required":"not required");
 	
 /* 	data_set->resources = g_list_append(data_set->resources, (*rsc)); */
 	return TRUE;
 }
 
 
+void common_update_score(resource_t *rsc, const char *id, int score) 
+{
+    node_t *node = NULL;
+    node = pe_find_node_id(rsc->allowed_nodes, id);
+    if(node != NULL) {
+	crm_debug_2("Updating score for %s on %s: %d + %d",
+		    rsc->id, id, node->weight, score);
+	node->weight = merge_weights(node->weight, score);
+    }
+
+    if(rsc->children) {
+	slist_iter(
+	    child_rsc, resource_t, rsc->children, lpc,
+	    common_update_score(child_rsc, id, score);
+	    );
+    }
+}
+
+void
+common_apply_stickiness(resource_t *rsc, node_t *node, pe_working_set_t *data_set) 
+{
+	int fail_count = 0;
+	char *fail_attr = NULL;
+	const char *value = NULL;
+	GHashTable *meta_hash = NULL;
+
+	if(rsc->children) {
+	    slist_iter(
+		child_rsc, resource_t, rsc->children, lpc,
+		common_apply_stickiness(child_rsc, node, data_set);
+		);
+	    return;
+	}
+	
+	meta_hash = g_hash_table_new_full(
+		g_str_hash, g_str_equal,
+		g_hash_destroy_str, g_hash_destroy_str);
+	get_meta_attributes(meta_hash, rsc, node, data_set);
+
+	/* update resource preferences that relate to the current node */	    
+	value = g_hash_table_lookup(meta_hash, "resource_stickiness");
+	if(value != NULL && safe_str_neq("default", value)) {
+		rsc->stickiness = char2score(value);
+	} else {
+		rsc->stickiness = data_set->default_resource_stickiness;
+	}
+
+	value = g_hash_table_lookup(meta_hash, XML_RSC_ATTR_FAIL_STICKINESS);
+	if(value != NULL && safe_str_neq("default", value)) {
+		rsc->fail_stickiness = char2score(value);
+	} else {
+		rsc->fail_stickiness = data_set->default_resource_fail_stickiness;
+	}
+
+	/* process failure stickiness */
+	fail_attr = crm_concat("fail-count", rsc->id, '-');
+	value = g_hash_table_lookup(node->details->attrs, fail_attr);
+	if(value != NULL) {
+		crm_debug("%s: %s", fail_attr, value);
+		fail_count = crm_parse_int(value, "0");
+	}
+	crm_free(fail_attr);
+	
+	if(fail_count > 0 && rsc->fail_stickiness != 0) {
+		resource_location(rsc, node, fail_count * rsc->fail_stickiness,
+				  "fail_stickiness", data_set);
+		crm_info("Setting failure stickiness for %s on %s: %d",
+			  rsc->id, node->details->uname,
+			  fail_count * rsc->fail_stickiness);
+	}
+	g_hash_table_destroy(meta_hash);
+}
 
 void common_free(resource_t *rsc)
 {
@@ -297,14 +378,16 @@ void common_free(resource_t *rsc)
 	
 	crm_debug_5("Freeing %s %d", rsc->id, rsc->variant);
 
- 	pe_free_shallow(rsc->rsc_cons);
+	g_list_free(rsc->rsc_cons);
+	g_list_free(rsc->rsc_cons_lhs);
+
 	if(rsc->parameters != NULL) {
 		g_hash_table_destroy(rsc->parameters);
 	}
 	if(rsc->meta != NULL) {
 		g_hash_table_destroy(rsc->meta);
 	}
-	if(rsc->orphan) {
+	if(is_set(rsc->flags, pe_rsc_orphan)) {
 		free_xml(rsc->xml);
 	}
 	if(rsc->running_on) {

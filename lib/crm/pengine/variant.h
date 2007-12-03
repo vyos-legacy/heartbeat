@@ -31,16 +31,18 @@ typedef struct clone_variant_data_s {
 
 		int active_clones;
 		int max_nodes;
-		
+
+		int masters_active;
+		int masters_allocated;
+	
 		gboolean interleave;
 		gboolean ordered;
 		gboolean applied_master_prefs;
+		gboolean merged_master_weights;
 
 		crm_data_t *xml_obj_child;
 		
-		gboolean notify_confirm;
-		
-		GListPtr child_list; /* resource_t* */
+		gboolean notify_confirm;		
 		
 } clone_variant_data_t;
 
@@ -53,7 +55,6 @@ typedef struct clone_variant_data_s {
 
 typedef struct group_variant_data_s {
 		int num_children;
-		GListPtr child_list; /* resource_t* */
 		resource_t *self;
 		resource_t *first_child;
 		resource_t *last_child;
