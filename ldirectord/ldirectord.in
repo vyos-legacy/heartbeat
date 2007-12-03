@@ -1225,7 +1225,8 @@ sub read_config
 							  $1 eq "radius"||
 							  $1 eq "pgsql"	||
 							  $1 eq "sip"	||
-							  $1 eq "smtp")
+							  $1 eq "smtp"	||
+							  $1 eq "simpletcp")
 					    or &config_error($line,
 							     "service must " .
 							     "be dns, ftp, " .
@@ -2223,6 +2224,8 @@ sub ld_main
 						$$r{num_connects} = 0 if (check_pgsql($v, $r) == $SERVICE_UP);
 					} elsif ($$v{service} eq "oracle") {
 						$$r{num_connects} = 0 if (check_oracle($v, $r) == $SERVICE_UP);
+				        } elsif ($$v{service} eq "simpletcp") {
+					        $$r{num_connects} = 0 if (check_simpletcp($v, $r) == $SERVICE_UP);
 					} else {
 						$$r{num_connects} = 0 if (check_none($v, $r) == $SERVICE_UP);
 					}
@@ -2910,6 +2913,73 @@ sub check_sip
 	}
 }
 
+
+sub check_simpletcp
+{
+       my ($v, $r) = @_;
+       my $d_port = ld_checkport($v, $r);
+
+       &ld_debug(2, "Checking simpletcp server=$$r{server} port=$d_port");
+
+       eval {
+	       use Socket;
+
+	       local $SIG{'__DIE__'} = "DEFAULT";
+	       local $SIG{'ALRM'} = sub { die "Timeout Alarm" };
+	       &ld_debug(4, "Timeout is $$v{checktimeout}");
+	       alarm $$v{negotiatetimeout};
+
+	       my $sock = &ld_open_socket($$r{server}, $d_port,
+				       $$v{protocol});
+	       unless ($sock) {
+		       alarm 0;
+		       die("Socket Connect Failed");
+	       }
+
+	       my $s_sockaddr = getsockname($sock);
+	       my ($s_port, $s_addr) = sockaddr_in($s_sockaddr);
+	       my $s_addr_str = inet_ntoa($s_addr);
+
+	       &ld_debug(3, "Connected from $s_addr_str:$s_port to " .
+		       $$r{server} . ":$d_port");
+
+	       select $sock;
+	       $|=1;
+	       select STDOUT;
+
+	       my $request = $$r{request};
+	       $request =~ s/\\n/\n/g ;
+
+	       &ld_debug(2, "Checking simpletcp server=$$r{server} port=$d_port request:\n$request");
+	       print $sock $request;
+
+	       my $ok;
+	       my $reply;
+	       while (<$sock>) {
+		       &ld_debug(2, "Checking simpletcp server=$$r{server} port=$d_port receive=" . $$r{receive} ." got: $_\n");
+		       if ( $_ =~ /$$r{receive}/ ) {
+			       $ok = 1;
+			       last;
+		       }
+	       }
+	       alarm 0; # Cancel the alarm
+	       close($sock);
+
+	       if (!defined $ok) {
+		       die "No OK\n";
+	       }
+       };
+
+       if ($@) {
+	       &service_set($v, $r, "down");
+	       &ld_debug(3, "Deactivated service $$r{server}:$$r{port}: $@");
+	       return $SERVICE_DOWN;
+       } else {
+	       &service_set($v, $r, "up");
+	       &ld_debug(3, "Activated service $$r{server}:$$r{port}");
+	       return $SERVICE_UP;
+       }
+}
 
 sub check_ftp
 {
