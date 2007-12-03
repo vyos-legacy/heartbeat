@@ -327,11 +327,15 @@ checking will take place and no real or fallback servers will be activated.
 On means no checking will take place and real servers will always be
 activated. Default is I<negotiate>.
 
-B<service = >B<dns>|B<ftp>|B<http>|B<https>|B<imap>|B<imaps>|B<ldap>|B<mysql>|B<nntp>|B<none>|B<oracle>|B<pgsql>|B<pop>|B<pops>|B<radius>|B<sip>|B<smtp>
+B<service = >B<dns>|B<ftp>|B<http>|B<https>|B<imap>|B<imaps>|B<ldap>|B<mysql>|B<nntp>|B<none>|B<oracle>|B<pgsql>|B<pop>|B<pops>|B<radius>|B<simpletcp>|B<sip>|B<smtp>
 
 The type of service to monitor when using checktype=negotiate. None denotes
 a service that will not be monitored. 
 
+simpletcp sends the B<request> string to the server and tests it against
+the B<receive> regexp. The other types of checks connect to the server
+using the specified protocol. Please see the B<request> and B<receive>
+sections for protocol specific information.
 
 Default:
 
@@ -414,6 +418,9 @@ of a PTR record to look up.
 For a MySQL, Oracle or PostgeSQL check, this should be an SQL query.
 The data returned is not checked, only that the
 answer is one or more rows.  This is a required setting.
+
+For a simpletcp check, this string is sent verbatim except any occurances
+of \n are replaced with a new line character.
 
 B<receive = ">I<regexp to compare>B<">
 
@@ -1237,8 +1244,9 @@ sub read_config
 							     "oracle, "      .
 							     "pop, pops, "   .
 							     "radius, "      .
-							     "pgsql, sip "   .
-							     "or smtp");
+							     "pgsql, "       .
+							     "simpletcp, "   .
+							     "sip or smtp");
 					$vsrv{service} = $1;
 					if($vsrv{service} eq "ftp" and 
 							$vsrv{login} eq "") {
