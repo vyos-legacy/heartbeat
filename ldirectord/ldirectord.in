@@ -327,11 +327,15 @@ checking will take place and no real or fallback servers will be activated.
 On means no checking will take place and real servers will always be
 activated. Default is I<negotiate>.
 
-B<service = >B<dns>|B<ftp>|B<http>|B<https>|B<imap>|B<imaps>|B<ldap>|B<mysql>|B<nntp>|B<none>|B<oracle>|B<pgsql>|B<pop>|B<pops>|B<radius>|B<sip>|B<smtp>
+B<service = >B<dns>|B<ftp>|B<http>|B<https>|B<imap>|B<imaps>|B<ldap>|B<mysql>|B<nntp>|B<none>|B<oracle>|B<pgsql>|B<pop>|B<pops>|B<radius>|B<simpletcp>|B<sip>|B<smtp>
 
 The type of service to monitor when using checktype=negotiate. None denotes
 a service that will not be monitored. 
 
+simpletcp sends the B<request> string to the server and tests it against
+the B<receive> regexp. The other types of checks connect to the server
+using the specified protocol. Please see the B<request> and B<receive>
+sections for protocol specific information.
 
 Default:
 
@@ -414,6 +418,9 @@ of a PTR record to look up.
 For a MySQL, Oracle or PostgeSQL check, this should be an SQL query.
 The data returned is not checked, only that the
 answer is one or more rows.  This is a required setting.
+
+For a simpletcp check, this string is sent verbatim except any occurances
+of \n are replaced with a new line character.
 
 B<receive = ">I<regexp to compare>B<">
 
@@ -1225,7 +1232,8 @@ sub read_config
 							  $1 eq "radius"||
 							  $1 eq "pgsql"	||
 							  $1 eq "sip"	||
-							  $1 eq "smtp")
+							  $1 eq "smtp"	||
+							  $1 eq "simpletcp")
 					    or &config_error($line,
 							     "service must " .
 							     "be dns, ftp, " .
@@ -1236,8 +1244,9 @@ sub read_config
 							     "oracle, "      .
 							     "pop, pops, "   .
 							     "radius, "      .
-							     "pgsql, sip "   .
-							     "or smtp");
+							     "pgsql, "       .
+							     "simpletcp, "   .
+							     "sip or smtp");
 					$vsrv{service} = $1;
 					if($vsrv{service} eq "ftp" and 
 							$vsrv{login} eq "") {
@@ -2223,6 +2232,8 @@ sub ld_main
 						$$r{num_connects} = 0 if (check_pgsql($v, $r) == $SERVICE_UP);
 					} elsif ($$v{service} eq "oracle") {
 						$$r{num_connects} = 0 if (check_oracle($v, $r) == $SERVICE_UP);
+				        } elsif ($$v{service} eq "simpletcp") {
+					        $$r{num_connects} = 0 if (check_simpletcp($v, $r) == $SERVICE_UP);
 					} else {
 						$$r{num_connects} = 0 if (check_none($v, $r) == $SERVICE_UP);
 					}
@@ -2910,6 +2921,73 @@ sub check_sip
 	}
 }
 
+
+sub check_simpletcp
+{
+       my ($v, $r) = @_;
+       my $d_port = ld_checkport($v, $r);
+
+       &ld_debug(2, "Checking simpletcp server=$$r{server} port=$d_port");
+
+       eval {
+	       use Socket;
+
+	       local $SIG{'__DIE__'} = "DEFAULT";
+	       local $SIG{'ALRM'} = sub { die "Timeout Alarm" };
+	       &ld_debug(4, "Timeout is $$v{checktimeout}");
+	       alarm $$v{negotiatetimeout};
+
+	       my $sock = &ld_open_socket($$r{server}, $d_port,
+				       $$v{protocol});
+	       unless ($sock) {
+		       alarm 0;
+		       die("Socket Connect Failed");
+	       }
+
+	       my $s_sockaddr = getsockname($sock);
+	       my ($s_port, $s_addr) = sockaddr_in($s_sockaddr);
+	       my $s_addr_str = inet_ntoa($s_addr);
+
+	       &ld_debug(3, "Connected from $s_addr_str:$s_port to " .
+		       $$r{server} . ":$d_port");
+
+	       select $sock;
+	       $|=1;
+	       select STDOUT;
+
+	       my $request = $$r{request};
+	       $request =~ s/\\n/\n/g ;
+
+	       &ld_debug(2, "Checking simpletcp server=$$r{server} port=$d_port request:\n$request");
+	       print $sock $request;
+
+	       my $ok;
+	       my $reply;
+	       while (<$sock>) {
+		       &ld_debug(2, "Checking simpletcp server=$$r{server} port=$d_port receive=" . $$r{receive} ." got: $_\n");
+		       if ( $_ =~ /$$r{receive}/ ) {
+			       $ok = 1;
+			       last;
+		       }
+	       }
+	       alarm 0; # Cancel the alarm
+	       close($sock);
+
+	       if (!defined $ok) {
+		       die "No OK\n";
+	       }
+       };
+
+       if ($@) {
+	       &service_set($v, $r, "down");
+	       &ld_debug(3, "Deactivated service $$r{server}:$$r{port}: $@");
+	       return $SERVICE_DOWN;
+       } else {
+	       &service_set($v, $r, "up");
+	       &ld_debug(3, "Activated service $$r{server}:$$r{port}");
+	       return $SERVICE_UP;
+       }
+}
 
 sub check_ftp
 {
