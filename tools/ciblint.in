@@ -90,6 +90,7 @@ It currently looks for a number of classes of possible errors, including these:
   - check if clone form resource names are used for non-clone resources
   - ensure that clone form resource names have integral clone numbers
   - check for ids with ":" characters in them in <primitive>, <group>, <clone>, or <master_slave> tags
+  - check for resources with non-zero failcounts
 
 More documentation can be found online at http://linux-ha.org/ciblint
 '''
@@ -109,9 +110,10 @@ stonithresourcecount=0
 stonithremarks=1
 outlinelen=70
 allow_global_nonuniques=1
-global LRMclasses, LRMresources
+global LRMclasses, LRMresources, GlobalStatus
 LRMclasses = {}
 LRMresources = {}
+GlobalStatus = None
 
 
 def lintURL(suffix):
@@ -490,12 +492,12 @@ class OCFParameterMetadata:
   def validate(self, value):
     return self.type.validate(value)
 
-  def explainnondefault(self, value, lang="en"):
+  def explainnondefault(self, value, lang="en", exceptions={}):
     if not self.validate(value):
       print "ERROR: Value [%s] is not a valid value of type [%s] in <%s>"  \
 	% (value, self.type.typename, self.name)
     if self.default != None and self.default != "" and value != self.default \
-    and note_non_default_values:
+    and note_non_default_values and not exceptions.has_key(self.name):
       print "INFO: CIB has non-default value for %s [%s].  Default value is [%s]" \
 	%	(self.name, value, self.default)
       print_wrap("Explanation of %s option: %s" % (self.name, self.shortdesc(lang)),\
@@ -598,12 +600,12 @@ class OCFMetadata:
         ret=0
     return ret
  
-  def explainnondefault(self, p, value, lang="en"):
+  def explainnondefault(self, p, value, lang="en", exceptions={}):
     if not self.Parameters.has_key(p):
       print "ERROR: [%s] is not a legal parameter to [%s]" \
 	% (p, self.name)
       return
-    self.Parameters[p].explainnondefault(value, lang)
+    self.Parameters[p].explainnondefault(value, lang, exceptions=exceptions)
 
   def explainall(self, lang="en"):
     for key in self.Parameters.keys():
@@ -704,13 +706,13 @@ class CRMMetadata:
         print "ERROR: <nvpair name=\"%s\"...>: [%s] is not a legal name for" \
         +	" the <crm_config> section" % (key, key)
 
-  def explainnondefault(self, nvpairs):
+  def explainnondefault(self, nvpairs, exceptions={}):
     for key in nvpairs.keys():
       found=None
       for mdlist in self.metadatalist:
          if mdlist.has_parameter(key):
            found=1
-           mdlist.explainnondefault(key, nvpairs[key])
+           mdlist.explainnondefault(key, nvpairs[key], exceptions=exceptions)
       if not found:
         print ("ERROR: <nvpair name=\"%s\"...>: [%s] is not a legal name in" \
         +	" the <crm_config> section") % (key, key)
@@ -851,29 +853,71 @@ MetaAttributeMetadata_string =\
   <version>1.0</version>
   <longdesc lang="en">Options that can be configured for resource meta_attributes.</longdesc>
   <shortdesc lang="en">Resource meta_attributes Options</shortdesc>
+
   <parameters>
+
+    <parameter name="is_managed" unique="0">
+      <content type="boolean"/>
+      <shortdesc lang="en">"true" if this resource is managed by Heartbeat</shortdesc>
+      <longdesc lang="en">If set to "false", Heartbeat will not monitor it, nor restart it on failure of resource or node.  Commonly set to "false" to allow for maintenance of the resource.  It defaults to the currently active value of "is-managed-default" from the crm_config section, or can be inherited from a parent (containing) resource.  If "false", the resource will not started if stopped, stopped if started nor have any recurring actions scheduled.  The resource may still be referenced in colocation constraints and ordering constraints (though obviously if no actions are performed on it then it will prevent the action on the other resource too)</longdesc>
+    </parameter>
+
     <parameter name="restart_type" unique="0">
       <shortdesc lang="en">how to restart dependents</shortdesc>
       <longdesc lang="en">how to restart dependents when this resource restarts</longdesc>
-      <content type="enum" default="restart">
+      <content type="enum" default="ignore">
         <enumvals>
 	  <enumval value="ignore">
-            <shortdesc lang="en">Dependent resources ignore restarts of this resource</shortdesc>
-            <longdesc lang="en">Dependent resources take no action when this resource is restarted due to monitor failure</longdesc>
+            <shortdesc lang="en">ignore restarts of resources we depend on</shortdesc>
+            <longdesc lang="en">Restarts of resources which this resource has order-dependencies on will not cause restarts of this resource</longdesc>
 	  </enumval>
 	  <enumval value="restart">
-            <shortdesc lang="en">Restart dependent resources when this one restarts</shortdesc>
-            <longdesc lang="en">Dependent resources restart when this resource is restarted due to monitor failure</longdesc>
+            <shortdesc lang="en">Restart this resource when resources we depend on restart.</shortdesc>
+            <longdesc lang="en">Restart this resource whenever any other resource restarts on which this resource has order-dependencies. If this resource has to start after resource foo, then whenever foo restarts, we will restart this resource.  For example, you can Use this to have a restart of your database also trigger a restart of your web-server.</longdesc>
 	  </enumval>
         </enumvals>
       </content>
     </parameter>
 
+    <parameter name="multiple_active" unique="0">
+      <shortdesc lang="en">action to take when multiple instances are active</shortdesc>
+      <longdesc lang="en">When an instance of this resource is found to be active mutliple times, this parameter specifies what action to take.</longdesc>
+      <content type="enum" default="start_stop">
+	<enumvals>
+	  <enumval value="stop_start">
+            <shortdesc lang="en">stop all and restart one</shortdesc>
+            <longdesc lang="en">Stop all active instances of this resource, then restart one.  This works fine if the resource won't be irreparably damaged by having multiple active instances.</longdesc>
+          </enumval>
+	  <enumval value="stop_only">
+            <shortdesc lang="en">stop all instances</shortdesc>
+            <longdesc lang="en">Stop all instances of this resource and wait for the administrator to recover the resources manually.  This is a good choice if this resource (like most filesystems) will be damaged by multiple running copies, and get more damaged the longer they're multiply active, and require manual repair in order to be usable again.</longdesc>
+	  </enumval>
+	  <enumval value="block">
+            <shortdesc lang="en">do nothing</shortdesc>
+            <longdesc lang="en">Don't do anything - wait for the administrator to recover the resources.</longdesc>
+	  </enumval>
+	</enumvals>
+      </content>
+    </parameter>
+
+    <parameter name="resource_stickiness" unique="0">
+      <shortdesc lang="en">Stay where we are or move to "better" place?</shortdesc>
+      <longdesc lang="en">0: resources will be placed "optimally" without regard for current location.
+positive value: Node currently running resource is has a score of "resource_stickiness" added to its other scores.  Negative values aren't typically very sensible.</longdesc>
+      <content type="score" default="0"/>
+    </parameter>
 
     <parameter name="ordered" unique="0">
-      <content type="boolean" default="0"/>
-      <shortdesc lang="en">Start (or stop) each clone only after the operation on the previous clone completed.</shortdesc>
-      <longdesc lang="en">This serializes operations on a set of clones ensuring that operations between individual clones never overlap.</longdesc>
+      <content type="boolean" default="true"/>
+      <shortdesc lang="en">Is start-after ordering implied by the group?</shortdesc>
+      <longdesc lang="en">If true, then each element of the group has a start-after ordering dependency implied between it and its immediate predecessor in the group (if any).</longdesc>
+    </parameter>
+
+
+    <parameter name="collocated" unique="0">
+      <content type="boolean" default="true"/>
+      <shortdesc lang="en">Is start-after ordering implied by the group?</shortdesc>
+      <longdesc lang="en">If true, then each element of the group has a colocation dependency implied between it and its immediate predecessor in the group (if any).</longdesc>
     </parameter>
 
     <parameter name="interleave" unique="0">
@@ -882,6 +926,20 @@ MetaAttributeMetadata_string =\
       <longdesc lang="en">If a colocation constraint is created between two clone resources and interleaved is true, then clone N from one resource will be assigned the same location as clone N from the other resource.  If the number of runnable clones differs, then the leftovers can be located anywhere.  Using a cloned group is a much better way of achieving the same result.
       </longdesc>
     </parameter>
+
+    <parameter name="notify" unique="0">
+      <content type="boolean" default="false"/>
+      <shortdesc lang="en">notify clone resource agent of changes in state</shortdesc>
+      <longdesc lang="en">Issue pre and post operation notifications to entire clone set for every operation.  This introduces shell-level barriers for the resource agent actions    If true, inform peers before and after any clone is stopped or started.  If an action failed, you will (currently) not recieve a post-notification.  Instead you can next expect to see a pre-notification for a stop.  If a stop fails, and you have fencing you will get a post-notification for the stop after the fencing operation has completed.  In order to use the notification service ALL resources in the clone MUST support the notify action.  Currently this action is not permitted to fail, though depending on your configuration, can block almost indefinitely.  Behavior in response to a failed action or notification is likely to be improved in future releases.
+      </longdesc>
+    </parameter>
+
+    <parameter name="globally_unique" unique="0">
+      <shortdesc lang="en">"true" means this clone is unique within the cluster</shortdesc>
+      <longdesc lang="en">A globally unique clone can distinguish which clone number it is within the cluster - typically implying a true cluster-aware application.  A non-unique clone is typically a non-cluster-aware application which can only tell if a clone of the application is running on this machine, but not which clone number it is.</longdesc>
+      <content type="boolean" default="false"/>
+    </parameter>
+
 
     <parameter name="clone_max" unique="0">
       <content type="integer" default="0"/>
@@ -907,52 +965,35 @@ MetaAttributeMetadata_string =\
       <longdesc lang="en">Maximum number of instances of this resource which are allowed to be master on a node at one time. Must be less than or equal to "clone_node_max"</longdesc>
     </parameter>
 
-    <parameter name="clone_state" unique="0">
-      <content type="enum" default="0"/>
-      <shortdesc lang="en">clone state FIXME</shortdesc>
-      <longdesc lang="en">clone state FIXME</longdesc>
-    </parameter>
-
-    <parameter name="is_managed" unique="0">
-      <content type="boolean"/>
-      <shortdesc lang="en">"true" if this resource is managed by Heartbeat</shortdesc>
-      <longdesc lang="en">If set to "false", Heartbeat will not monitor it, nor restart it on failure of resource or node.  Commonly set to "true" to allow for maintenance of the resource.  It defaults to the currently active value of "is-managed-default" from the crm_config section.</longdesc>
-    </parameter>
-
 
     <parameter name="target_role" unique="0">
       <shortdesc lang="en">Desired state of the resource</shortdesc>
-      <longdesc lang="en">Heartbeat will attempt keep it in the specfied state.  It defaults to "#default".  If set to some other value, it will ignore the value of is_managed or is_managed_default.</longdesc>
+      <longdesc lang="en">Heartbeat will attempt keep it in the specfied state.  It defaults to "#default".  If set to some other value, it will ignore the value of is_managed or is_managed_default. Target_role can also be inherited from a parent (containing) resource.</longdesc>
       <content type="enum">
 	<enumvals>
+	  <enumval value="#default">
+            <shortdesc lang="en">allow cluster to determine its state</shortdesc>
+            <longdesc lang="en">explicitly inherit target_role from parent (containing) resource or allow Heartbeat to control its state if there is no parent target_role.</longdesc>
+	  </enumval>
 	  <enumval value="started">
             <shortdesc lang="en">Keep resource started</shortdesc>
-            <longdesc lang="en">Keep resource started</longdesc>
+            <longdesc lang="en">Ignore any value of is_managed, or is-managed-default and keep the resource started</longdesc>
 	  </enumval>
 	  <enumval value="stopped">
             <shortdesc lang="en">Keep resource stopped</shortdesc>
-            <longdesc lang="en">Keep resource stopped.  Resources which depend on this resource will also be stopped</longdesc>
+            <longdesc lang="en">Ignore any value of is_managed, or is-managed-default and keep the resource stopped.  Resources which depend on this resource will also be stopped.</longdesc>
 	  </enumval>
 	  <enumval value="master">
             <shortdesc lang="en">keep resource in master mode</shortdesc>
-            <longdesc lang="en">keep resource in master mode.  This doesn't seem like a sensible value to set this to for a clone resources with multiple instances and fewer slave instances.</longdesc>
+            <longdesc lang="en">Ignore any value of is_managed, or is-managed-default and other promotion preferences, and keep (all instances of) the resource in master state.</longdesc>
 	  </enumval>
 	  <enumval value="slave">
             <shortdesc lang="en">keep resource in slave mode</shortdesc>
-            <longdesc lang="en">keep resource in slave mode. This forces all the instances to stay in slave mode</longdesc>
-	  </enumval>
-	  <enumval value="#default">
-            <shortdesc lang="en">allow cluster to determine its</shortdesc>
-            <longdesc lang="en">explicitly inherit target_role from enclosing group or allow Heartbeat to control its state </longdesc>
+            <longdesc lang="en">keep resource in slave mode. This will force all instances to stay in slave mode</longdesc>
+            <longdesc lang="en">Ignore any value of is_managed, or is-managed-default and other promotion preferences, and keep (all instances of) the resource in slave state.</longdesc>
 	  </enumval>
 	</enumvals>
       </content>
-    </parameter>
-
-    <parameter name="globally_unique" unique="0">
-      <shortdesc lang="en">"true" means this clone is unique within the cluster</shortdesc>
-      <longdesc lang="en">A globally unique clone can distinguish which clone number it is within the cluster - typically implying a true cluster-aware application.  A non-unique clone is typically a non-cluster-aware application which can only tell if a copy of the application is running on this machine, but not which copy.</longdesc>
-      <content type="boolean" default="false"/>
     </parameter>
 
     <parameter name="allow_migrate" unique="0">
@@ -961,12 +1002,6 @@ MetaAttributeMetadata_string =\
       <content type="boolean" default="false"/>
     </parameter>
 
-    <parameter name="notify" unique="0">
-      <content type="boolean" default="0"/>
-      <shortdesc lang="en">notify clone resource agent of changes in state</shortdesc>
-      <longdesc lang="en">Issue pre and post operation notifications to entire clone set for every operation.  This introduces shell-level barriers for the resource agent actions    If true, inform peers before and after any clone is stopped or started.  If an action failed, you will (currently) not recieve a post-notification.  Instead you can next expect to see a pre-notification for a stop.  If a stop fails, and you have fencing you will get a post-notification for the stop after the fencing operation has completed.  In order to use the notification service ALL decendants of the clone MUST support the notify action.  Currently this action is not permitted to fail, though depending on your configuration, can block almost indefinitely.  Behaviour in response to a failed action or notificaiton is likely to be improved in future releases.
-      </longdesc>
-    </parameter>
 
     <parameter name="resource_failure_stickiness" unique="0">
       <content type="score" default="0"/>
@@ -974,26 +1009,6 @@ MetaAttributeMetadata_string =\
       <longdesc lang="en">resource_failure_stickiness FIXME</longdesc>
     </parameter>
 
-    <parameter name="multiple_active" unique="0">
-      <shortdesc lang="en">action to take when multiple instances are active</shortdesc>
-      <longdesc lang="en">When an instance of this resource is found to be active mutliple times, this parameter specifies what action to take.</longdesc>
-      <content type="enum" default="start_stop">
-	<enumvals>
-	  <enumval value="stop_start">
-            <shortdesc lang="en">stop all and restart one</shortdesc>
-            <longdesc lang="en">Stop all instances of this resource, and restart one.  This works fine if the resource won't be irreparably damaged by having multiple active instances.</longdesc>
-          </enumval>
-	  <enumval value="stop_only">
-            <shortdesc lang="en">stop all instances</shortdesc>
-            <longdesc lang="en">Stop all instances of this resource and wait for the administrator to recover the resources manually.  This is a good choice if this resource (like most filesystems) will be damaged by multiple running copies, and get more damaged the longer they're multiply active.</longdesc>
-	  </enumval>
-	  <enumval value="block">
-            <shortdesc lang="en">do nothing</shortdesc>
-            <longdesc lang="en">Don't do anything - wait for the administrator to recover the resources.</longdesc>
-	  </enumval>
-	</enumvals>
-      </content>
-    </parameter>
 
     <parameter name="start_prereq" unique="0">
       <content type="enum" default="0"/>
@@ -1003,8 +1018,8 @@ MetaAttributeMetadata_string =\
 
     <parameter name="priority" unique="0">
       <content type="integer" default="0"/>
-      <shortdesc lang="en">is this obsolete?</shortdesc>
-      <longdesc lang="en">Should this be a parameter or an attribute of a resource? - or is it the other way around?</longdesc>
+      <shortdesc lang="en">The priority of this resource.  Higher numbers are higher priorities.</shortdesc>
+      <longdesc lang="en">Higher priority resources are scheduled first, with lower priority resources scheduled after high priority resources have been placed.</longdesc>
     </parameter>
 
   </parameters>
@@ -1061,22 +1076,22 @@ StopStartMetadataType = MetadataValueType("enum", {"stop_start":1, "stop_only":1
 RestartMetadataType = MetadataValueType("enum", {"ignore":1, "restart":1})
 OpMetadataType = MetadataValueType("enum", {"lt":1, "lte":1,"gt":1,"gte":1,
 				"eq":1, "neq":1, "defined":1, "not_defined":1})
-DateOpMetadataType = MetadataValueType("enum", {"in_range":1, "date_spec":1,"gt":1,"lt":1})
-DateSpecMetadataType = MetadataValueType("enum", {"in_range":1, "date_spec":1,"gt":1,"lt":1})
+DateOpMetadataType =   MetadataValueType("enum", {"in_range":1, "date_spec":1,"gt":1,"lt":1})
 BoolDefaultMetadatatype = MetadataValueType("enum", {"true":1, "false":0,"1":1,"0":0, "#default":1,"on":1, "off":0})
 CrmStatusMetadataType = MetadataValueType("enum", {"online":1, "offline":0})
-MemberStatusMetadataType = MetadataValueType("enum", {"member":1, "down":0})
+MemberStatusMetadataType = MetadataValueType("enum", {"member":1, "pending":0, "down":0})
 HaStatusMetadataType = MetadataValueType("enum", {"active":1, "init":1, "dead":0})
-LrmOpMetadataType = MetadataValueType("enum", {"start":1, "stop":1,"reload":1,"monitor":1, "migrate":1})
+LrmOpMetadataType = MetadataValueType("enum", {"start":1, "stop":1,"reload":1,"monitor":1, "migrate":1, "promote":1, "demote":1})
 LrmClassMetadataType = MetadataValueType("enum", {"stonith":1, "ocf":1,"heartbeat":1,"lsb":1})
 BooleanOpMetadataType = MetadataValueType("enum", {"and":1, "or":1})
+DatatypeMetadatatype = MetadataValueType("enum", {"number":1, "version":1, "string":1})
 PrereqMetadataType = MetadataValueType("enum", {"fence":1, "quorum":1, "nothing":1})
 			
 # Could eventually do something fancier for these...
 ResourceMetadataType = StringMetadataType
 GroupMetadataType = StringMetadataType
 
-idonly = {"id": StringMetadataType}
+idonly = {"id": (StringMetadataType,1)}
 
 NVPairValidKeys = {
 	"node": {"standby": BooleanMetadataType},
@@ -1085,111 +1100,163 @@ NVPairValidKeys = {
 # Set of valid attribute keys and value types for various tags
 #
 AttributeKeys = {
-	"op": {		"timeout": TimeMetadataType, "start_delay": TimeMetadataType, 
-			"interval": TimeMetadataType,
-			"disabled": BooleanMetadataType, "role": RoleMetadataType,
-			"prereq": PrereqMetadataType,
-			"id": StringMetadataType, "name": StringMetadataType},
-	"primitive":{	"class": StringMetadataType, "provider": StringMetadataType,
-			"type": StringMetadataType, "id": StringMetadataType,
-			"resource_stickiness": IntegerMetadataType,
-			"is_managed": BoolDefaultMetadatatype,
-			"restart_type": RestartMetadataType,
-			"multiple_active": StopStartMetadataType},
-	"clone":	{"globally_unique":BooleanMetadataType, "id": StringMetadataType,
-			 "ordered":BooleanMetadataType, "interleave": BooleanMetadataType},
-	"master_slave":	{"globally_unique":BooleanMetadataType, "id": StringMetadataType,
-			 "ordered":BooleanMetadataType, "interleave": BooleanMetadataType},
-	"nvpair": {	"name": StringMetadataType, "id": StringMetadataType, "value": StringMetadataType},
+	"op": {		"id": (StringMetadataType,1),
+                        "name": (StringMetadataType,1),
+	                "timeout": (TimeMetadataType,0),
+                        "start_delay": (TimeMetadataType, 0),
+			"interval": (TimeMetadataType,0),
+			"disabled": (BooleanMetadataType,0),
+                        "role": (RoleMetadataType,0),
+			"prereq": (PrereqMetadataType,0)},
+
+	"primitive":{	"id": (StringMetadataType,1),
+			"class": (StringMetadataType,1),
+			"provider": (StringMetadataType,0),
+			"type": (StringMetadataType,1)},
+	"group": {	"id": (StringMetadataType,1),
+			"ordered": (BooleanMetadataType,0),
+			"colocated":(BooleanMetadataType,0)},
+	"clone": {	"id": (StringMetadataType,1)},
+
+	"enum":	{},
+	"enumvals":	{},
+	"enumval":	{"value":(StringMetadataType,1)},
+
+	"master_slave":	idonly,
+
+	"nvpair": {	"id": (StringMetadataType,1),
+			"name": (StringMetadataType,1),
+			"value": (StringMetadataType,1)},
+
 	"cluster_property_set": idonly,
-	"cib": {	"admin_epoch":IntegerMetadataType, "have_quorum":BooleanMetadataType,
-			"num_peers": IntegerMetadataType, 
-			"cib_feature_revision":StringMetadataType,
-			"crm_feature_set":StringMetadataType,
-			"generated":BooleanMetadataType, "ignore_dtd":BooleanMetadataType,
-			"epoch":IntegerMetadataType,
-			"ccm_transition":IntegerMetadataType,
-			"dc_uuid":UuidMetadataType,
-			"cib-last-written":StringMetadataType,
-			"num_updates":IntegerMetadataType},
-	"node": {	"uname": StringMetadataType, "id": UuidMetadataType, "type": NodeMetadataType},
-	"group": {	"id": StringMetadataType, "ordered": BooleanMetadataType,
-			"colocated":BooleanMetadataType},
+
+	"cib": {	"admin_epoch":(IntegerMetadataType,1),
+			"have_quorum":(BooleanMetadataType,1),
+			"num_peers": (IntegerMetadataType, 1),
+			"cib_feature_revision":(StringMetadataType,1),
+			"crm_feature_set":(StringMetadataType,1),
+			"generated":(BooleanMetadataType,1),
+			"ignore_dtd":(BooleanMetadataType,1),
+			"epoch":(IntegerMetadataType,1),
+			"ccm_transition":(IntegerMetadataType,1),
+			"dc_uuid":(UuidMetadataType,1),
+			"cib-last-written":(StringMetadataType,1),
+			"num_updates":(IntegerMetadataType,1)},
+
+	"node": {	"id": (UuidMetadataType,1),
+			"uname": (StringMetadataType,1),
+			"type": (NodeMetadataType,1)},
 	"instance_attributes": idonly,
+
 	"meta_attributes": idonly,
+
 	"attributes": {},
-	"enumvals": {},
-	"enumval":{	"value":StringMetadataType},
-	"shortdesc":{	"lang":StringMetadataType},
-	"longdesc": {	"lang":StringMetadataType},
-	"rsc_order": {	"id": StringMetadataType, "type": OrderMetadataType,
-			"from": ResourceMetadataType, "to": ResourceMetadataType},
-	"rule": {	"id": StringMetadataType, "score": ScoreMetadataType,
-			"score_attribute": StringMetadataType,
-			"boolean_op":BooleanOpMetadataType},
-	"date_spec": {	"id": StringMetadataType,
-			"hours": StringMetadataType,
-			"yeardays": StringMetadataType,
-			"monthdays": StringMetadataType,
-			"weekdays": StringMetadataType,
-			"weeks": StringMetadataType,
-			"weekyears": StringMetadataType,
-			"years": StringMetadataType,
-			"moon": StringMetadataType},
-	"duration": {	"id": StringMetadataType,
-			"hours": StringMetadataType,
-			"yeardays": StringMetadataType,
-			"monthdays": StringMetadataType,
-			"weekdays": StringMetadataType,
-			"weeks": StringMetadataType,
-			"weekyears": StringMetadataType,
-			"years": StringMetadataType},
-	"expression":	{	"id": StringMetadataType, "value": StringMetadataType,
-				"attribute": StringMetadataType,
-				"operation": OpMetadataType},
+
+	"shortdesc":{	"lang":(StringMetadataType,1)},
+
+	"longdesc": {	"lang":(StringMetadataType,1)},
+
+	"rsc_order": {	"id": (StringMetadataType,1),
+                        "type": (OrderMetadataType,1),
+			"from": (ResourceMetadataType,1),
+                        "to": (ResourceMetadataType,1),
+			"action":(LrmOpMetadataType,0),
+                        "to_action":(LrmOpMetadataType,0),
+			"score":(ScoreMetadataType,0),
+                        "symmetrical":(BooleanOpMetadataType,0)},
+
+	"rsc_location":	{"id": (StringMetadataType,1),
+			"rsc": (ResourceMetadataType,1),
+			"description":(StringMetadataType,0),
+			"node":(StringMetadataType,0),
+			"score":(ScoreMetadataType,0)},
+
+	"rsc_colocation":{"id": (StringMetadataType,1),
+			"from": (ResourceMetadataType,1),
+			"to": (ResourceMetadataType,1),
+			"score": (ScoreMetadataType,0),
+      			"symmetrical":(BooleanMetadataType,0),
+			"from_role":(RoleMetadataType,0),
+			"to_role":(RoleMetadataType,0),
+      			"node_attribute":(StringMetadataType,0)},
+
+	"rule": {	"id": (StringMetadataType,1),
+			"role":(RoleMetadataType,0),
+			"score": (ScoreMetadataType,0),
+			"score_attribute": (StringMetadataType,0),
+			"boolean_op":(BooleanOpMetadataType,0)}, # defaults to 'and'
+
+	"expression":	{	"id": (StringMetadataType,1),
+				"attribute": (StringMetadataType,1),
+				"operation": (OpMetadataType,17),
+				"value": (StringMetadataType,0),
+				"type": (DatatypeMetadatatype,0)},	#defaults to 'string'
+
+	"date_expression": {	"id": (StringMetadataType,1),
+				"operation": (DateOpMetadataType,1),
+				"start": (StringMetadataType,0),
+				"end": (StringMetadataType,0)},
+
+	"date_spec": {	"id": (StringMetadataType,1),
+			"hours": (StringMetadataType,0),
+			"monthdays": (StringMetadataType,0),
+			"weekdays": (StringMetadataType,0),
+			"yeardays": (StringMetadataType,0),
+			"months": (StringMetadataType,0),
+			"weeks": (StringMetadataType,0),
+			"weekyears": (StringMetadataType,0),
+			"years": (StringMetadataType,0),
+			"moon": (StringMetadataType,0)},
+
+	"duration": {	"id": (StringMetadataType,1),
+			"hours": (StringMetadataType,0),
+			"monthdays": (StringMetadataType,0),
+			"weekdays": (StringMetadataType,0),
+			"yeardays": (StringMetadataType,0),
+			"months": (StringMetadataType,0),
+			"weeks": (StringMetadataType,0),
+			"years": (StringMetadataType,0)},
+
 	"operations":	{},
 	"crm_config":	{},
 	"configuration":	{},
 	"nodes":	{},
 	"resources":	{},
 	"constraints":	{},
-	"rsc_location":	{"id": StringMetadataType, "rsc": ResourceMetadataType, \
-			"description":StringMetadataType,
-			"score":ScoreMetadataType},
-	"rsc_colocation":{"id": StringMetadataType,
-			"from": ResourceMetadataType, "to": ResourceMetadataType,
-			"score": ScoreMetadataType},
-      			"symmetrical":BooleanMetadataType,
-			"from_role":RoleMetadataType,
-			"to_role":RoleMetadataType,
-      			"node_attribute":StringMetadataType,
 
 	"status":	{},
-	"node_state":	{"shutdown":IntegerMetadataType,
-			"in_ccm":BooleanMetadataType,
-			"uname":StringMetadataType,
-			"crmd":CrmStatusMetadataType,
-			"join":MemberStatusMetadataType,
-			"expected":MemberStatusMetadataType,
-			"ha":HaStatusMetadataType,
-			"id": UuidMetadataType,
-			"crm-debug-origin": StringMetadataType},
+	"node_state":	{ "id": (UuidMetadataType,1),
+			"uname": (StringMetadataType,1),
+			"ha": (HaStatusMetadataType,1),
+			"crmd": (CrmStatusMetadataType,1),
+			"join": (MemberStatusMetadataType,1),
+			"expected": (MemberStatusMetadataType,1),
+			"in_ccm": (BooleanMetadataType,1),
+			"crm-debug-origin":  (StringMetadataType,0),
+			"shutdown":(IntegerMetadataType,1),
+			"clear_shutdown":(IntegerMetadataType,0)},
 	"transient_attributes":	idonly,
 	"lrm":	idonly,
 	"lrm_resources":{},
-	"lrm_resource":{"class":LrmClassMetadataType, "id": UuidMetadataType,
-			"provider": StringMetadataType, "type": StringMetadataType},
-	"lrm_rsc_op":{	"rc_code": IntegerMetadataType,
-			"transition_magic": StringMetadataType,
-			"transition_key": StringMetadataType,
-			"crm_feature_set": StringMetadataType,
-			"crm-debug-origin": StringMetadataType,
-			"operation": LrmOpMetadataType,
-			"call_id": IntegerMetadataType,
-			"op_digest": StringMetadataType,
-			"id": UuidMetadataType,
-			"op_status": IntegerMetadataType,
-			"interval": TimeMetadataType},
+	"lrm_resource":{"id": (UuidMetadataType,1),
+			"class":(LrmClassMetadataType,1),
+			"type": (StringMetadataType,1),
+			"provider": (StringMetadataType,1)},
+
+	"lrm_rsc_op":{
+			"id": (StringMetadataType,1),
+			"operation": (LrmOpMetadataType,1),
+			"op_status": (IntegerMetadataType,1),
+			"rc_code": (IntegerMetadataType,1),
+			"call_id": (IntegerMetadataType,1),
+			"crm_feature_set": (StringMetadataType,1),
+			"crm-debug-origin": (StringMetadataType,1),
+			"transition_key": (StringMetadataType,1),
+			"op_digest": (StringMetadataType,1),
+			"op_restart_digest": (StringMetadataType,1),
+			"op_force_restart": (StringMetadataType,1),
+			"interval": (TimeMetadataType,1),
+			"transition_magic": (StringMetadataType,1)},
 };
 
 #
@@ -1208,13 +1275,30 @@ def CheckAttributes(xmlnode):
    for attribtup in xmlnode.attributes.keys():
       attrib=attribtup[1]
       if not table.has_key(attrib):
-         print "ERROR: attribute [%s] not legal with tag <%s/>" % (attrib, tagname)
+         print "ERROR: attribute [%s] not legal/obsolescent with tag <%s/>" % (attrib, tagname)
          continue
-      type=table[attrib]
+      (type,mandatory)=table[attrib]
       value=xmlnode.getAttribute(attrib)
       if not type.validate(value):
          print "ERROR: <%s %s=\"%s\"...>: [%s] is not a legal value for attribute %s"\
 	 %	(tagname, attrib, value, value, attrib)
+
+   for tattrib in table.keys():
+     found=0
+     mandatory=0
+     tinfo=table[tattrib]
+     type=tinfo[0]
+     mandatory=tinfo[1]
+     if not mandatory:
+       continue
+     for attribtup in xmlnode.attributes.keys():
+        myattrib=attribtup[1]
+        if myattrib == tattrib:
+          found=1
+          break
+     if not found:
+         print "ERROR: <%s ...>: [%s] is a required attribute for tag %s" \
+	 %	(tagname, tattrib, tagname)
    
 
 #
@@ -1371,6 +1455,26 @@ class MetaAttributesTag:
     MetaAttributeMetadata.validate_nvpairs(self.attributes.nvpairs)
 
 #
+# A class for processing the <transient_attributes> tag
+#
+class TransientAttributesTag:
+  def __init__(self, xmlnode):
+    CheckXMLNodeUniqueness(xmlnode)
+    attributes = None
+    for child in xmlnode.childNodes:
+      if child.nodeType != child.ELEMENT_NODE:
+        continue
+      if child.tagName == "instance_attributes":
+        attributes = InstanceAttributesTag(child)
+      else:
+        print "ERROR: Don't know how to deal with funky child of <%s>" % xmlnode.tagName
+        print "Funky child: " + node2str(child)
+        self=None
+        return
+    self.nvpairs=attributes.attributes.nvpairs
+    
+
+#
 # A class for processing the <cluster_property_set> tag
 #
 class ClusterPropertySetTag:
@@ -1391,7 +1495,7 @@ class ClusterPropertySetTag:
         self=None
         return
     global crmMetadata
-    crmMetadata.explainnondefault(self.attributes.nvpairs)
+    crmMetadata.explainnondefault(self.attributes.nvpairs, exceptions={"stonith-enabled":1})
     fattr="default-resource-failure-stickiness"
     if self.attributes.nvpairs.has_key(fattr):
       if Score(self.attributes.nvpairs[fattr]) > 0:
@@ -1878,12 +1982,15 @@ class NodeStateTag:
       if child.tagName == "lrm":
         self.lrmstate = LrmTag(child, self.uname)
       elif child.tagName == "transient_attributes":
-        descend(child)
+        self.transients=TransientAttributesTag(child)
       else:
         print "ERROR: Unexpected nesting of %s inside <%s>" % (node2str(child), xmlnode.tagName)
 
+    
+
 class StatusTag:
   def __init__(self, xmlnode):
+    global GlobalStatus
     #print "GOT <%s>" % (xmlnode.tagName)
     CheckAttributes(xmlnode)
     self.nodestates = []
@@ -1894,6 +2001,8 @@ class StatusTag:
         self.nodestates.append(NodeStateTag(child))
       else:
         print "ERROR: Unexpected nesting of %s inside <%s>" % (node2str(child), xmlnode.tagName)
+    GlobalStatus=self
+
 
 def descend(xmlnode):
   if xmlnode.nodeType == xmlnode.ELEMENT_NODE:
@@ -1912,10 +2021,6 @@ def descend(xmlnode):
       return AttributesTag(xmlnode)
     if xmlnode.tagName == "nodes":
       return NodesTag(xmlnode)
-    if xmlnode.tagName == "node_state":
-      return NodeStateTag(xmlnode)
-    if xmlnode.tagName == "expression":
-      return ExpressionTag(xmlnode)
     if xmlnode.tagName == "primitive":
       return PrimitiveTag(xmlnode)
     if xmlnode.tagName == "group":
@@ -1937,6 +2042,20 @@ def descend(xmlnode):
     descend(child)
 
    
+def look_for_failcounts():
+  for node in GlobalStatus.nodestates:
+    for name in node.transients.nvpairs.keys():
+      fc="fail-count-"
+      if (name[0:(len(fc))]) == fc:
+        rscname=name[len(fc):]
+        if not ValidateResource(rscname):
+          print "ERROR: transient attributes reference invalid resource [%s]"\
+	  %	rscname
+        failcount=int(node.transients.nvpairs[name])
+        if failcount != 0:
+          print "NOTE: resource %s has failcount %d on node %s"	\
+          %	(rscname, failcount, node.uname)
+
 
 def analyze_CIB(doc):
   global crmMetadata
@@ -1971,6 +2090,8 @@ def analyze_CIB(doc):
   if stonithwarn:
     URLinfo("stonith")
     crm_config_url(stonithtag)
+  look_for_failcounts()
+
 #
 # "lint" out a CIB found in a file (pathname)
 #
