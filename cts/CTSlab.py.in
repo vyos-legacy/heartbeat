@@ -533,7 +533,7 @@ if __name__ == '__main__':
     ListTests = 0
     HaveSeed = 0
     oprofile = None
-    StonithType = "ssh"
+    StonithType = "external/ssh"
     StonithParams = None
     StonithParams = "hostlist=dynamic".split('=')
 
