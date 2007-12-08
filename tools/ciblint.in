@@ -31,21 +31,6 @@ Licensed under the GNU GPL version 2 or later
 #	useful now.
 #
 #	A few of the things we try and catch are listed in the usage text below...
-#
-#	Things to do:
-#	- validate the CIB against the DTD
-#	- process the 'status' section and flag potential problems
-#	- figure out why resource "x" isn't running
-#
-#	To Do for the OCF standards crew:
-#	- Add support for enumerations to metadata
-#	- add content type alternatives, first recognized is best (?)
-#		Some thoughts:
-#			score/string
-#			positiveinteger/integer
-#			negativeinteger/integer
-#			ipv4addr/string
-#			pathname/string
 
 from UserDict import UserDict
 import os, sys, string, types, re
@@ -78,7 +63,7 @@ It currently looks for a number of classes of possible errors, including these:
   - Incorrect XML attribute names or values
   - references to non-existent resources
   - references to non-existent nodes
-  - invalid values for the data type (integer, boolean, etc.) involved
+  - invalid values for the data type (integer, boolean, enum, etc.) involved
   - resources you're not monitoring
   - non-negative values for default-resource-failure-stickiness
   - STONITH not enabled
@@ -91,9 +76,44 @@ It currently looks for a number of classes of possible errors, including these:
   - ensure that clone form resource names have integral clone numbers
   - check for ids with ":" characters in them in <primitive>, <group>, <clone>, or <master_slave> tags
   - check for resources with non-zero failcounts
+  - check for <rule> tags with both score and score_attribute 
+  - check for missing values and attributes in expressions
+  - make sure attributes mentioned in the CIB are defined somewhere in the cluster
 
 More documentation can be found online at http://linux-ha.org/ciblint
 '''
+#
+#	Things to do:
+#	- validate the CIB against the DTD
+#	- Add support for Andrew's new shorthand rsc_location format
+#	- look for priority inversions caused by colocation dependencies
+#	- analyze exit codes, etc. in the status section
+#	- look for resources whose LRM entries need cleanup
+#	- Figure out what's running where
+#	- Figure out what's not running anywhere
+#	- warn about invalid <meta_attribute> <nvpair> names
+#	  depending on the type of resource
+#	- Validate clone numbers for resources against clone_max
+#	- Check for role dependencies mentioned for non-master-slave
+#	  resources
+#	- Look for circular start-after dependencies
+#	- Look for contradictory colocation constraints
+#	- figure out why resource "x" isn't running
+#	- Internal utilities to add:
+#		get values of meta_attributes
+#		get values of node attributes
+#		evaluate <rule>s
+#
+#
+#	To Do for the OCF standards crew:
+#	- Add support for enumerations to metadata
+#	- add content type alternatives, first recognized is best (?)
+#		Some thoughts:
+#			score/string
+#			positiveinteger/integer
+#			negativeinteger/integer
+#			ipv4addr/string
+#			pathname/string
 
 global CIBADMIN, HA_LIBHBDIR, URLBASE, LRMADMIN
 HA_LIBHBDIR = "@HA_LIBHBDIR@"
@@ -110,11 +130,11 @@ stonithresourcecount=0
 stonithremarks=1
 outlinelen=70
 allow_global_nonuniques=1
-global LRMclasses, LRMresources, GlobalStatus
+global LRMclasses, LRMresources, GlobalStatus, GlobalAttributeNames
 LRMclasses = {}
 LRMresources = {}
 GlobalStatus = None
-
+GlobalAttributeNames={"#uname":1, "#id":1, "#is_dc":1}
 
 def lintURL(suffix):
   return URLBASE + suffix
@@ -1093,9 +1113,7 @@ GroupMetadataType = StringMetadataType
 
 idonly = {"id": (StringMetadataType,1)}
 
-NVPairValidKeys = {
-	"node": {"standby": BooleanMetadataType},
-};
+NVPairValidKeys = {}
 #
 # Set of valid attribute keys and value types for various tags
 #
@@ -1302,27 +1320,6 @@ def CheckAttributes(xmlnode):
    
 
 #
-# Validate a set of nvpairs against a given set of names and types
-#
-def validate_nvpairs(context, type, nvpairs):
-  if context != None:
-    for key in nvpairs.keys():
-      if NVPairValidKeys[context].has_key(key):
-        if not NVPairValidKeys[context][key].validate(nvpairs[key]):
-          print "ERROR: <nvpair name=\"%s\" value=\"%s\"...>: [%s] is not a legal %s value"\
-          % (key, nvpairs[key], nvpairs[key], NVPairValidKeys[context][key])
-      else:
-        print "ERROR: <nvpair name=\"%s\"...>: [%s] is not a legal nvpair name in %s" \
-        %	(key, key, context)
-  elif type != None:
-    for key in nvpairs.keys():
-      if not validate_value(nvpairs[key], type):
-        print "ERROR: nvpair name [%s] has value [%s] which is not legal for type %s"\
-        %	(key, nvpairs[key], type)
-  else:
-    print "ERROR: Weird invocation of validate_nvpairs()"
-
-#
 #	A class representing a collection of name/value pairs
 #
 class NVpairs(UserDict):
@@ -1366,6 +1363,7 @@ class ClusterNodes(UserDict):
     self.instance_attribute_sets = {}
 
   def addnode(self, xmlnode):
+    global GlobalAttributeNames
     CheckXMLNodeUniqueness(xmlnode)
     uname=xmlnode.getAttribute("uname")
     id = xmlnode.getAttribute("id")
@@ -1388,7 +1386,8 @@ class ClusterNodes(UserDict):
       if child.tagName == "instance_attributes":
          inst_attrs=InstanceAttributesTag(child)
          self.instance_attribute_sets[uname] = inst_attrs.attributes.nvpairs
-         validate_nvpairs("node", None, inst_attrs.attributes.nvpairs)
+         for key in inst_attrs.attributes.nvpairs.keys():
+           GlobalAttributeNames[key]=1
       else:
         print "ERROR: Don't know how to deal with funky child of <%s>" % child.tagName
         print "Funky child: " + node2str(child)
@@ -1414,25 +1413,20 @@ class AttributesTag:
 # A class for processing the <instance_attributes> tag
 #
 class InstanceAttributesTag:
-  def __init__(self, instancenode):
-    CheckXMLNodeUniqueness(instancenode)
-    children = instancenode.childNodes
-    if len(children) == 1:
-      child = children[0]
-    elif len(children) == 3:
-      child = children[1]
-    else:
-       print "Don't yet know how to deal with %d children of instance attributes" % len(children)
-       prchildren(instancenode)
-       self=None
-       return
-    if child.nodeType != child.ELEMENT_NODE \
-    or child.tagName != "attributes":
-       print "ERROR: Don't know how to deal with funky child of instance attributes"
-       print "Funky child: " + node2str(child)
-       self=None
-       return
-    self.attributes = AttributesTag(child)
+  def __init__(self, xmlnode):
+    CheckXMLNodeUniqueness(xmlnode)
+    children = xmlnode.childNodes
+    self.attributes = None
+    self.rules = []
+    for child in xmlnode.childNodes:
+      if child.nodeType != child.ELEMENT_NODE:
+        continue
+      if child.tagName == "attributes":
+        self.attributes = AttributesTag(child)
+      elif child.tagName == "rule":
+        self.rules.append(RuleTag(child))
+      else:
+        print "ERROR: Unexpected nesting of %s inside <%s>" % (node2str(child), xmlnode.tagName)
 
 #
 # A class for processing the <meta_attributes> tag
@@ -1441,11 +1435,14 @@ class MetaAttributesTag:
   def __init__(self, xmlnode):
     CheckXMLNodeUniqueness(xmlnode)
     self.attributes = None
+    self.rules = []
     for child in xmlnode.childNodes:
       if child.nodeType != child.ELEMENT_NODE:
         continue
       if child.tagName == "attributes":
         self.attributes = AttributesTag(child)
+      elif child.tagName == "rule":
+        self.rules.append(RuleTag(child))
       else:
         print "ERROR: Don't know how to deal with funky child of <%s>" % xmlnode.tagName
         print "Funky child: " + node2str(child)
@@ -1595,6 +1592,7 @@ AllResourceCoLocations = []
 
 class ResourceType:
   rtypelist={"group":AllGroups, "master_slave":AllMasterSlave, "clone":AllClones, "primitive":AllPrimitives}
+
   def __init__(self, xmlnode, inclone=0, ingroup=0, parent=None):
     global AllPrimitives, AllGroups, AllMasterSlave, AllClones
     self.name = xmlnode.getAttribute("id")
@@ -1604,6 +1602,9 @@ class ResourceType:
     self.parent = parent
     self.childrscs = None
     self.xmlattributes = xmlnode.attributes
+    self.instance_attributes = []
+    self.meta_attributes = []
+    self.MetaAttrs = {}
     CheckXMLNodeUniqueness(xmlnode)
     if self.name.find(":") >= 0:
       print "ERROR: Cannot name a resource %s: <%s id=\"%s\">" \
@@ -1618,6 +1619,13 @@ class ResourceType:
         %	(rtype, id, xmlnode.tagName)
     ResourceType.rtypelist[xmlnode.tagName][id] = self
     AllResources[id] = self
+
+  def _process_meta_attributes(metachild):
+    mattr=MetaAttributesTag(metachild)
+    self.meta_attributes.append(mattr)
+    table=mattr.attributes.nvpairs.keys
+    for key in table.keys():
+      self.MetaAttrs[key] = table[key]
 
 #
 # Validate a reference to a resource
@@ -1643,8 +1651,8 @@ def ValidateResource(rscname):
          # FIXME - validate clone number against clone_max for clone resource
          None
     return AllResources[rname]
-    
-  
+
+ 
 #
 # A class for processing the <primitive> tag
 #
@@ -1675,7 +1683,7 @@ class PrimitiveTag(ResourceType):
           #print "Validating nvpairs for resource %s" % (self.name)
           metadata.validate_nvpairs(iattr.attributes.nvpairs, context="for resource <primitive type=\"%s\" class=\"%s\">" % (self.type, self.rscclass))
       elif child.tagName == "meta_attributes":
-        self.meta_attributes.append(MetaAttributesTag(child))
+        self._process_meta_attributes(child)
       elif child.tagName == "operations":
         self.operations.append(OperationsTag(child))
         if not self.operations[len(self.operations)-1].has_key("monitor"):
@@ -1701,6 +1709,8 @@ class GroupTag(ResourceType):
         continue
       if child.tagName == "primitive":
         self.childrscs.append(PrimitiveTag(child, inclone=0, parent=self, ingroup=1))
+      elif child.tagName == "meta_attributes":
+        self._process_meta_attributes(child)
       else:
         print "ERROR: Don't know how to deal with funky child of <%s>" % xmlnode.tagName
         print "Funky child: " + node2str(child)
@@ -1727,6 +1737,8 @@ class CloneTag(ResourceType):
       elif child.tagName == "instance_attributes":
         iattr = InstanceAttributesTag(child)
         self.instance_attributes.append(iattr)
+      elif child.tagName == "meta_attributes":
+        self._process_meta_attributes(child)
       else:
         print "ERROR: Don't know how to deal with funky child of <%s>" % xmlnode.tagName
         print "Funky child: " + node2str(child)
@@ -1758,31 +1770,6 @@ class MasterSlaveTag(ResourceType):
         self=None
         return
 
-
-#
-# A class for processing the <expression> tag
-#
-class ExpressionTag:
-  def __init__(self, xmlnode):
-    global clusterNodes
-    CheckXMLNodeUniqueness(xmlnode)
-    if xmlnode.getAttribute("attribute") == "#uname":
-      uname=xmlnode.getAttribute("value")
-      if not clusterNodes.has_key(uname):
-        print "ERROR: <expression attribute=\"#uname\" value=\"%s\"...> references unknown cluster node [%s]" \
-	%	(uname,uname)
-    if xmlnode.getAttribute("attribute") == "#id":
-      id=xmlnode.getAttribute("value")
-      if not clusterNodes.uuid2unamemap.has_key(id):
-        print "ERROR: <expression attribute=\"#id\" value=\"%s\"...>: unknown uuid [%s]" \
-	%	(id,id)
-    for child in xmlnode.childNodes:
-      if child.nodeType == child.ELEMENT_NODE:
-        print "ERROR: Don't know how to deal with funky child of <%s>" % xmlnode.tagName
-        print "Funky child: " + node2str(child)
-        self=None
-        return
-
 #
 # A class for processing the <rsc_colocation> tag
 #
@@ -1793,6 +1780,7 @@ class ResourceCoLocationTag:
     self.fromid = xmlnode.getAttribute("from")
     self.toid = xmlnode.getAttribute("to")
     self.score = xmlnode.getAttribute("score")
+    self.bidirectional = xmlnode.getAttribute("symmetrical")
     if self.fromid == "":
       print "ERROR: <rsc_colocation> tag requires 'from' attribute"
       self=None
@@ -1849,32 +1837,82 @@ class ResourceLocationTag:
     AllResourceLocations.append(self)
 
 #
+# An abstract class for evaluatable expressions
+#
+class EvalExpress:
+  def __init__(self, xmlnode):
+    CheckXMLNodeUniqueness(xmlnode)
+
+#
+# A class for processing the <expression> tag
+#
+class ExpressionTag(EvalExpress):
+  def __init__(self, xmlnode):
+    global clusterNodes
+    EvalExpress.__init__(self, xmlnode)
+
+    self.attribute = xmlnode.getAttribute("attribute")
+    self.value=xmlnode.getAttribute("value")
+    self.operation=xmlnode.getAttribute("operation")
+    if self.operation != "defined" and self.operation != "not_defined"\
+    and self.value == "":
+      print "ERROR: <expression operation=\"%s\"...> requires a value operand"\
+      %		(self.operation)
+    if self.attribute == "":
+      print "ERROR: <expression operation=\"%s\"...> requires an attribute operand"\
+      %		(self.operation)
+
+    if self.attribute == "#uname":
+      uname=xmlnode.getAttribute("value")
+      if not clusterNodes.has_key(uname):
+        print "ERROR: <expression attribute=\"#uname\" value=\"%s\"...> references unknown cluster node [%s]" \
+	%	(uname,uname)
+    elif self.attribute  == "#id":
+      if not clusterNodes.uuid2unamemap.has_key(value):
+        print "ERROR: <expression attribute=\"#id\" value=\"%s\"...>: unknown uuid [%s]" \
+	%	(value, value)
+    elif self.attribute != "" and not GlobalAttributeNames.has_key(self.attribute):
+      print "WARNING: node attribute [%s] does not seem to be defined anywhere in the cluster."\
+      %		self.attribute
+    for child in xmlnode.childNodes:
+      if child.nodeType == child.ELEMENT_NODE:
+        print "ERROR: Don't know how to deal with funky child of <%s>" % xmlnode.tagName
+        print "Funky child: " + node2str(child)
+        self=None
+        return
+
+#
 # A class for processing the <rule> tag
 #
-class RuleTag:
+class RuleTag(EvalExpress):
   def __init__(self, xmlnode):
+    EvalExpress.__init__(self, xmlnode)
     self.expressions= []
-    CheckXMLNodeUniqueness(xmlnode)
     self.score = xmlnode.getAttribute("score")
     self.score_attribute = xmlnode.getAttribute("score_attribute")
     self.boolean_op = xmlnode.getAttribute("boolean_op")
-    if self.score == "" and self.score_attribute == "":
-      print "ERROR: <rsc_location> tag requires either 'score' or 'score_attribute'"
-      self=None
-      return
     if self.score != "" and self.score_attribute != "":
-      print "ERROR: <rsc_location> tag allows only one of 'score' or 'score_attribute'"
+      print "ERROR: <rule> tag allows only one of 'score' or 'score_attribute'"
+    if self.score_attribute != "" and not GlobalAttributeNames.has_key(self.score_attribute):
+      print "WARNING: score_attribute [%s] idoes not seem to be defined anywhere in the cluster."\
+      %		self.score_attribute
    
     for child in xmlnode.childNodes:
       if child.nodeType != child.ELEMENT_NODE:
         continue
       if child.tagName == "expression":
         self.expressions.append(ExpressionTag(child))
+      elif child.tagName == "rule":
+        self.expressions.append(RuleTag(child))
       else:
         print "ERROR: Don't know how to deal with funky child of <%s>" % xmlnode.tagName
         print "Funky child: " + node2str(child)
         self=None
         return
+    if self.boolean_op == "":
+      self.boolean_op="and"
+      if len(self.expressions) > 1 and self.boolean_op == "":
+        print "WARNING: <rule> boolean_op unspecified - defaulted to \"and\"."
 
 class OpStatus:
   def __init__(self, xmlnode, rsc):
@@ -2041,13 +2079,17 @@ def descend(xmlnode):
   for child in xmlnode.childNodes:
     descend(child)
 
+def failcount_name_to_rscname(name):
+  fc="fail-count-"
+  if (name[0:(len(fc))]) == fc:
+     return name[len(fc):]
+  return None
    
 def look_for_failcounts():
   for node in GlobalStatus.nodestates:
     for name in node.transients.nvpairs.keys():
-      fc="fail-count-"
-      if (name[0:(len(fc))]) == fc:
-        rscname=name[len(fc):]
+      rscname = failcount_name_to_rscname(name)
+      if rscname != None:
         if not ValidateResource(rscname):
           print "ERROR: transient attributes reference invalid resource [%s]"\
 	  %	rscname
@@ -2083,10 +2125,10 @@ def analyze_CIB(doc):
       print "ERROR:  STONITH enabled, but No STONITH resources configured.  STONITH is NOT available."
   elif stonithremarks:
     stonithwarn=1
-    print "WARNING:  STONITH disabled <nvpair name=\"%s\" value=\"%s\">.  STONITH is STRONGLY recommended."\
+    print "WARNING: STONITH disabled <nvpair name=\"%s\" value=\"%s\">.  STONITH is STRONGLY recommended."\
     %	(stonithtag, enableval)
     if stonithresourcecount == 0:
-      print "WARNING:  No STONITH resources configured.  STONITH is not available."
+      print "WARNING: No STONITH resources configured.  STONITH is not available."
   if stonithwarn:
     URLinfo("stonith")
     crm_config_url(stonithtag)
