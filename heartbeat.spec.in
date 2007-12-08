@@ -73,6 +73,10 @@
 %define is_suse %(if test -f /etc/SuSE-release; then echo 1; else echo 0;fi)
 %define is_fedora %(if test -f /etc/fedora-release; then echo 1; else echo 0;fi)
 %define is_rhel %(if test -f /etc/redhat-release; then echo 1; else echo 0;fi)
+%if %{is_fedora}
+	%undefine is_rhel
+	%define is_rhel 0
+%endif
 
 %if 0%{?mandriva_version} > 0
 	%define	is_mandriva	1
@@ -87,7 +91,6 @@
 	%if %{rhel_ver} < 6
 		%define REQUIRE_OPENHPI	0
 	%endif
-	
 %endif
 
 %if %{is_suse}
