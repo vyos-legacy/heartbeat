@@ -19,7 +19,7 @@
 # ha.cf/logd.cf parsing
 #
 getcfvar() {
-	[ -f $HA_CF ] || return
+	[ -f "$HA_CF" ] || return
 	sed 's/#.*//' < $HA_CF |
 		grep -w "^$1" |
 		sed 's/^[^[:space:]]*[[:space:]]*//'
@@ -257,9 +257,9 @@ dumpstate() {
 	ccm_tool -p > $1/ccm_tool.txt 2>&1
 }
 getconfig() {
-	[ -f $HA_CF ] &&
+	[ -f "$HA_CF" ] &&
 		cp -p $HA_CF $1/
-	[ -f $LOGD_CF ] &&
+	[ -f "$LOGD_CF" ] &&
 		cp -p $LOGD_CF $1/
 	if iscrmrunning; then
 		dumpstate $1
