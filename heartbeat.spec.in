@@ -225,6 +225,7 @@ Source: http://linux-ha.org/download/%{HB_PKG}-%{HB_VERSION}.tar.gz
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 BuildRequires:	autoconf, automake libtool, libxml2-devel
 BuildRequires:	glib2-devel, python, python-devel, perl, %{SSH} , gdbm-devel %{LIBNET_DEVEL} bison, flex
+BuildRequires: bzip2-devel
 %if %{REQUIRE_OPENHPI}
 BuildRequires:	openhpi-devel >= 2.6
 %endif
