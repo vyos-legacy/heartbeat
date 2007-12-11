@@ -45,15 +45,6 @@ if [ x"$1" = x__slave ]; then
 	SLAVE=1
 fi
 
-#
-# if this is the master, allow ha.cf and logd.cf in the current dir
-# (because often the master is the log host)
-#
-if [ "$SLAVE" = "" ]; then
-	[ -f ha.cf ] && HA_CF=ha.cf
-	[ -f logd.cf ] && LOGD_CF=logd.cf
-fi
-
 usage() {
 	cat<<EOF
 usage: hb_report -f {time|"cts:"testnum} [-t time] [-u user] [-l file] [-p patt]
@@ -308,7 +299,7 @@ sys_info() {
 	crm_info
 	echo "Platform: `uname`"
 	echo "Kernel release: `uname -r`"
-	echo "Architecture: `arch`"
+	echo "Architecture: `uname -m`"
 	[ `uname` = Linux ] &&
 		echo "Distribution: `distro`"
 }
