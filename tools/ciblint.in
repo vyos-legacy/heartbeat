@@ -99,11 +99,12 @@ More documentation can be found online at http://linux-ha.org/ciblint
 #	- Look for circular start-after dependencies
 #	- Look for contradictory colocation constraints
 #	- figure out why resource "x" isn't running
+#	- make sure attributes mentioned in score_attribute are always ints
+#	- make sure attributes mentioned in expressions are always ints
 #	- Internal utilities to add:
-#		get values of meta_attributes
+#		get effective values of meta_attributes for resources
 #		get values of node attributes
 #		evaluate <rule>s
-#
 #
 #	To Do for the OCF standards crew:
 #	- Add support for enumerations to metadata
@@ -726,6 +727,13 @@ class CRMMetadata:
         print "ERROR: <nvpair name=\"%s\"...>: [%s] is not a legal name for" \
         +	" the <crm_config> section" % (key, key)
 
+  def defaultvalue(self, key):
+      for mdlist in self.metadatalist:
+         if mdlist.has_parameter(key):
+           entry=mdlist.Parameters[key].default
+           return entry
+      return None
+           
   def explainnondefault(self, nvpairs, exceptions={}):
     for key in nvpairs.keys():
       found=None
@@ -1410,88 +1418,91 @@ class AttributesTag:
         self.nvpairs.addnvpair(childnode)
 
 #
-# A class for processing the <instance_attributes> tag
+# A base class for things with <attributes>  and <rules> inside..
 #
-class InstanceAttributesTag:
-  def __init__(self, xmlnode):
+class CommonAttrs:
+  def __init__(self, xmlnode, tagname="attributes"):
     CheckXMLNodeUniqueness(xmlnode)
-    children = xmlnode.childNodes
     self.attributes = None
     self.rules = []
     for child in xmlnode.childNodes:
       if child.nodeType != child.ELEMENT_NODE:
         continue
-      if child.tagName == "attributes":
+      if child.tagName == tagname:
         self.attributes = AttributesTag(child)
       elif child.tagName == "rule":
         self.rules.append(RuleTag(child))
       else:
-        print "ERROR: Unexpected nesting of %s inside <%s>" % (node2str(child), xmlnode.tagName)
+        print "ERROR: Unexpected nesting of %s inside <%s>"\
+        %	(node2str(child), xmlnode.tagName)
+
+  def keys(self, clusternode=None):
+    print "ERROR: CommonAttrs.keys() Not implemented yet."
+    return None
+
+  def has_key(self, clusternode=None):
+    print "ERROR: CommonAttrs.has_key() Not implemented yet."
+    return None
+
+  def __getitem__(self, key, clusternode=None):
+    print "CommonAttrs.__getitem__() Not implemented yet."
+    return None
+
+  def getitem(key, clusternode=None):
+    return __getitem__(key, clusternode=clusternode)
+
+
+#
+# A class for processing the <instance_attributes> tag
+#
+class InstanceAttributesTag(CommonAttrs):
+  def __init__(self, xmlnode):
+    CommonAttrs.__init__(self, xmlnode, tagname="attributes")
 
 #
 # A class for processing the <meta_attributes> tag
 #
-class MetaAttributesTag:
+class MetaAttributesTag(CommonAttrs):
   def __init__(self, xmlnode):
-    CheckXMLNodeUniqueness(xmlnode)
-    self.attributes = None
-    self.rules = []
-    for child in xmlnode.childNodes:
-      if child.nodeType != child.ELEMENT_NODE:
-        continue
-      if child.tagName == "attributes":
-        self.attributes = AttributesTag(child)
-      elif child.tagName == "rule":
-        self.rules.append(RuleTag(child))
-      else:
-        print "ERROR: Don't know how to deal with funky child of <%s>" % xmlnode.tagName
-        print "Funky child: " + node2str(child)
-        self=None
-        return
+    CommonAttrs.__init__(self, xmlnode, tagname="attributes")
     # Validate <meta_attributes> nvpairs against our metadata for meta_attributes
     MetaAttributeMetadata.validate_nvpairs(self.attributes.nvpairs)
 
 #
 # A class for processing the <transient_attributes> tag
 #
-class TransientAttributesTag:
+class TransientAttributesTag(CommonAttrs):
   def __init__(self, xmlnode):
+    inityet=0
     CheckXMLNodeUniqueness(xmlnode)
-    attributes = None
     for child in xmlnode.childNodes:
       if child.nodeType != child.ELEMENT_NODE:
         continue
       if child.tagName == "instance_attributes":
-        attributes = InstanceAttributesTag(child)
+        if inityet:
+          print "ERROR: TransientAttributesTag: Multiple instance_attributes children."
+        else:
+          CommonAttrs.__init__(self, child, tagname="attributes")
+        inityet=1
       else:
-        print "ERROR: Don't know how to deal with funky child of <%s>" % xmlnode.tagName
-        print "Funky child: " + node2str(child)
+        print "ERROR: Unexpected nesting of %s inside <%s>"\
+        %	(node2str(child), xmlnode.tagName)
         self=None
         return
-    self.nvpairs=attributes.attributes.nvpairs
+    if not inityet:
+       print "ERROR: TransientAttributesTag: NO instance_attributes children."
+       self=None
+       return
+    self.nvpairs=self.attributes.nvpairs
     
 
 #
 # A class for processing the <cluster_property_set> tag
 #
-class ClusterPropertySetTag:
+class ClusterPropertySetTag(CommonAttrs):
   def __init__(self, xmlnode):
-    self.rules = []
-    self.attributes = None
-    CheckXMLNodeUniqueness(xmlnode)
-    for child in xmlnode.childNodes:
-      if child.nodeType != child.ELEMENT_NODE:
-        continue
-      if child.tagName == "rule":
-        self.rules.append(RuleTag(child))
-      if child.tagName == "attributes":
-        self.attributes = AttributesTag(child)
-      else:
-        print "ERROR: Don't know how to deal with funky child of <%s>" % xmlnode.tagName
-        print "Funky child: " + node2str(child)
-        self=None
-        return
     global crmMetadata
+    CommonAttrs.__init__(self, xmlnode, tagname="attributes")
     crmMetadata.explainnondefault(self.attributes.nvpairs, exceptions={"stonith-enabled":1})
     fattr="default-resource-failure-stickiness"
     if self.attributes.nvpairs.has_key(fattr):
@@ -1519,6 +1530,14 @@ class CRMConfigTag:
         self=None
         return
     crm_config_section=self
+
+  def configoption(self, configname):
+    global crmMetadata
+    for pset in self.propertysets:
+      # FIXME:  We are ignoring any <rule>s that might be here...
+      if pset.attributes.nvpairs.has_key(configname):
+        return pset.attributes.nvpairs[configname]
+    return crmMetadata.defaultvalue(configname)
 
 #
 # A class for processing the <nodes> tag
@@ -1592,6 +1611,8 @@ AllResourceCoLocations = []
 
 class ResourceType:
   rtypelist={"group":AllGroups, "master_slave":AllMasterSlave, "clone":AllClones, "primitive":AllPrimitives}
+  crm_config_meta_map={"resource_failure_stickiness":"default-resource-failure-stickiness",
+  	"resource_stickiness":"default-resource-stickiness", "is-managed":"is-managed-default"}
 
   def __init__(self, xmlnode, inclone=0, ingroup=0, parent=None):
     global AllPrimitives, AllGroups, AllMasterSlave, AllClones
@@ -1620,12 +1641,22 @@ class ResourceType:
     ResourceType.rtypelist[xmlnode.tagName][id] = self
     AllResources[id] = self
 
-  def _process_meta_attributes(metachild):
+  def _process_meta_attributes(self, metachild):
     mattr=MetaAttributesTag(metachild)
     self.meta_attributes.append(mattr)
-    table=mattr.attributes.nvpairs.keys
+    table=mattr.attributes.nvpairs
     for key in table.keys():
       self.MetaAttrs[key] = table[key]
+
+  def meta_attr_value(self, metaname):
+    if self.MetaAttrs.has_key(metaname):
+      return self.MetaAttrs[metaname]
+    elif self.parent != None:
+      return self.parent.meta_attr_value(metaname)
+    elif ResourceType.crm_config_meta_map.has_key(metaname):
+      keyname=ResourceType.crm_config_meta_map[metaname]
+      return crm_config_section.configoption(keyname)
+    return None
 
 #
 # Validate a reference to a resource
@@ -1854,6 +1885,7 @@ class ExpressionTag(EvalExpress):
     self.attribute = xmlnode.getAttribute("attribute")
     self.value=xmlnode.getAttribute("value")
     self.operation=xmlnode.getAttribute("operation")
+    self.type=xmlnode.getAttribute("type")
     if self.operation != "defined" and self.operation != "not_defined"\
     and self.value == "":
       print "ERROR: <expression operation=\"%s\"...> requires a value operand"\
@@ -1881,6 +1913,47 @@ class ExpressionTag(EvalExpress):
         self=None
         return
 
+  def eval(self, context):
+    if self.operation == "defined":
+      return context.has_key(self.attribute)
+    if self.operation == "not_defined":
+      return not context.has_key(self.attribute)
+    if self.type == "":
+      self.type="string"
+    if self.attribute == "":
+      print "ERROR: Missing attribute from expression"
+      return 0
+    if not context.has_key(self.attribute):
+      attval=""
+    else:
+      attval=context[self.attribute]
+    if self.type == "number":
+      lhs=int(self.value)
+      rhs=int(attval)
+    elif self.type == "string":
+      lhs=self.value + ""
+      rhs=attval + ""
+    else:
+      print "ERROR: unimplemented expression type [%s] - treated as string"\
+      %		self.type
+      lhs=self.value + ""
+      rhs=attval + ""
+    if self.operation == "lt":
+      return lhs < rhs
+    elif self.operation == "lte":
+      return lhs <= rhs
+    if self.operation == "gt":
+      return lhs > rhs
+    elif self.operation == "gte":
+      return lhs >= rhs
+    elif self.operation == "eq":
+      return lhs == rhs
+    elif self.operation == "neq":
+      return lhs != rhs
+    print "ERROR: unimplemented expression operator [%s] - returning false"\
+    %		self.operation
+    return None
+
 #
 # A class for processing the <rule> tag
 #
@@ -1894,7 +1967,7 @@ class RuleTag(EvalExpress):
     if self.score != "" and self.score_attribute != "":
       print "ERROR: <rule> tag allows only one of 'score' or 'score_attribute'"
     if self.score_attribute != "" and not GlobalAttributeNames.has_key(self.score_attribute):
-      print "WARNING: score_attribute [%s] idoes not seem to be defined anywhere in the cluster."\
+      print "WARNING: score_attribute [%s] does not seem to be defined anywhere in the cluster."\
       %		self.score_attribute
    
     for child in xmlnode.childNodes:
@@ -1911,8 +1984,41 @@ class RuleTag(EvalExpress):
         return
     if self.boolean_op == "":
       self.boolean_op="and"
-      if len(self.expressions) > 1 and self.boolean_op == "":
+      if len(self.expressions) > 1:
         print "WARNING: <rule> boolean_op unspecified - defaulted to \"and\"."
+
+  def eval(self, context):
+    if len(self.expressions) < 1:
+      return 1
+    if self.boolean_op == "and":
+      for expr in self.expressions:
+        if not expr.eval(context):
+          return 0
+      return 1
+    elif self.boolean_op == "or":
+      for expr in self.expressions:
+        if expr.eval(context):
+          return 1
+      return 0
+    print "ERROR: Invalid boolean_op: [%s]" % self.boolean_op
+    return None
+
+  def score(self, context):
+    retscore=Score(0)
+    if self.score != "":
+      retscore=retscore+Score(self.score)
+    if self.score_attribute != "":
+      if context.has_key(self.score_attribute):
+        retscore=retscore+Score(self.score)
+      else:
+        retscore=Score("-infinity")
+    return retscore
+
+  def evalscore(self, context):
+     if self.eval(context):
+       return self.score(context)
+     return Score(0)
+
 
 class OpStatus:
   def __init__(self, xmlnode, rsc):
@@ -2086,6 +2192,7 @@ def failcount_name_to_rscname(name):
   return None
    
 def look_for_failcounts():
+  if GlobalStatus == None:  return
   for node in GlobalStatus.nodestates:
     for name in node.transients.nvpairs.keys():
       rscname = failcount_name_to_rscname(name)
