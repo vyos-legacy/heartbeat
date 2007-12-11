@@ -153,7 +153,7 @@ init_dopd_client_ipc_comms(const char *channel_name,
 
 	memset(commpath, 0, 1024);
 	sprintf(commpath, HA_VARRUNDIR"/heartbeat/crm/%s", channel_name);
-	
+
 	attrs = g_hash_table_new(g_str_hash,g_str_equal);
 	g_hash_table_insert(attrs, path, commpath);
 
@@ -163,22 +163,17 @@ init_dopd_client_ipc_comms(const char *channel_name,
 
 	if (ch == NULL) {
 		cl_log(LOG_ERR, "Could not access channel on: %s", commpath);
-		cl_free(commpath);
 		return NULL;
-		
 	} else if (ch->ops->initiate_connection(ch) != IPC_OK) {
 		cl_log(LOG_DEBUG, "Could not init comms on: %s", commpath);
 		ch->ops->destroy(ch);
-		cl_free(commpath);
 		return NULL;
 	}
 
-	cl_free(commpath);
-
 	the_source = G_main_add_IPC_Channel(
-	    G_PRIORITY_HIGH, ch, FALSE, dispatch, callback_data, 
+	    G_PRIORITY_HIGH, ch, FALSE, dispatch, callback_data,
 	    dopd_connection_destroy);
-	
+
 	return the_source;
 }
 

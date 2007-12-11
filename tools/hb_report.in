@@ -308,7 +308,7 @@ sys_info() {
 	crm_info
 	echo "Platform: `uname`"
 	echo "Kernel release: `uname -r`"
-	echo "Architecture: `arch`"
+	echo "Architecture: `uname -m`"
 	[ `uname` = Linux ] &&
 		echo "Distribution: `distro`"
 }

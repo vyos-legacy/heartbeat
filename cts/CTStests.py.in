@@ -663,7 +663,7 @@ class StonithdTest(StonithTest):
             watchpats.append("CRIT: still able to ping")
                 
             watch = CTS.LogWatcher(self.CM["LogFileName"], watchpats
-            ,     timeout=self.CM["DeadTime"]+30)
+            ,     timeout=self.CM["DeadTime"]+60)
             watch.setwatch()
         
             fail_reasons = []
