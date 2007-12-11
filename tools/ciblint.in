@@ -79,6 +79,8 @@ It currently looks for a number of classes of possible errors, including these:
   - check for <rule> tags with both score and score_attribute 
   - check for missing values and attributes in expressions
   - make sure attributes mentioned in the CIB are defined somewhere in the cluster
+  - give a hint about _ names now being - names
+  - warn about start_delay applied to non-monitor operations
 
 More documentation can be found online at http://linux-ha.org/ciblint
 '''
@@ -104,7 +106,7 @@ More documentation can be found online at http://linux-ha.org/ciblint
 #	- Internal utilities to add:
 #		get effective values of meta_attributes for resources
 #		get values of node attributes
-#		evaluate <rule>s
+#		evaluate <rule>s (mostly done)
 #
 #	To Do for the OCF standards crew:
 #	- Add support for enumerations to metadata
@@ -131,11 +133,12 @@ stonithresourcecount=0
 stonithremarks=1
 outlinelen=70
 allow_global_nonuniques=1
-global LRMclasses, LRMresources, GlobalStatus, GlobalAttributeNames
+global LRMclasses, LRMresources, GlobalStatus, GlobalAttributeNames, clusterNodes
 LRMclasses = {}
 LRMresources = {}
 GlobalStatus = None
 GlobalAttributeNames={"#uname":1, "#id":1, "#is_dc":1}
+clusterNodes = {}
 
 def lintURL(suffix):
   return URLBASE + suffix
@@ -603,7 +606,7 @@ class OCFMetadata:
       print "ERROR: [%s] is not a legal name to [%s]" \
 	% (p, self.name)
       return None
-    return self.Parameters[p].validate(v)
+    return self.Parameters[p].validate(value)
 
   def validate_nvpairs(self, nvpairs, context=None):
     ret=1
@@ -713,19 +716,27 @@ class CRMMetadata:
       xml = None
     self.metadatalist.append(OCFMetadata(FromXml(ExtraMetadata)))
 
+  def searchfor(self, key):
+    for mdlist in self.metadatalist:
+       if mdlist.has_parameter(key):
+         return mdlist
+    return None
+
   def validate(self, nvpairs):
     for key in nvpairs.keys():
-      found=None
-      for mdlist in self.metadatalist:
-         if mdlist.has_parameter(key):
-           found=1
-           if not mdlist.validate(key, nvpairs[key]):
-             print "ERROR: in <nvpair name=\"%s\" value=\"%s\"...>: [%s]  not a legal 'value'" \
-	     %	(key, nvpairs[key], nvpairs[key])
-           break
-      if not found:
-        print "ERROR: <nvpair name=\"%s\"...>: [%s] is not a legal name for" \
-        +	" the <crm_config> section" % (key, key)
+      mdlist=self.searchfor(key)
+      if not mdlist:
+        print ("ERROR: <nvpair name=\"%s\"...>: [%s] is not a legal name for" \
+        +	" the <crm_config> section") % (key, key)
+        if string.find(key, "_") >= 0:
+          otherkey=re.sub("_", "-", key, 100)
+          mdlist2 = self.searchfor(otherkey)
+          if mdlist2:
+            print ("ERROR: HOWEVER: [%s] IS a legal name for" \
+            +	" the <crm_config> section. [%s] is obsolescent") % (otherkey, key)
+            mdlist2.validate(otherkey, nvpairs[key])
+      else:
+        mdlist.validate(key, nvpairs[key])
 
   def defaultvalue(self, key):
       for mdlist in self.metadatalist:
@@ -735,15 +746,13 @@ class CRMMetadata:
       return None
            
   def explainnondefault(self, nvpairs, exceptions={}):
+    self.validate(nvpairs)
     for key in nvpairs.keys():
       found=None
       for mdlist in self.metadatalist:
          if mdlist.has_parameter(key):
            found=1
            mdlist.explainnondefault(key, nvpairs[key], exceptions=exceptions)
-      if not found:
-        print ("ERROR: <nvpair name=\"%s\"...>: [%s] is not a legal name in" \
-        +	" the <crm_config> section") % (key, key)
 
   def explainall(self):
     if wikiformat:
@@ -1361,6 +1370,23 @@ class NVpairs(UserDict):
   def id2name(self, id):
     return self.id2namemap[id]
 
+global ComplainedAboutNoNodes
+ComplainedAboutNoNodes=0
+
+def NodeUnameIsValid(uname):
+  if len(clusterNodes) < 1 and not ComplainedaboutNoNodes:
+    ComplainedAboutNoNodes=1
+    print "WARNING: No <nodes> listed, cannot validate node names"
+    
+  return len(clusterNodes) < 1 or clusterNodes.has_key(uname)
+
+def NodeUUIDIsValid(uuid):
+  if len(clusterNodes.uuid2unamemap) < 1 and not ComplainedaboutNoNodes:
+    ComplainedAboutNoNodes=1
+    print "WARNING: No <nodes> listed, cannot validate node names"
+
+  return len(clusterNodes) < 1 or clusterNodes.uuid2unamemap.has_key(uuid)
+
 #
 # A class for collecting information about cluster nodes
 #
@@ -1589,6 +1615,9 @@ class OperationsTag(UserDict):
           %	(child.getAttribute("interval"), name)
         if child.getAttribute("interval") == "" and name == "monitor":
           print "WARNING: monitor operation specified without interval=\"...\""
+        if child.getAttribute("start_delay") != "" and name != "monitor":
+          print ("WARNING: <op name=\"%s\" start_delay=\"%s\"...>: start_delay" \
+	  +   " only appropriate for op \"monitor\".") % (name, child.getAttribute("start_delay"))
       else:
         print "ERROR: Don't know how to deal with funky child of <%s>" % xmlnode.tagName
         print "Funky child: " + node2str(child)
@@ -1896,11 +1925,12 @@ class ExpressionTag(EvalExpress):
 
     if self.attribute == "#uname":
       uname=xmlnode.getAttribute("value")
-      if not clusterNodes.has_key(uname):
+      if not NodeUnameIsValid(uname):
         print "ERROR: <expression attribute=\"#uname\" value=\"%s\"...> references unknown cluster node [%s]" \
 	%	(uname,uname)
     elif self.attribute  == "#id":
-      if not clusterNodes.uuid2unamemap.has_key(value):
+      value=xmlnode.getAttribute("value")
+      if not NodeUUIDIsValid(value):
         print "ERROR: <expression attribute=\"#id\" value=\"%s\"...>: unknown uuid [%s]" \
 	%	(value, value)
     elif self.attribute != "" and not GlobalAttributeNames.has_key(self.attribute):
