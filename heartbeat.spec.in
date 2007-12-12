@@ -243,6 +243,9 @@ BuildRequires:	gnutls-devel
 %endif
 
 %if %{build_cmpi}
+%if (%{is_rhel} || %{is_fedora}) && "%{CIMOM}" == "pegasus"
+BuildRequires: tog-pegasus
+%else
 BuildRequires: %{CIMOM}
 %endif
 
