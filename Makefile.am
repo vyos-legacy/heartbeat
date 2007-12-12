@@ -29,7 +29,7 @@ EXTRA_DIST              = bootstrap rc.config.heartbeat 	\
 
 RPMREL			= @RPMREL@
 RPM			= @RPM@
-RPMFLAGS		= -ta
+RPMFLAGS		= -ta @RPMTARGET@
 TARFILE			= @TARFILE@
 AM_TAR			= tar
 RPMDIR=$(HOME)/rpms
