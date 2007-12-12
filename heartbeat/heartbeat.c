@@ -991,7 +991,7 @@ initialize_heartbeat()
 
 	/* THIS IS RESOURCE WORK!  FIXME */
 	/* Clean up tmp files from our resource scripts */
-	if (system("rm -fr " RSC_TMPDIR) <= 0) {
+	if (system("rm -fr " RSC_TMPDIR) != 0) {
 		cl_log(LOG_INFO, "Removing %s failed, recreating.", RSC_TMPDIR);
 	}
 

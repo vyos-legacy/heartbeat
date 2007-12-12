@@ -266,12 +266,14 @@ BuildRequires: lzo
 %if %{is_fedora}
 Requires:	PyXML
 BuildRequires: 		which OpenIPMI-devel
+BuildRequires: bzip2-devel
 Requires(pre):          fedora-usermgmt
 Requires(postun):       fedora-usermgmt
 %endif
 
 %if %{is_rhel}
 Requires:	PyXML
+BuildRequires: bzip2-devel
 %endif
 
 %if %{is_mandriva}
