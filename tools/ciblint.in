@@ -734,8 +734,8 @@ class CRMMetadata:
           otherkey=re.sub("_", "-", key, 100)
           mdlist2 = self.searchfor(otherkey)
           if mdlist2:
-            print ("ERROR: HOWEVER: [%s] IS a legal name for" \
-            +	" the <crm_config> section. [%s] is obsolescent") % (otherkey, key)
+            print ("INFO: [%s] IS a legal name." \
+            +	" Name [%s] is obsolescent") % (otherkey, key)
             mdlist2.validate(otherkey, nvpairs[key])
       else:
         mdlist.validate(key, nvpairs[key])
@@ -1079,7 +1079,6 @@ def CheckXMLNodeUniqueness(xmlnode,globallyunique=1):
     if hasattr(xmlnode, "tagName"):
       id = xmlnode.getAttribute("id")
       if id == "":
-        print "ERROR: Tag <%s/> requires an 'id' attribute" % xmlnode.tagName
         return None
       return CheckIdUniqueness(xmlnode.tagName, id, globallyunique=globallyunique)
     return 1
@@ -1376,14 +1375,16 @@ global ComplainedAboutNoNodes
 ComplainedAboutNoNodes=0
 
 def NodeUnameIsValid(uname):
-  if len(clusterNodes) < 1 and not ComplainedaboutNoNodes:
+  global ComplainedAboutNoNodes
+  if len(clusterNodes) < 1 and not ComplainedAboutNoNodes:
     ComplainedAboutNoNodes=1
     print "WARNING: No <nodes> listed, cannot validate node names"
     
   return len(clusterNodes) < 1 or clusterNodes.has_key(uname)
 
 def NodeUUIDIsValid(uuid):
-  if len(clusterNodes.uuid2unamemap) < 1 and not ComplainedaboutNoNodes:
+  global ComplainedAboutNoNodes
+  if len(clusterNodes.uuid2unamemap) < 1 and not ComplainedAboutNoNodes:
     ComplainedAboutNoNodes=1
     print "WARNING: No <nodes> listed, cannot validate node names"
 
