@@ -81,6 +81,9 @@ It currently looks for a number of classes of possible errors, including these:
   - make sure attributes mentioned in the CIB are defined somewhere in the cluster
   - give a hint about _ names now being - names
   - warn about start_delay applied to non-monitor operations
+  - warn about resources with stop failures
+  - warn about resources not running anywhere
+  - note what resources are running where
 
 More documentation can be found online at http://linux-ha.org/ciblint
 '''
@@ -89,10 +92,7 @@ More documentation can be found online at http://linux-ha.org/ciblint
 #	- validate the CIB against the DTD
 #	- Add support for Andrew's new shorthand rsc_location format
 #	- look for priority inversions caused by colocation dependencies
-#	- analyze exit codes, etc. in the status section
 #	- look for resources whose LRM entries need cleanup
-#	- Figure out what's running where
-#	- Figure out what's not running anywhere
 #	- warn about invalid <meta_attribute> <nvpair> names
 #	  depending on the type of resource
 #	- Validate clone numbers for resources against clone_max
@@ -134,6 +134,8 @@ stonithremarks=1
 outlinelen=70
 allow_global_nonuniques=1
 global LRMclasses, LRMresources, GlobalStatus, GlobalAttributeNames, clusterNodes
+global ResourceOperationStatuses
+ResourceNodeOperationStatuses = {}
 LRMclasses = {}
 LRMresources = {}
 GlobalStatus = None
@@ -2054,9 +2056,30 @@ class OpStatus:
   def __init__(self, xmlnode, rsc):
 	self.rsc = rsc
 	self.operation = xmlnode.getAttribute("operation")
-	self.call_id = xmlnode.getAttribute("call_id")
-	self.rc_code = xmlnode.getAttribute("rc_code")
-	self.op_status = xmlnode.getAttribute("op_status")
+	self.call_id = int(xmlnode.getAttribute("call_id"))
+	self.rc_code = int(xmlnode.getAttribute("rc_code"))
+	self.op_status = int(xmlnode.getAttribute("op_status"))
+	self.interval = xmlnode.getAttribute("interval")
+
+  def __repr__(self):
+    return "(%s: %s,rc=%d,status=%d,callid=%d)"\
+    %	(self.rsc.name, self.operation, self.rc_code, self.op_status, self.call_id)
+
+  def __str__(self):
+    return "(%s: %s,rc=%d,status=%d,callid=%d)"\
+    %	(self.rsc.name, self.operation, self.rc_code, self.op_status, self.call_id)
+
+def save_resource_node_op_status(resource, clusternode, opstatus):
+  global ResourceNodeOperationStatuses
+  if not ResourceNodeOperationStatuses.has_key(resource):
+    ResourceNodeOperationStatuses[resource] = {}
+  if not ResourceNodeOperationStatuses[resource].has_key(clusternode):
+    ResourceNodeOperationStatuses[resource][clusternode] = {}
+  if ResourceNodeOperationStatuses[resource][clusternode].has_key(opstatus.call_id):
+    print "CIB <status> error: Duplicate (resource,node,call_id): (%s, %s, %d)"\
+    %	(resource, clusternode, opstatus.call_id)
+  else:
+    ResourceNodeOperationStatuses[resource][clusternode][opstatus.call_id] = opstatus
 #
 # A class for processing the <lrm_resource> tag
 #
@@ -2093,13 +2116,15 @@ class LrmResourceTag:
           self=None
           return
 
+        opstatus = OpStatus(child, self.resource)
+	save_resource_node_op_status(self.rscid, clusternode, opstatus)
         if not self.resource.inclone:
           # Non-clone case
           if not hasattr(self.resource,"LRMresources"):
             self.resource.LRMresources = {}
           if not self.resource.LRMresources.has_key(clusternode):
             self.resource.LRMresources[clusternode] = []
-          self.resource.LRMresources[clusternode].append(OpStatus(child, self.resource))
+          self.resource.LRMresources[clusternode].append(opstatus)
         else:
           # Clone case
           cloneno = int(pieces[1])
@@ -2109,7 +2134,7 @@ class LrmResourceTag:
             self.resource.LRMclones[cloneno] = {}
           if not self.resource.LRMclones[cloneno].has_key(clusternode):
             self.resource.LRMclones[cloneno][clusternode] = []
-          self.resource.LRMclones[cloneno][clusternode].append(OpStatus(child, self.resource))
+          self.resource.LRMclones[cloneno][clusternode].append(opstatus)
           # What about master-slave resources?
       else:
         print "ERROR: Unexpected nesting of %s inside <%s>" % (node2str(child), xmlnode.tagName)
@@ -2232,9 +2257,49 @@ def look_for_failcounts():
 	  %	rscname
         failcount=int(node.transients.nvpairs[name])
         if failcount != 0:
-          print "NOTE: resource %s has failcount %d on node %s"	\
+          print "WARNING: resource %s has failcount %d on node %s"	\
           %	(rscname, failcount, node.uname)
 
+def revcompare(lhs, rhs):
+  return rhs.__cmp__(lhs)
+
+def analyze_op_status():
+  for r in ResourceNodeOperationStatuses.keys():
+    runningon=None
+    for cn in ResourceNodeOperationStatuses[r].keys():
+      callids=ResourceNodeOperationStatuses[r][cn].keys()
+      callids.sort(revcompare)
+      lastid=callids[0]
+      lastop=ResourceNodeOperationStatuses[r][cn][lastid]
+      #print "Last operation on [%s,%s]: %s"\
+      #%		(r, cn, lastop)
+      if lastop.op_status != 0:
+        print "ERROR: Resource %s \"%s\" operation failed on node %s (rc=%d)."\
+        %	(r, lastop.operation, cn, lastop.rc_code)
+        if lastop.operation == "stop":
+          print "ERROR: Stop failures are very serious!"
+        continue
+      isrunning=0
+      # FIXME:  Doesn't account for master/slave
+      if lastop.operation=="start" and lastop.op_status == 0:
+        isrunning=1
+      if lastop.operation=="monitor" \
+      and 	lastop.op_status == 0 and lastop.rc_code == 0:
+        isrunning=1
+      if isrunning:
+        print "INFO: Resource %s running on node %s" %	(r, cn)
+        if runningon != None and runningon != cn:
+          print "ERROR: Resource %s running more than one place (%s, %s)!"\
+          %	(r, runningon, cn)
+        runningon=cn
+    if not runningon:
+      print "WARNING: Resource %s not running anywhere." % r
+
+      #callids.sort()
+      #print "SECOND CALLIDS:", callids
+      #for id in callids:
+      #  opstat=ResourceNodeOperationStatuses[r][cn][id]
+      #  print "node: %s Op Status: %s" % (cn, opstat)
 
 def analyze_CIB(doc):
   global crmMetadata
@@ -2270,6 +2335,7 @@ def analyze_CIB(doc):
     URLinfo("stonith")
     crm_config_url(stonithtag)
   look_for_failcounts()
+  analyze_op_status()
 
 #
 # "lint" out a CIB found in a file (pathname)
