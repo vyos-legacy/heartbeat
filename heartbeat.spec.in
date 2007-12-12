@@ -248,6 +248,7 @@ BuildRequires: tog-pegasus
 %else
 BuildRequires: %{CIMOM}
 %endif
+%endif
 
 Requires: %{STONITH_NAME} = %{version}-%{release}, %{PILS_NAME} = %{version}-%{release}
 Requires: perl, iputils, %{SSH} %{PING} %{IPTABLES}
