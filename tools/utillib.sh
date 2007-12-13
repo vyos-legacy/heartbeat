@@ -15,6 +15,8 @@
  # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  #
 
+# NB: This is not going to work unless you source /etc/ha.d/shellfuncs!
+
 #
 # ha.cf/logd.cf parsing
 #
@@ -268,6 +270,7 @@ getconfig() {
 		cp -p $HA_VARLIB/crm/cib.xml $1/ 2>/dev/null
 		touch $1/STOPPED
 	fi
+	cp -p $HA_VARLIB/hostcache $1/ 2>/dev/null
 	[ -f "$1/cib.xml" ] &&
 		crm_verify -V -x $1/cib.xml >$1/crm_verify.txt 2>&1
 }
