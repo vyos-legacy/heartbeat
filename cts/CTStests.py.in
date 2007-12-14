@@ -194,6 +194,14 @@ random for the selected number of iterations.
                         node, "os", "system", 
                         "opcontrol --save=cts.%d" % (testcount-1))
 
+            if not self.CM.ns.WaitForAllNodesToComeUp(self.CM.Env["nodes"]):
+              if os.path.isfile("./RecoverFromDeadNode"):
+                self.CM.log("Calling ./RecoverFromDeadNode in an attempt to get things going again.")
+                os.system("./RecoverFromDeadNode")
+              if not self.CM.ns.WaitForAllNodesToComeUp(self.CM.Env["nodes"]):
+                self.CM.log("One or more nodes will not come up - exiting")
+                break
+
             if ret:
                 self.incr("success")
             else:
