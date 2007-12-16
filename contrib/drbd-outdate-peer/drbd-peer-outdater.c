@@ -159,7 +159,6 @@ init_dopd_client_ipc_comms(const char *channel_name,
 
 	ch = ipc_channel_constructor(IPC_ANYTYPE, attrs);
 	g_hash_table_destroy(attrs);
-	*out_ch = ch;
 
 	if (ch == NULL) {
 		cl_log(LOG_ERR, "Could not access channel on: %s", commpath);
@@ -169,6 +168,7 @@ init_dopd_client_ipc_comms(const char *channel_name,
 		ch->ops->destroy(ch);
 		return NULL;
 	}
+	*out_ch = ch;
 
 	the_source = G_main_add_IPC_Channel(
 	    G_PRIORITY_HIGH, ch, FALSE, dispatch, callback_data,

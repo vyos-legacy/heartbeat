@@ -32,6 +32,7 @@
 #include <sys/stat.h>
 #include <stdarg.h>
 #include <libgen.h>
+#include <pthread.h> /* linux specific; well, so is dopd. */
 #include <heartbeat.h>
 #include <ha_msg.h>
 #include <hb_api.h>
@@ -47,17 +48,19 @@ int quitnow = 0;	   /* Allows a signal to break us out of loop */
 GMainLoop *mainloop;	   /* Reference to the mainloop for events    */
 ll_cluster_t *dopd_cluster_conn;
 
+GHashTable *connections = NULL;
+pthread_mutex_t conn_mutex = PTHREAD_MUTEX_INITIALIZER;
+
 /* only one client can be connected at a time */
 
 typedef struct dopd_client_s
 {
-	char  *id;
+	char *id;
+	char *drbd_res;
 
 	IPC_Channel *channel;
 	GCHSource   *source;
 } dopd_client_t;
-
-IPC_Channel *CURR_CLIENT_CHANNEL = NULL;
 
 /* send_message_to_the_peer()
  * send message with drbd resource to other node.
@@ -75,12 +78,28 @@ send_message_to_the_peer(const char *drbd_peer, const char *drbd_resource)
 	ha_msg_add(msg, F_ORIG, node_name);
 	ha_msg_add(msg, F_DOPD_RES, drbd_resource);
 
-	cl_log(LOG_DEBUG, "sending [start_outdate res: %s] to node: %s", 
+	cl_log(LOG_DEBUG, "sending [start_outdate res: %s] to node: %s",
 		  drbd_resource, drbd_peer);
 	dopd_cluster_conn->llc_ops->sendnodemsg(dopd_cluster_conn, msg, drbd_peer);
 	ha_msg_del(msg);
 
 	return TRUE;
+}
+
+static void
+send_to_client(const dopd_client_t *client, const char *rc_string)
+{
+	IPC_Channel *channel = client->channel;
+	HA_Message *msg_out;
+
+	msg_out = ha_msg_new(3);
+	ha_msg_add(msg_out, F_TYPE, "outdater_rc");
+	ha_msg_add(msg_out, F_ORIG, node_name);
+	ha_msg_add(msg_out, F_DOPD_VALUE, rc_string);
+
+	if (msg2ipcchan(msg_out, channel) != HA_OK) {
+		cl_log(LOG_ERR, "Could not send message to the client");
+	}
 }
 
 /* msg_start_outdate()
@@ -117,7 +136,7 @@ msg_start_outdate(struct ha_msg *msg, void *private)
 	strcpy(command, OUTDATE_COMMAND);
 	strcat(command, " ");
 	strcat(command, drbd_resource);
-	cl_log(LOG_DEBUG, "command: %s", command);
+	cl_log(LOG_DEBUG, "msg_start_outdate: command: %s", command);
 	command_ret = system(command);
 
 	if (WIFEXITED(command_ret)) {
@@ -154,9 +173,10 @@ msg_start_outdate(struct ha_msg *msg, void *private)
 	cl_log(LOG_INFO, "sending return code: %s, %s -> %s\n",
 			rc_string, node_name, ha_msg_value(msg, F_ORIG));
 	/* send return code to oder node */
-	msg2 = ha_msg_new(3);
+	msg2 = ha_msg_new(4);
 	ha_msg_add(msg2, F_TYPE, "outdate_rc");
 	ha_msg_add(msg2, F_DOPD_VALUE, rc_string);
+	ha_msg_add(msg2, F_DOPD_RES, drbd_resource);
 	ha_msg_add(msg2, F_ORIG, node_name);
 
 	hb->llc_ops->sendnodemsg(hb, msg2, ha_msg_value(msg, F_ORIG));
@@ -164,27 +184,21 @@ msg_start_outdate(struct ha_msg *msg, void *private)
 }
 
 /* msg_outdate_rc()
- * got outdate_rc message with return code from other node. Send the 
+ * got outdate_rc message with return code from other node. Send the
  * return code to the outdater client.
  */
 void
 msg_outdate_rc(struct ha_msg *msg_in, void *private)
 {
-	HA_Message *msg_out;
 	const char *rc_string = ha_msg_value(msg_in, F_DOPD_VALUE);
+	const char *rc_res = ha_msg_value(msg_in, F_DOPD_RES);
 
-	if (CURR_CLIENT_CHANNEL == NULL)
+	dopd_client_t *client = g_hash_table_lookup(connections, rc_res);
+
+	cl_log(LOG_DEBUG, "msg_outdate_rc: %s %s", rc_res, rc_string);
+	if (client == NULL)
 		return;
-	cl_log(LOG_DEBUG, "msg_outdate_rc: %s", rc_string);
-	msg_out = ha_msg_new(3);
-	ha_msg_add(msg_out, F_TYPE, "outdater_rc");
-	ha_msg_add(msg_out, F_ORIG, node_name);
-	ha_msg_add(msg_out, F_DOPD_VALUE, rc_string);
-
-	if(msg2ipcchan(msg_out, CURR_CLIENT_CHANNEL) != HA_OK) {
-		cl_log(LOG_ERR, "Could not send message to the client");
-	}
-	CURR_CLIENT_CHANNEL = NULL;
+	send_to_client(client, rc_string);
 }
 
 /* check_drbd_peer()
@@ -203,12 +217,17 @@ check_drbd_peer(const char *drbd_peer)
 	cl_log(LOG_DEBUG, "Starting node walk");
 	if (dopd_cluster_conn->llc_ops->init_nodewalk(dopd_cluster_conn) != HA_OK) {
 		cl_log(LOG_WARNING, "Cannot start node walk");
-		cl_log(LOG_WARNING, "REASON: %s", dopd_cluster_conn->llc_ops->errmsg(dopd_cluster_conn));
+		cl_log(LOG_WARNING, "REASON: %s",
+		       dopd_cluster_conn->llc_ops->errmsg(dopd_cluster_conn));
 		return FALSE;
 	}
 	while((node = dopd_cluster_conn->llc_ops->nextnode(dopd_cluster_conn)) != NULL) {
-		cl_log(LOG_DEBUG, "Cluster node: %s: status: %s", node,
-			    dopd_cluster_conn->llc_ops->node_status(dopd_cluster_conn, node));
+		const char *status = dopd_cluster_conn->llc_ops->node_status(dopd_cluster_conn, node);
+		if (!strcmp(status, "dead")) {
+			cl_log(LOG_WARNING, "Cluster node: %s: status: %s",
+			       node, status);
+			return FALSE;
+		}
 
 		/* Look for the peer */
 		if (!strcmp("normal", dopd_cluster_conn->llc_ops->node_type(dopd_cluster_conn, node))
@@ -237,21 +256,12 @@ outdater_callback(IPC_Channel *client, gpointer user_data)
 {
 	int lpc = 0;
 	HA_Message *msg = NULL;
-	HA_Message *msg_client = NULL;
 	const char *drbd_peer = NULL;
 	const char *drbd_resource = NULL;
 	dopd_client_t *curr_client = (dopd_client_t*)user_data;
 	gboolean stay_connected = TRUE;
 
 	cl_log(LOG_DEBUG, "invoked: %s", curr_client->id);
-
-	/* allow one connection from outdater at a time */
-	if (CURR_CLIENT_CHANNEL != NULL &&
-	    CURR_CLIENT_CHANNEL != curr_client->channel) {
-		cl_log(LOG_DEBUG, "one client already connected");
-		return FALSE;
-	}
-	CURR_CLIENT_CHANNEL = curr_client->channel;
 
 	while (IPC_ISRCONN(client)) {
 		if(client->ops->is_message_pending(client) == 0) {
@@ -275,19 +285,33 @@ outdater_callback(IPC_Channel *client, gpointer user_data)
 
 		drbd_resource = ha_msg_value(msg, F_OUTDATER_RES);
 		drbd_peer = ha_msg_value(msg, F_OUTDATER_PEER);
-		if (check_drbd_peer(drbd_peer))
-			send_message_to_the_peer(drbd_peer, drbd_resource);
-		else {
+		if (check_drbd_peer(drbd_peer)) {
+			dopd_client_t *entry;
+			pthread_mutex_lock(&conn_mutex);
+			entry = g_hash_table_lookup(connections,
+						     drbd_resource);
+			if (entry == NULL) {
+				curr_client->drbd_res = strdup(drbd_resource);
+				if (entry  == NULL)
+					g_hash_table_insert(connections,
+							    curr_client->drbd_res,
+							    curr_client);
+				pthread_mutex_unlock(&conn_mutex);
+				send_message_to_the_peer(drbd_peer, drbd_resource);
+			} else if (entry != curr_client) {
+				pthread_mutex_unlock(&conn_mutex);
+				cl_log(LOG_DEBUG, "one client with %s already "
+				       "connected", drbd_resource);
+				send_to_client(curr_client, "21");
+			} else
+				pthread_mutex_unlock(&conn_mutex);
+		} else {
 			/* wrong peer was specified,
 			   send return code 20 to the client */
-			msg_client = ha_msg_new(3);
-			ha_msg_add(msg_client, F_TYPE, "outdate_rc");
-			ha_msg_add(msg_client, F_ORIG, node_name);
-			ha_msg_add(msg_client, F_DOPD_VALUE, "20");
-			msg_outdate_rc(msg_client, NULL);
+			send_to_client(curr_client, "20");
 		}
 
-		ha_msg_del(msg);		
+		ha_msg_del(msg);
 		msg = NULL;
 
 		if(client->ch_status != IPC_CONNECT) {
@@ -295,9 +319,8 @@ outdater_callback(IPC_Channel *client, gpointer user_data)
 		}
 	}
 	cl_log(LOG_DEBUG, "Processed %d messages", lpc);
-	if (client->ch_status != IPC_CONNECT) {
+	if (client->ch_status != IPC_CONNECT)
 		stay_connected = FALSE;
-	}
 	return stay_connected;
 }
 
@@ -311,18 +334,22 @@ outdater_ipc_connection_destroy(gpointer user_data)
 
 	if (client == NULL)
 		return;
-
+	cl_log(LOG_DEBUG, "destroying connection: %s\n", client->drbd_res);
 	if (client->source != NULL) {
+		if (client->drbd_res != NULL) {
+			dopd_client_t *entry = g_hash_table_lookup(connections,
+								   client->drbd_res);
+			if (entry == client)
+				g_hash_table_remove(connections, 
+						    (gpointer)client->drbd_res);
+		}
 		cl_log(LOG_DEBUG, "Deleting %s (%p) from mainloop",
 				client->id, client->source);
 		G_main_del_IPC_Channel(client->source);
 		client->source = NULL;
+		//cl_free(client->drbd_res);
 	}
 	cl_free(client->id);
-	if (client->channel == CURR_CLIENT_CHANNEL) {
-		cl_log(LOG_DEBUG, "connection from client closed");
-		CURR_CLIENT_CHANNEL = NULL;
-	}
 	cl_free(client);
 	return;
 }
@@ -333,7 +360,7 @@ outdater_ipc_connection_destroy(gpointer user_data)
 static gboolean
 outdater_client_connect(IPC_Channel *channel, gpointer user_data)
 {
-	dopd_client_t *new_client = NULL;
+	dopd_client_t *new_client = cl_malloc(sizeof(dopd_client_t));
 	cl_log(LOG_DEBUG, "Connecting channel");
 	if(channel == NULL) {
 		cl_log(LOG_ERR, "Channel was NULL");
@@ -344,9 +371,8 @@ outdater_client_connect(IPC_Channel *channel, gpointer user_data)
 		return FALSE;
 	}
 
-	new_client = cl_malloc(sizeof(dopd_client_t));
 	memset(new_client, 0, sizeof(dopd_client_t));
-	
+
 	new_client->channel = channel;
 	new_client->id = cl_malloc(10);
 	strcpy(new_client->id, "outdater");
@@ -446,7 +472,6 @@ dopd_timeout_dispatch(gpointer user_data)
 		g_main_quit(mainloop);
 		return FALSE;
 	}
-
 	if (hb->llc_ops->msgready(hb)) {
 		return dopd_dispatch(NULL, user_data);
 	}
@@ -491,7 +516,7 @@ dopd_channel_init(char daemonsocket[])
 
 	attrs = g_hash_table_new(g_str_hash,g_str_equal);
 	g_hash_table_insert(attrs, path, daemonsocket);
-    
+
 	mask = umask(0);
 	wait_ch = ipc_wait_conn_constructor(IPC_ANYTYPE, attrs);
 	if (wait_ch == NULL) {
@@ -500,9 +525,9 @@ dopd_channel_init(char daemonsocket[])
 		exit(1);
 	}
 	mask = umask(mask);
-    
+
 	g_hash_table_destroy(attrs);
-    
+
 	return wait_ch;
 }
 
@@ -514,9 +539,9 @@ main(int argc, char **argv)
 	char *bname, *parameter;
 	IPC_Channel *apiIPC;
 
-	char    commpath[1024];
+	char commpath[1024];
 	IPC_WaitConnection *wait_ch;
-	
+
 	/* Get the name of the binary for logging purposes */
 	bname = cl_strdup(argv[0]);
 
@@ -564,6 +589,9 @@ main(int argc, char **argv)
 		exit(8);
 	}
 
+	connections = g_hash_table_new_full(
+	              g_str_hash, g_str_equal, NULL, NULL);
+
 	set_signals(dopd_cluster_conn);
 
 	cl_log(LOG_DEBUG, "Waiting for messages...");
@@ -597,6 +625,8 @@ main(int argc, char **argv)
 
 	g_main_run(mainloop);
 	g_main_destroy(mainloop);
+
+	g_hash_table_destroy(connections);
 
 	if (!quitnow && errno != EAGAIN && errno != EINTR) {
 		cl_log(LOG_ERR, "read_hb_msg returned NULL");

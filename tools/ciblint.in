@@ -2178,6 +2178,10 @@ class NodeStateTag:
     self.uname = xmlnode.getAttribute("uname")
     self.attributes = xmlnode.attributes
     self.id = xmlnode.getAttribute("id")
+    self.join = xmlnode.getAttribute("join")
+    self.ha = xmlnode.getAttribute("ha")
+    self.transients = None
+    self.lrmstate = None
     for child in xmlnode.childNodes:
       if child.nodeType != child.ELEMENT_NODE:
         continue
@@ -2187,7 +2191,15 @@ class NodeStateTag:
         self.transients=TransientAttributesTag(child)
       else:
         print "ERROR: Unexpected nesting of %s inside <%s>" % (node2str(child), xmlnode.tagName)
-
+    if self.lrmstate == None:
+      print "WARNING: Tag <%s> expects nested <lrm_state/> section - none found."\
+      %		(xmlnode.tagName)
+    if self.join == "member":
+      if self.transients == None:
+        print "WARNING: Tag <%s> expects nested <transient_attributes/> section for active members - none found."\
+        %		(xmlnode.tagName)
+    else:
+      print "WARNING: Node [%s] is down." % (self.uname)
     
 
 class StatusTag:
@@ -2252,6 +2264,7 @@ def failcount_name_to_rscname(name):
 def look_for_failcounts():
   if GlobalStatus == None:  return
   for node in GlobalStatus.nodestates:
+    if node.transients == None: continue
     for name in node.transients.nvpairs.keys():
       rscname = failcount_name_to_rscname(name)
       if rscname != None:
