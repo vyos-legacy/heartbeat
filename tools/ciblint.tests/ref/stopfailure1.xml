@@ -1,0 +1,20 @@
+INFO: CIB has non-default value for default-resource-failure-stickiness [-20].  Default value is [0]
+INFO: Explanation of default-resource-failure-stickiness option:
+      default-resource-failure-stickiness
+INFO: CIB has non-default value for default-resource-stickiness [10].  Default value is [0]
+INFO: Explanation of default-resource-stickiness option:
+      default-resource-stickiness
+WARNING: <op name="start" start_delay="10s"...>: start_delay only appropriate for op "monitor".
+WARNING: <op name="start" start_delay="10s"...>: start_delay only appropriate for op "monitor".
+WARNING: <op name="start" start_delay="10s"...>: start_delay only appropriate for op "monitor".
+WARNING: STONITH disabled <nvpair name="stonith-enabled" value="false">.  STONITH is STRONGLY recommended.
+WARNING: No STONITH resources configured.  STONITH is not available.
+INFO: See http://linux-ha.org/ciblint/stonith for more information on this topic.
+INFO: See http://linux-ha.org/ciblint/crm_config#stonith-enabled for more information on this topic.
+WARNING: resource mysql_id has failcount 1 on node gdrd51.watson.ibm.com
+INFO: Resource taddm_id running on node gdrd50.watson.ibm.com
+INFO: Resource httpd_id running on node gdrd48.watson.ibm.com
+ERROR: Resource mysql_id "stop" operation failed on node gdrd51.watson.ibm.com (rc=1).
+ERROR: Stop failures are very serious!
+WARNING: Resource mysql_id not running anywhere.
+== Final Return Code [0] ==

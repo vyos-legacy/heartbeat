@@ -1,0 +1,37 @@
+ERROR: attribute [crm-debug-origin] not legal/obsolescent with tag <cib/>
+ERROR: <cib ...>: [ignore_dtd] is a required attribute for tag cib
+ERROR: name 'default_resource_stickiness' multiply defined in <nvpair> list - values are [0] and [0]
+ERROR: <nvpair name="symmetric_cluster"...>: [symmetric_cluster] is not a legal name for the <crm_config> section
+INFO: [symmetric-cluster] IS a legal name. Name [symmetric_cluster] is obsolescent
+ERROR: <nvpair name="stop_orphan_resources"...>: [stop_orphan_resources] is not a legal name for the <crm_config> section
+INFO: [stop-orphan-resources] IS a legal name. Name [stop_orphan_resources] is obsolescent
+ERROR: <nvpair name="default_resource_stickiness"...>: [default_resource_stickiness] is not a legal name for the <crm_config> section
+INFO: [default-resource-stickiness] IS a legal name. Name [default_resource_stickiness] is obsolescent
+ERROR: <nvpair name="short_resource_names"...>: [short_resource_names] is not a legal name for the <crm_config> section
+ERROR: <nvpair name="default_resource_failure_stickiness"...>: [default_resource_failure_stickiness] is not a legal name for the <crm_config> section
+INFO: [default-resource-failure-stickiness] IS a legal name. Name [default_resource_failure_stickiness] is obsolescent
+ERROR: <nvpair name="transition_idle_timeout"...>: [transition_idle_timeout] is not a legal name for the <crm_config> section
+ERROR: <nvpair name="stonith_enabled"...>: [stonith_enabled] is not a legal name for the <crm_config> section
+INFO: [stonith-enabled] IS a legal name. Name [stonith_enabled] is obsolescent
+ERROR: <nvpair name="is_managed_default"...>: [is_managed_default] is not a legal name for the <crm_config> section
+INFO: [is-managed-default] IS a legal name. Name [is_managed_default] is obsolescent
+ERROR: <nvpair name="no_quorum_policy"...>: [no_quorum_policy] is not a legal name for the <crm_config> section
+INFO: [no-quorum-policy] IS a legal name. Name [no_quorum_policy] is obsolescent
+ERROR: <nvpair name="stop_orphan_actions"...>: [stop_orphan_actions] is not a legal name for the <crm_config> section
+INFO: [stop-orphan-actions] IS a legal name. Name [stop_orphan_actions] is obsolescent
+ERROR: <nvpair name="remove_after_stop"...>: [remove_after_stop] is not a legal name for the <crm_config> section
+INFO: [remove-after-stop] IS a legal name. Name [remove_after_stop] is obsolescent
+ERROR: <instance_attributes ...>: [id] is a required attribute for tag instance_attributes
+ERROR: <instance_attributes ...>: [id] is a required attribute for tag instance_attributes
+ERROR: <instance_attributes ...>: [id] is a required attribute for tag instance_attributes
+ERROR: <instance_attributes ...>: [id] is a required attribute for tag instance_attributes
+ERROR: <instance_attributes ...>: [id] is a required attribute for tag instance_attributes
+ERROR: <instance_attributes ...>: [id] is a required attribute for tag instance_attributes
+ERROR: <instance_attributes ...>: [id] is a required attribute for tag instance_attributes
+ERROR: <instance_attributes ...>: [id] is a required attribute for tag instance_attributes
+ERROR: <expression attribute="#uname" value="someothernode"...> references unknown cluster node [someothernode]
+WARNING: STONITH disabled <nvpair name="stonith-enabled" value="false">.  STONITH is STRONGLY recommended.
+WARNING: No STONITH resources configured.  STONITH is not available.
+INFO: See http://linux-ha.org/ciblint/stonith for more information on this topic.
+INFO: See http://linux-ha.org/ciblint/crm_config#stonith-enabled for more information on this topic.
+== Final Return Code [0] ==

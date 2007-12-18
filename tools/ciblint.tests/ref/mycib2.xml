@@ -1,0 +1,33 @@
+ERROR: name 'default-resource-stickiness' multiply defined in <nvpair> list - values are [0] and [0]
+ERROR: <nvpair name="short-resource-names"...>: [short-resource-names] is not a legal name for the <crm_config> section
+ERROR: <nvpair name="transition-idle-timeout"...>: [transition-idle-timeout] is not a legal name for the <crm_config> section
+INFO: CIB has non-default value for remove-after-stop [true].  Default value is [false]
+INFO: Explanation of remove-after-stop option: Remove resources from
+      the LRM after they are stopped
+INFO: Always set this to false. Other values are, at best, poorly
+INFO: tested and potentially dangerous.
+ERROR: attribute [resource_stickiness] not legal/obsolescent with tag <primitive/>
+ERROR: attribute [is_managed] not legal/obsolescent with tag <primitive/>
+ERROR: attribute [restart_type] not legal/obsolescent with tag <primitive/>
+ERROR: attribute [multiple_active] not legal/obsolescent with tag <primitive/>
+WARNING: STONITH disabled <nvpair name="stonith-enabled" value="false">.  STONITH is STRONGLY recommended.
+WARNING: No STONITH resources configured.  STONITH is not available.
+INFO: See http://linux-ha.org/ciblint/stonith for more information on this topic.
+INFO: See http://linux-ha.org/ciblint/crm_config#stonith-enabled for more information on this topic.
+WARNING: resource R_10.10.10.21 has failcount 1 on node paul
+WARNING: resource R_named has failcount 1 on node paul
+INFO: Resource R_drbdlinks_drbd1 running on node paul
+INFO: Resource R_named running on node paul
+INFO: Resource datadisk_home_1 running on node paul
+INFO: Resource IPaddr_10_10_10_20 running on node paul
+INFO: Resource Filesystem_2 running on node paul
+INFO: Resource R_drbd1 running on node paul
+INFO: Resource R_dhcpd running on node paul
+INFO: Resource R_fs_drbd1 running on node paul
+INFO: Resource drbdlinks_home running on node paul
+INFO: Resource R_postfix running on node paul
+INFO: Resource smb_p running on node paul
+INFO: Resource nmb_p running on node paul
+INFO: Resource R_10.10.10.21 running on node paul
+INFO: Resource nfsserver running on node paul
+== Final Return Code [0] ==
