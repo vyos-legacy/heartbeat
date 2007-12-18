@@ -228,6 +228,7 @@ usr/lib/ocf/resource.d/heartbeat/tomcat
 usr/lib/pils/plugins/InterfaceMgr/generic.so
 usr/lib/stonith/plugins/external/ibmrsa
 usr/lib/stonith/plugins/external/ibmrsa-telnet
+usr/lib/stonith/plugins/external/ipmi
 usr/lib/stonith/plugins/external/rackpdu
 usr/lib/stonith/plugins/external/riloe
 usr/lib/stonith/plugins/external/ssh
