@@ -24,7 +24,7 @@
 #define F_DOPD_VALUE            "dop_value"
 #define F_DOPD_RES              "dop_res"
 
-#define OUTDATE_COMMAND		"/sbin/drbdadm outdate"
+#define OUTDATE_COMMAND		"drbdadm outdate"
 
 #include <hb_api.h>
 

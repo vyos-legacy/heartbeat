@@ -2557,8 +2557,6 @@ set_corerootdir(const char* value)
  */
 
 
-#define VALGRIND_PREFIX VALGRIND_BIN" --show-reachable=yes --leak-check=full --time-stamp=yes --suppressions="VALGRIND_SUPP" "VALGRIND_LOG
-
 static int
 set_release2mode(const char* value)
 {
@@ -2601,6 +2599,38 @@ set_release2mode(const char* value)
 		/* Don't 'respawn' pingd - it's a resource agent */
 	};
 
+    struct do_directive r2respawn_dirs[] =
+	/*
+	 *	To whom it may concern:  Please keep the apiauth and respawn
+	 *	lines in the same order to make auditing the two against each
+	 *	other easier.
+	 *	Thank you.
+	 */
+	
+	{	/* CCM apiauth already implicit elsewhere */
+		{"apiauth", "cib 	uid=" HA_CCMUSER}
+		/* LRMd is not a heartbeat API client */
+	,	{"apiauth", "stonithd  	uid=root" }
+	,	{"apiauth", "attrd   	uid=" HA_CCMUSER}
+	,	{"apiauth", "crmd   	uid=" HA_CCMUSER}
+#ifdef MGMT_ENABLED
+	,	{"apiauth", "mgmtd   	uid=root" }
+#endif
+	,	{"apiauth", "pingd   	uid=root"}
+
+	,	{"respawn", " "HA_CCMUSER " " HA_LIBHBDIR "/ccm"}
+	,	{"respawn", " "HA_CCMUSER " " HA_LIBHBDIR "/cib" }
+		
+	,	{"respawn", "root "           HA_LIBHBDIR "/lrmd -r"}
+	,	{"respawn", "root "	      HA_LIBHBDIR "/stonithd"}
+	,	{"respawn", " "HA_CCMUSER " " HA_LIBHBDIR "/attrd" }
+	,	{"respawn", " "HA_CCMUSER " " HA_LIBHBDIR "/crmd" }
+#ifdef MGMT_ENABLED
+	,	{"respawn", "root "  	      HA_LIBHBDIR "/mgmtd -v"}
+#endif
+		/* Don't 'respawn' pingd - it's a resource agent */
+	};
+
     struct do_directive r2minimal_dirs[] =	
 	{	/* CCM apiauth already implicit elsewhere */
 		{"apiauth", "cib 	uid=" HA_CCMUSER}
@@ -2620,12 +2650,12 @@ set_release2mode(const char* value)
 	,	{"apiauth", "attrd   	uid=" HA_CCMUSER}
 	,	{"apiauth", "crmd   	uid=" HA_CCMUSER}
 
-	,	{"failfast"," "HA_CCMUSER                   " "HA_LIBHBDIR"/ccm"}
-	,	{"failfast"," "HA_CCMUSER " "VALGRIND_PREFIX" "HA_LIBHBDIR"/cib"}
-	,	{"respawn", "root "                            HA_LIBHBDIR"/lrmd -r"}
-	,	{"respawn", "root "	                       HA_LIBHBDIR"/stonithd"}
-	,	{"respawn", " "HA_CCMUSER " "VALGRIND_PREFIX" "HA_LIBHBDIR"/attrd" }
-	,	{"failfast"," "HA_CCMUSER " "VALGRIND_PREFIX" "HA_LIBHBDIR"/crmd"}
+	,	{"failfast"," "HA_CCMUSER " "HA_LIBHBDIR"/ccm"}
+	,	{"failfast"," "HA_CCMUSER " "VALGRIND_BIN" "HA_LIBHBDIR"/cib"}
+	,	{"respawn", "root "          HA_LIBHBDIR"/lrmd -r"}
+	,	{"respawn", "root "	     HA_LIBHBDIR"/stonithd"}
+	,	{"respawn", " "HA_CCMUSER " "VALGRIND_BIN" "HA_LIBHBDIR"/attrd" }
+	,	{"failfast"," "HA_CCMUSER " "VALGRIND_BIN" "HA_LIBHBDIR"/crmd"}
 		/* Don't 'respawn' pingd - it's a resource agent */
 	};
     
@@ -2642,6 +2672,10 @@ set_release2mode(const char* value)
 		r2dirs = &r2minimal_dirs[0];
 		r2size = DIMOF(r2minimal_dirs);
 
+	} else if (0 == strcasecmp("respawn", value)) {
+		r2dirs = &r2respawn_dirs[0];
+		r2size = DIMOF(r2respawn_dirs);
+		
 	} else if (0 == strcasecmp("valgrind", value)) {
 #if CL_USE_LIBC_MALLOC
 		r2dirs = &r2valgrind_dirs[0];

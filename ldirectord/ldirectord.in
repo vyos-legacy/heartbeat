@@ -246,6 +246,17 @@ for details.
 Default: I<no>
 
 
+B<fork = >B<yes>|B<no>
+
+If I<yes>, then ldirectord will spawn a child proccess for every virtual server,
+and run checks against the real servers from them.  This will increase response
+times to changes in real server status in configurations with many virtual
+servers.  This may also use less memory then running many seperate instances of
+ldirectord.  Child processes will be automaticly restarted if they die.
+
+Default: I<no>
+
+
 B<quiescent = >B<yes>|B<no>
 
 If I<yes>, then when real or failback servers are determined
@@ -586,6 +597,7 @@ use vars qw(
 	    $DEFAULT_CHECKTIMEOUT
 	    $CHECKCOUNT
 	    $QUIESCENT
+	    $FORKING
 	    $EMAILALERT
 	    $EMAILALERTFREQ
 	    $EMAILALERTSTATUS
@@ -616,6 +628,7 @@ use vars qw(
 	    @VIRTUAL
 	    $HOSTNAME
 	    %EMAILSTATUS
+	    %FORK_CHILDREN
 	    $SERVICE_UP
 	    $SERVICE_DOWN
 
@@ -653,6 +666,7 @@ $NEGOTIATETIMEOUT = -1;
 $DEFAULT_NEGOTIATETIMEOUT = 30;
 $RUNPID           = "/var/run/ldirectord";
 $SUPERVISED       = "no";
+$FORKING          = "no";
 $QUIESCENT        = "yes";
 $EMAILALERT	  = "";
 $EMAILALERTFREQ	  = 0;
@@ -666,7 +680,7 @@ use Pod::Usage;
 #use Time::HiRes qw( gettimeofday tv_interval );
 use Socket;
 use Sys::Hostname;
-use POSIX qw(setsid);
+use POSIX qw(setsid :sys_wait_h);
 use Sys::Syslog qw(:DEFAULT setlogsock);
 
 # command line options
@@ -978,6 +992,11 @@ sub reread_config
 		&ld_cmd_children("stop", %STOP);
 		&ld_cmd_children("reload_or_start", %RELOAD);
 		&ld_cmd_children("start", %START);
+
+		foreach my $vid (keys %FORK_CHILDREN) {
+			&ld_log("Killing child $vid (PID=$FORK_CHILDREN{$vid})");
+			kill 15, $FORK_CHILDREN{$vid};
+		}
 
 		&ld_setup();
 		&ld_start();
@@ -1362,6 +1381,10 @@ sub read_config
 			}
 		} elsif ($linedata  =~ /^execute\s*=\s*(.*)/) {
 			$LD_INSTANCE{$1} = 1;
+                } elsif ($linedata  =~ /^fork\s*=\s*(.*)/) {
+                        ($1 eq "yes" || $1 eq "no")
+                            or &config_error($line, "fork must be 'yes' or 'no'");
+                        $FORKING = $1;
 		} elsif ($linedata  =~ /^supervised/) {
 			if (($linedata  =~ /^supervised\s*=\s*(.*)/) and
 			    ($1 eq "yes" || $1 eq "no")) {
@@ -2184,103 +2207,176 @@ sub ld_main
 {
 	# Main failover checking code
 	while (1) {
-		my @real_checked;
-		foreach my $v (@VIRTUAL) {
-			my $real = $$v{real};
-			my $virtual_id = get_virtual_id_str($v);
-
-			REAL: foreach my $r (@$real) {
-				my $real_id = get_real_id_str($r, $v);
-				check_signal();
-				foreach my $tmp_id (@real_checked) {
-					if($real_id eq $tmp_id) {
-						&ld_debug(3, "Already checked: real server=$real_id (virtual=$virtual_id)");
-						next REAL;
-					}
-				}
-				if ($$v{checktype} eq "negotiate" || $$r{num_connects}>=$$v{num_connects}) {
-					&ld_debug(2, "Checking negotiate: real server=$real_id (virtual=$virtual_id)");
-					if ($$v{service} eq "http" || $$v{service} eq "https") {
-						$$r{num_connects} = 0 if (check_http($v, $r) == $SERVICE_UP);
-						# my $req = new HTTP::Request(GET=>"$$r{url}");
-						# $ua->register($req, \&http_received);
-					} elsif ($$v{service} eq "pop") {
-						$$r{num_connects} = 0 if (check_pop($v, $r) == $SERVICE_UP);
-					} elsif ($$v{service} eq "pops") {
-						$$r{num_connects} = 0 if (check_pops($v, $r) == $SERVICE_UP);
-					} elsif ($$v{service} eq "imap") {
-						$$r{num_connects} = 0 if (check_imap($v, $r) == $SERVICE_UP);
-					} elsif ($$v{service} eq "imaps") {
-						$$r{num_connects} = 0 if (check_imaps($v, $r) == $SERVICE_UP);
-					} elsif ($$v{service} eq "smtp") {
-						$$r{num_connects} = 0 if (check_smtp($v, $r) == $SERVICE_UP);
-					} elsif ($$v{service} eq "ftp") {
-						$$r{num_connects} = 0 if (check_ftp($v, $r) == $SERVICE_UP);
-					} elsif ($$v{service} eq "ldap") {
-						$$r{num_connects} = 0 if (check_ldap($v, $r) == $SERVICE_UP);
-					} elsif ($$v{service} eq "nntp") {
-						$$r{num_connects} = 0 if (check_nntp($v, $r) == $SERVICE_UP);
-					} elsif ($$v{service} eq "dns") {
-						$$r{num_connects} = 0 if (check_dns($v, $r) == $SERVICE_UP);
-					} elsif ($$v{service} eq "sip") {
-						$$r{num_connects} = 0 if (check_sip($v, $r) == $SERVICE_UP);
-					} elsif ($$v{service} eq "radius") {
-						$$r{num_connects} = 0 if (check_radius($v, $r) == $SERVICE_UP);
-					} elsif ($$v{service} eq "mysql") {
-						$$r{num_connects} = 0 if (check_mysql($v, $r) == $SERVICE_UP);
-					} elsif ($$v{service} eq "pgsql") {
-						$$r{num_connects} = 0 if (check_pgsql($v, $r) == $SERVICE_UP);
-					} elsif ($$v{service} eq "oracle") {
-						$$r{num_connects} = 0 if (check_oracle($v, $r) == $SERVICE_UP);
-				        } elsif ($$v{service} eq "simpletcp") {
-					        $$r{num_connects} = 0 if (check_simpletcp($v, $r) == $SERVICE_UP);
-					} else {
-						$$r{num_connects} = 0 if (check_none($v, $r) == $SERVICE_UP);
-					}
-				} elsif ($$v{checktype} eq "connect") {
-					if ($$v{protocol} ne "udp") {
-						&ld_debug(2, "Checking connect: real server=$real_id (virtual=$virtual_id)");
-						check_connect($v, $r);
-					}
-					else {
-						&ld_debug(2, "Checking connect (ping): real server=$real_id (virtual=$virtual_id)");
-						check_ping($v, $r);
-					}
-				} elsif ($$v{checktype} eq "ping") {
-					&ld_debug(2, "Checking ping: real server=$real_id (virtual=$virtual_id)");
-					check_ping($v, $r);
-				} elsif ($$v{checktype} eq "external") {
-					&ld_debug(2, "Checking external: real server=$real_id (virtual=$virtual_id)");
-					check_external($v, $r);
-				} elsif ($$v{checktype} eq "off") {
-					&ld_debug(2, "Checking off: No real or fallback servers to be added\n");
-				} elsif ($$v{checktype} eq "on") {
-					&ld_debug(2, "Checking on: Real servers are added without any checks\n");
-					&service_set($v, $r, "up");
-				} elsif ($$v{checktype} eq "combined") {
-					&ld_debug(2, "Checking combined-connect: real server=$real_id (virtual=$virtual_id)");
-					if (check_connect($v, $r) == $SERVICE_UP) {
-						$$r{num_connects}++;
-					} else {
-						$$r{num_connects} = 999999;
-					}
-				}
-				push(@real_checked, $real_id);
-			}
-			# $ua->wait($$v{checktimeout});
-		}
-		check_signal();
-		if (!check_cfgfile()) {
-			sleep $CHECKINTERVAL;
-		}
-			
-		check_signal();
-		ld_emailalert_resend();
-
-		check_signal();
+                if ($FORKING eq 'yes') {
+                        foreach my $v (@VIRTUAL) {
+                                my $virtual_id = get_virtual_id_str($v);
+                                if (!exists($FORK_CHILDREN{$virtual_id})) {
+                                        &ld_log("Child not running for $virtual_id, spawning");
+                                        my $pid = fork;
+                                        if (!defined($pid)) {
+                                                &ld_log("fork failed");
+                                        } elsif ($pid == 0) {
+                                                run_child($v);
+                                        } else {
+                                                $FORK_CHILDREN{get_virtual_id_str($v)} = $pid;
+                                                &ld_log("Spawned child $virtual_id PID=$pid");
+                                        }
+                                } elsif (waitpid($FORK_CHILDREN{get_virtual_id_str($v)}, WNOHANG)) {
+                                        delete $FORK_CHILDREN{get_virtual_id_str($v)};
+                                }
+                        }
+                        check_signal();
+                        if (!check_cfgfile()) {
+                                sleep 1;
+                        }
+                        
+                        check_signal();
+                        
+                } else {
+                        my @real_checked;
+                        foreach my $v (@VIRTUAL) {
+                                my $real = $$v{real};
+                                my $virtual_id = get_virtual_id_str($v);
+        
+                                REAL: foreach my $r (@$real) {
+                                        my $real_id = get_real_id_str($r, $v);
+                                        check_signal();
+                                        foreach my $tmp_id (@real_checked) {
+                                                if($real_id eq $tmp_id) {
+                                                        &ld_debug(3, "Already checked: real server=$real_id (virtual=$virtual_id)");
+                                                        next REAL;
+                                                }
+                                        }
+                                        _check_real($v, $r);
+                                        push(@real_checked, $real_id);
+                                }
+                        }
+                        check_signal();
+                        if (!check_cfgfile()) {
+                                sleep $CHECKINTERVAL;
+                        }
+                                
+                        check_signal();
+                        ld_emailalert_resend();
+        
+                        check_signal();
+                }
 	}
 }
 
+sub run_child
+{
+        my $v = shift;
+        # Just exit on signals
+        $SIG{'INT'} = "DEFAULT";
+        $SIG{'QUIT'} = "DEFAULT";
+        $SIG{'ILL'} = "DEFAULT";
+        $SIG{'ABRT'} = "DEFAULT";
+        $SIG{'FPE'} = "DEFAULT";
+        $SIG{'SEGV'} = "DEFAULT";
+        $SIG{'TERM'} = "DEFAULT";
+
+        $SIG{'BUS'} = "DEFAULT";
+        $SIG{'SYS'} = "DEFAULT";
+        $SIG{'XCPU'} = "DEFAULT";
+        $SIG{'XFSZ'} = "DEFAULT";
+
+        $SIG{'IOT'} = "DEFAULT";
+
+        $SIG{'PIPE'} = "IGNORE";
+        $SIG{'HUP'} = sub { exit 1 };
+        
+        my $real = $$v{real};
+        my $virtual_id = get_virtual_id_str($v);
+        $0 = $virtual_id;
+        foreach my $r (@$real) {
+                service_set($v, $r, "down", "force");
+        }
+        while (1) {
+                foreach my $r (@$real) {
+                        $0 = "$virtual_id checking $$r{server}";
+                        _check_real($v, $r);
+                }
+                $0 = $virtual_id;
+                sleep $CHECKINTERVAL;
+                ld_emailalert_resend();
+        }
+}
+
+sub _check_real
+{
+        my $v = shift;
+        my $r = shift;
+
+        my $real_id = get_real_id_str($r, $v);
+        my $virtual_id = get_virtual_id_str($v);
+
+        if ($$v{checktype} eq "negotiate" || $$r{num_connects}>=$$v{num_connects}) {
+                &ld_debug(2, "Checking negotiate: real server=$real_id (virtual=$virtual_id)");
+                if ($$v{service} eq "http" || $$v{service} eq "https") {
+                        $$r{num_connects} = 0 if (check_http($v, $r) == $SERVICE_UP);
+                } elsif ($$v{service} eq "pop") {
+                        $$r{num_connects} = 0 if (check_pop($v, $r) == $SERVICE_UP);
+                } elsif ($$v{service} eq "pops") {
+                        $$r{num_connects} = 0 if (check_pops($v, $r) == $SERVICE_UP);
+                } elsif ($$v{service} eq "imap") {
+                        $$r{num_connects} = 0 if (check_imap($v, $r) == $SERVICE_UP);
+                } elsif ($$v{service} eq "imaps") {
+                        $$r{num_connects} = 0 if (check_imaps($v, $r) == $SERVICE_UP);
+                } elsif ($$v{service} eq "smtp") {
+                        $$r{num_connects} = 0 if (check_smtp($v, $r) == $SERVICE_UP);
+                } elsif ($$v{service} eq "ftp") {
+                        $$r{num_connects} = 0 if (check_ftp($v, $r) == $SERVICE_UP);
+                } elsif ($$v{service} eq "ldap") {
+                        $$r{num_connects} = 0 if (check_ldap($v, $r) == $SERVICE_UP);
+                } elsif ($$v{service} eq "nntp") {
+                        $$r{num_connects} = 0 if (check_nntp($v, $r) == $SERVICE_UP);
+                } elsif ($$v{service} eq "dns") {
+                        $$r{num_connects} = 0 if (check_dns($v, $r) == $SERVICE_UP);
+                } elsif ($$v{service} eq "sip") {
+                        $$r{num_connects} = 0 if (check_sip($v, $r) == $SERVICE_UP);
+                } elsif ($$v{service} eq "radius") {
+                        $$r{num_connects} = 0 if (check_radius($v, $r) == $SERVICE_UP);
+                } elsif ($$v{service} eq "mysql") {
+                        $$r{num_connects} = 0 if (check_mysql($v, $r) == $SERVICE_UP);
+                } elsif ($$v{service} eq "pgsql") {
+                        $$r{num_connects} = 0 if (check_pgsql($v, $r) == $SERVICE_UP);
+                } elsif ($$v{service} eq "oracle") {
+                        $$r{num_connects} = 0 if (check_oracle($v, $r) == $SERVICE_UP);
+		} elsif ($$v{service} eq "simpletcp") {
+			$$r{num_connects} = 0 if (check_simpletcp($v, $r) == $SERVICE_UP);
+                } else {
+                        $$r{num_connects} = 0 if (check_none($v, $r) == $SERVICE_UP);
+                }
+        } elsif ($$v{checktype} eq "connect") {
+                if ($$v{protocol} ne "udp") {
+                        &ld_debug(2, "Checking connect: real server=$real_id (virtual=$virtual_id)");
+                        check_connect($v, $r);
+                }
+                else {
+                        &ld_debug(2, "Checking connect (ping): real server=$real_id (virtual=$virtual_id)");
+                        check_ping($v, $r);
+                }
+        } elsif ($$v{checktype} eq "ping") {
+                &ld_debug(2, "Checking ping: real server=$real_id (virtual=$virtual_id)");
+                check_ping($v, $r);
+        } elsif ($$v{checktype} eq "external") {
+                &ld_debug(2, "Checking external: real server=$real_id (virtual=$virtual_id)");
+                check_external($v, $r);
+        } elsif ($$v{checktype} eq "off") {
+                &ld_debug(2, "Checking off: No real or fallback servers to be added\n");
+        } elsif ($$v{checktype} eq "on") {
+                &ld_debug(2, "Checking on: Real servers are added without any checks\n");
+                &service_set($v, $r, "up");
+        } elsif ($$v{checktype} eq "combined") {
+                &ld_debug(2, "Checking combined-connect: real server=$real_id (virtual=$virtual_id)");
+                if (check_connect($v, $r) == $SERVICE_UP) {
+                        $$r{num_connects}++;
+                } else {
+                        $$r{num_connects} = 999999;
+                }
+        }
+}
 
 sub check_http
 {

@@ -1446,7 +1446,7 @@ ccm_state_joined(enum ccm_type ccm_msg_type,
 			break;
 
 		case CCM_TYPE_PROTOVERSION:
-			/* If we were leader in the last successful itteration,
+			/* If we were leader in the last successful iteration,
  			 * then we shall respond with the neccessary information
 			 */
 			if (ccm_am_i_leader(info)){
@@ -1477,7 +1477,13 @@ ccm_state_joined(enum ccm_type ccm_msg_type,
 			/* update the minor transition number if it is of 
 			 * higher value and send a fresh JOIN message 
 			 */
-			assert (trans_minorval >= CCM_GET_MINORTRANS(info));
+			if (trans_minorval < CCM_GET_MINORTRANS(info)) {
+				ccm_log(LOG_WARNING,
+				"%s: got a join message from %s from lower "
+				"transition, restarting", __FUNCTION__, orig);
+				ccm_all_restart(hb, info, reply);
+				break;
+			}
 			update_reset(CCM_GET_UPDATETABLE(info));
 			update_add(CCM_GET_UPDATETABLE(info), CCM_GET_LLM(info),
 						orig, uptime_val, TRUE);
@@ -1969,7 +1975,13 @@ static void ccm_state_wait_for_change(enum ccm_type ccm_msg_type,
 			/* update the minor transition number if it is of 
 			 * higher value and send a fresh JOIN message 
 			 */
-			assert (trans_minorval >= CCM_GET_MINORTRANS(info));
+			if (trans_minorval < CCM_GET_MINORTRANS(info)) {
+				ccm_log(LOG_WARNING,
+				"%s: got a join message from %s from lower "
+				"transition, restarting", __FUNCTION__, orig);
+				ccm_all_restart(hb, info, reply);
+				break;
+			}
 			update_reset(CCM_GET_UPDATETABLE(info));
 			update_add(CCM_GET_UPDATETABLE(info), CCM_GET_LLM(info),
 						orig, uptime_val, TRUE);
@@ -2099,8 +2111,14 @@ switchstatement:
 			 * This join request shall be considered.
 			 * But leadership shall not be relinquished.
 			 */
-			assert(trans_majorval == CCM_GET_MAJORTRANS(info));
-			assert(trans_minorval == CCM_GET_MINORTRANS(info));
+			if(trans_majorval != CCM_GET_MAJORTRANS(info)
+			|| trans_minorval != CCM_GET_MINORTRANS(info)) {
+				ccm_log(LOG_WARNING,
+				"%s: got a join message from %s from a wrong "
+				"transition, restarting", __FUNCTION__, orig);
+				ccm_all_restart(hb, info, reply);
+				break;
+			}
 			ccm_debug2(LOG_DEBUG, "considering a late join message "
 					  "from orig=%s", orig);
 			/* get the update value */
@@ -2169,12 +2187,11 @@ switchstatement:
 			}
 
 			if(trans_majorval != CCM_GET_MAJORTRANS(info)) {
-				ccm_log(LOG_INFO, 
+				ccm_log(LOG_WARNING, 
 				   "%s: dropping CCM_TYPE_RES_MEMLIST "
 				   "from orig=%s mymajor=%d msg_major=%d", 
 				   __FUNCTION__, orig, trans_majorval, 
 					CCM_GET_MAJORTRANS(info));
-				assert(0);
 				break;
 			}
 			if ((memlist = ha_msg_value(reply, CCM_MEMLIST)) 
@@ -3423,7 +3440,13 @@ static void ccm_state_wait_for_mem_list(enum ccm_type ccm_msg_type,
 			/* update the minor transition number if it is of
 			 * higher value and send a fresh JOIN message
 			 */
-			assert (trans_minorval >= CCM_GET_MINORTRANS(info));
+			if (trans_minorval < CCM_GET_MINORTRANS(info)) {
+				ccm_log(LOG_WARNING,
+				"%s: got a join message from %s from earlier "
+				"transition, restarting", __FUNCTION__, orig);
+				ccm_all_restart(hb, info, reply);
+				break;
+			}
 			update_reset(CCM_GET_UPDATETABLE(info));
 			update_add(CCM_GET_UPDATETABLE(info), CCM_GET_LLM(info),
 						orig, uptime_val, TRUE);
@@ -3712,7 +3735,13 @@ static void ccm_state_new_node_wait_for_mem_list(enum ccm_type ccm_msg_type,
 			/* update the minor transition number if it is of 
 			 * higher value and send a fresh JOIN message 
 			 */
-			assert (trans_minorval >= CCM_GET_MINORTRANS(info));
+			if (trans_minorval < CCM_GET_MINORTRANS(info)) {
+				ccm_log(LOG_WARNING,
+				"%s: got a join message from %s from earlier "
+				"transition, restarting", __FUNCTION__, orig);
+				ccm_all_restart(hb, info, reply);
+				break;
+			}
 			update_reset(CCM_GET_UPDATETABLE(info));
 			update_add(CCM_GET_UPDATETABLE(info), CCM_GET_LLM(info),
 						orig, uptime_val, TRUE);
