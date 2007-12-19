@@ -210,7 +210,7 @@ findbinary() {
 	random_binary=`which cat 2>/dev/null` # suppose we are lucky
 	binary=`gdb $random_binary $1 < /dev/null 2>/dev/null |
 		grep 'Core was generated' | awk '{print $5}' |
-		sed "s/^.//;s/[.']*$//"`
+		sed "s/^.//;s/[.':]*$//"`
 	[ x = x"$binary" ] && return
 	fullpath=`which $binary 2>/dev/null`
 	if [ x = x"$fullpath" ]; then

@@ -1,0 +1,256 @@
+ <cib admin_epoch="0" have_quorum="true" num_peers="1" cib_feature_revision="1.2" crm_feature_set="1.0.3" generated="true" epoch="197" num_updates="60574" crm-debug-origin="create_node_entry" cib-last-written="Wed Jun 28 08:07:22 2006" ccm_transition="1" dc_uuid="0f74f51a-ecf2-4271-8a94-ce4dd210fe92">
+   <configuration>
+     <crm_config>
+       <cluster_property_set id="cib-bootstrap-options">
+         <attributes>
+           <nvpair name="default_resource_stickiness" id="cib-bootstrap-options-default_resource_stickiness" value="0"/>
+           <nvpair id="cib-bootstrap-options-transition_idle_timeout" name="transition_idle_timeout" value="61s"/>
+           <nvpair id="symmetric_cluster" name="symmetric_cluster" value="true"/>
+           <nvpair id="no_quorum_policy" name="no_quorum_policy" value="stop"/>
+           <nvpair id="default_resource_stickiness" name="default_resource_stickiness" value="0"/>
+           <nvpair id="default_resource_failure_stickiness" name="default_resource_failure_stickiness" value="0"/>
+           <nvpair id="stonith_enabled" name="stonith_enabled" value="false"/>
+           <nvpair id="stop_orphan_resources" name="stop_orphan_resources" value="true"/>
+           <nvpair id="stop_orphan_actions" name="stop_orphan_actions" value="true"/>
+           <nvpair id="remove_after_stop" name="remove_after_stop" value="true"/>
+           <nvpair id="is_managed_default" name="is_managed_default" value="false"/>
+           <nvpair id="short_resource_names" name="short_resource_names" value="true"/>
+         </attributes>
+       </cluster_property_set>
+     </crm_config>
+     <nodes>
+       <node id="0f74f51a-ecf2-4271-8a94-ce4dd210fe92" uname="servidor" type="normal"/>
+     </nodes>
+     <resources>
+       <group id="G_servidor_localinit" ordered="0" collocated="0">
+         <primitive id="R_servidor_alsasound" class="lsb" type="alsasound">
+           <instance_attributes/>
+           <operations>
+             <op id="OPmon_servidor_alsasound" name="monitor" interval="30s" timeout="30s"/>
+           </operations>
+           <instance_attributes id="ias_R_servidor_alsasound">
+             <attributes>
+               <nvpair id="R_servidor_alsasound_target_role" name="target_role" value="started"/>
+             </attributes>
+           </instance_attributes>
+         </primitive>
+         <primitive id="R_servidor_cups" class="lsb" type="cups">
+           <instance_attributes/>
+           <operations>
+             <op id="OPmon_servidor_cups" name="monitor" interval="30s" timeout="30s"/>
+           </operations>
+         </primitive>
+         <primitive id="R_servidor_dbus" class="lsb" type="dbus">
+           <instance_attributes/>
+           <operations>
+             <op id="OPmon_servidor_dbus" name="monitor" interval="30s" timeout="30s"/>
+           </operations>
+         </primitive>
+         <primitive id="R_servidor_fbset" class="lsb" type="fbset">
+           <instance_attributes/>
+           <operations>
+             <op id="OPmon_servidor_fbset" name="monitor" interval="30s" timeout="30s"/>
+           </operations>
+         </primitive>
+         <primitive id="R_servidor_haldaemon" class="lsb" type="haldaemon">
+           <instance_attributes/>
+           <operations>
+             <op id="OPmon_servidor_haldaemon" name="monitor" interval="30s" timeout="30s"/>
+           </operations>
+         </primitive>
+         <primitive id="R_servidor_kbd" class="lsb" type="kbd">
+           <instance_attributes/>
+           <operations>
+             <op id="OPmon_servidor_kbd" name="monitor" interval="30s" timeout="30s"/>
+           </operations>
+         </primitive>
+         <primitive id="R_servidor_microcode" class="lsb" type="microcode">
+           <instance_attributes/>
+           <operations/>
+         </primitive>
+         <primitive id="R_servidor_netdaemon" class="lsb" type="netdaemon">
+           <instance_attributes/>
+           <operations>
+             <op id="OPmon_servidor_netdaemon" name="monitor" interval="30s" timeout="30s"/>
+           </operations>
+           <instance_attributes id="ias_R_servidor_netdaemon">
+             <attributes>
+               <nvpair id="R_servidor_netdaemon_target_role" name="target_role" value="started"/>
+             </attributes>
+           </instance_attributes>
+         </primitive>
+         <primitive id="R_servidor_nfs" class="lsb" type="nfs">
+           <instance_attributes/>
+           <operations>
+             <op id="OPmon_servidor_nfs" name="monitor" interval="30s" timeout="30s"/>
+           </operations>
+           <instance_attributes id="ias_R_servidor_nfs">
+             <attributes>
+               <nvpair id="R_servidor_nfs_target_role" name="target_role" value="started"/>
+             </attributes>
+           </instance_attributes>
+         </primitive>
+         <primitive id="R_servidor_resmgr" class="lsb" type="resmgr">
+           <instance_attributes/>
+           <operations>
+             <op id="OPmon_servidor_resmgr" name="monitor" interval="30s" timeout="30s"/>
+           </operations>
+         </primitive>
+         <primitive id="R_servidor_splash" class="lsb" type="splash">
+           <instance_attributes/>
+           <operations>
+             <op id="OPmon_servidor_splash" name="monitor" interval="30s" timeout="30s"/>
+           </operations>
+         </primitive>
+         <primitive id="R_servidor_splash_early" class="lsb" type="splash_early">
+           <instance_attributes/>
+           <operations>
+             <op id="OPmon_servidor_splash_early" name="monitor" interval="30s" timeout="30s"/>
+           </operations>
+         </primitive>
+         <instance_attributes id="ias_G_servidor_localinit">
+           <attributes>
+             <nvpair id="G_servidor_localinit_target_role" name="target_role" value="started"/>
+           </attributes>
+         </instance_attributes>
+         <primitive id="R_servidor_acpid" class="lsb" type="acpid">
+           <instance_attributes/>
+           <operations>
+             <op id="OPmon_servidor_acpid" name="monitor" interval="30s" timeout="30s"/>
+           </operations>
+         </primitive>
+         <primitive id="R_servidor_cron" class="lsb" type="cron">
+           <instance_attributes/>
+           <operations>
+             <op id="OPmon_servidor_cron" name="monitor" interval="30s" timeout="30s"/>
+           </operations>
+           <instance_attributes id="ias_R_servidor_cron">
+             <attributes/>
+           </instance_attributes>
+         </primitive>
+         <primitive id="R_servidor_mdnsd" class="lsb" type="mdnsd">
+           <instance_attributes/>
+           <operations>
+             <op id="OPmon_servidor_mdnsd" name="monitor" interval="30s" timeout="30s"/>
+           </operations>
+         </primitive>
+         <primitive id="R_servidor_nfsserver" class="lsb" type="nfsserver">
+           <instance_attributes/>
+           <operations>
+             <op id="OPmon_servidor_nfsserver" name="monitor" interval="30s" timeout="30s"/>
+           </operations>
+         </primitive>
+         <primitive id="R_servidor_nscd" class="lsb" type="nscd">
+           <instance_attributes/>
+           <operations>
+             <op id="OPmon_servidor_nscd" name="monitor" interval="30s" timeout="30s"/>
+           </operations>
+         </primitive>
+         <primitive id="R_servidor_ntp" class="lsb" type="ntp">
+           <instance_attributes/>
+           <operations>
+             <op id="OPmon_servidor_ntp" name="monitor" interval="30s" timeout="30s"/>
+           </operations>
+           <instance_attributes id="ias_R_servidor_ntp">
+             <attributes>
+               <nvpair id="R_servidor_ntp_target_role" name="target_role" value="started"/>
+             </attributes>
+           </instance_attributes>
+         </primitive>
+         <primitive id="R_servidor_portmap" class="lsb" type="portmap">
+           <instance_attributes/>
+           <operations>
+             <op id="OPmon_servidor_portmap" name="monitor" interval="30s" timeout="30s"/>
+           </operations>
+         </primitive>
+         <primitive id="R_servidor_postfix" class="lsb" type="postfix">
+           <instance_attributes/>
+           <operations>
+             <op id="OPmon_servidor_postfix" name="monitor" interval="30s" timeout="30s"/>
+           </operations>
+           <instance_attributes id="ias_R_servidor_postfix">
+             <attributes/>
+           </instance_attributes>
+         </primitive>
+         <primitive id="R_servidor_powersaved" class="lsb" type="powersaved">
+           <instance_attributes/>
+           <operations>
+             <op id="OPmon_servidor_powersaved" name="monitor" interval="30s" timeout="30s"/>
+           </operations>
+         </primitive>
+         <primitive id="R_servidor_sshd" class="lsb" type="sshd">
+           <instance_attributes/>
+           <operations>
+             <op id="OPmon_servidor_sshd" name="monitor" interval="30s" timeout="30s"/>
+           </operations>
+           <instance_attributes id="ias_R_servidor_sshd">
+             <attributes>
+               <nvpair id="R_servidor_sshd_target_role" name="target_role" value="started"/>
+             </attributes>
+           </instance_attributes>
+         </primitive>
+         <primitive id="R_servidor_syslog" class="lsb" type="syslog">
+           <instance_attributes/>
+           <operations>
+             <op id="OPmon_servidor_syslog" name="monitor" interval="30s" timeout="30s"/>
+           </operations>
+           <instance_attributes id="ias_R_servidor_syslog">
+             <attributes>
+               <nvpair id="R_servidor_syslog_target_role" name="target_role" value="started"/>
+             </attributes>
+           </instance_attributes>
+         </primitive>
+         <primitive id="R_servidor_xdm" class="lsb" type="xdm" provider="heartbeat">
+           <instance_attributes id="ias_R_servidor_xdm">
+             <attributes>
+               <nvpair id="R_servidor_xdm_target_role" name="target_role" value="started"/>
+             </attributes>
+           </instance_attributes>
+           <operations>
+             <op id="815716f5-0877-4552-abb2-3a4575c12085" name="monitor" interval="15s" timeout="60s"/>
+           </operations>
+         </primitive>
+       </group>
+     </resources>
+     <constraints>
+       <rsc_order id="O_servidor_alsasound_nfs" from="R_servidor_alsasound" to="R_servidor_nfs" type="after"/>
+       <rsc_order id="O_servidor_alsasound_resmgr" from="R_servidor_alsasound" to="R_servidor_resmgr" type="after"/>
+       <rsc_order id="O_servidor_cups_nfs" from="R_servidor_cups" to="R_servidor_nfs" type="after"/>
+       <rsc_order id="O_servidor_haldaemon_dbus" from="R_servidor_haldaemon" to="R_servidor_dbus" type="after"/>
+       <rsc_order id="O_servidor_haldaemon_resmgr" from="R_servidor_haldaemon" to="R_servidor_resmgr" type="after"/>
+       <rsc_order id="O_servidor_kbd_nfs" from="R_servidor_kbd" to="R_servidor_nfs" type="after"/>
+       <rsc_order id="O_servidor_microcode_nfs" from="R_servidor_microcode" to="R_servidor_nfs" type="after"/>
+       <rsc_order id="O_servidor_splash_nfs" from="R_servidor_splash" to="R_servidor_nfs" type="after"/>
+       <rsc_order id="O_servidor_acpid_nfs" from="R_servidor_acpid" to="R_servidor_nfs" type="after"/>
+       <rsc_order id="O_servidor_cron_nfs" from="R_servidor_cron" to="R_servidor_nfs" type="after"/>
+       <rsc_order id="O_servidor_cron_ntp" from="R_servidor_cron" to="R_servidor_ntp" type="after"/>
+       <rsc_order id="O_servidor_cron_syslog" from="R_servidor_cron" to="R_servidor_syslog" type="after"/>
+       <rsc_order id="O_servidor_cups_portmap" from="R_servidor_cups" to="R_servidor_portmap" type="after"/>
+       <rsc_order id="O_servidor_cups_syslog" from="R_servidor_cups" to="R_servidor_syslog" type="after"/>
+       <rsc_order id="O_servidor_haldaemon_acpid" from="R_servidor_haldaemon" to="R_servidor_acpid" type="after"/>
+       <rsc_order id="O_servidor_haldaemon_cron" from="R_servidor_haldaemon" to="R_servidor_cron" type="after"/>
+       <rsc_order id="O_servidor_nfs_portmap" from="R_servidor_nfs" to="R_servidor_portmap" type="after"/>
+       <rsc_order id="O_servidor_nfsserver_nfs" from="R_servidor_nfsserver" to="R_servidor_nfs" type="after"/>
+       <rsc_order id="O_servidor_nfsserver_portmap" from="R_servidor_nfsserver" to="R_servidor_portmap" type="after"/>
+       <rsc_order id="O_servidor_nscd_nfs" from="R_servidor_nscd" to="R_servidor_nfs" type="after"/>
+       <rsc_order id="O_servidor_nscd_ntp" from="R_servidor_nscd" to="R_servidor_ntp" type="after"/>
+       <rsc_order id="O_servidor_nscd_syslog" from="R_servidor_nscd" to="R_servidor_syslog" type="after"/>
+       <rsc_order id="O_servidor_ntp_nfs" from="R_servidor_ntp" to="R_servidor_nfs" type="after"/>
+       <rsc_order id="O_servidor_ntp_syslog" from="R_servidor_ntp" to="R_servidor_syslog" type="after"/>
+       <rsc_order id="O_servidor_portmap_syslog" from="R_servidor_portmap" to="R_servidor_syslog" type="after"/>
+       <rsc_order id="O_servidor_postfix_ntp" from="R_servidor_postfix" to="R_servidor_ntp" type="after"/>
+       <rsc_order id="O_servidor_postfix_syslog" from="R_servidor_postfix" to="R_servidor_syslog" type="after"/>
+       <rsc_order id="O_servidor_powersaved_acpid" from="R_servidor_powersaved" to="R_servidor_acpid" type="after"/>
+       <rsc_order id="O_servidor_powersaved_dbus" from="R_servidor_powersaved" to="R_servidor_dbus" type="after"/>
+       <rsc_order id="O_servidor_powersaved_haldaemon" from="R_servidor_powersaved" to="R_servidor_haldaemon" type="after"/>
+       <rsc_order id="O_servidor_powersaved_nfs" from="R_servidor_powersaved" to="R_servidor_nfs" type="after"/>
+       <rsc_order id="O_servidor_powersaved_syslog" from="R_servidor_powersaved" to="R_servidor_syslog" type="after"/>
+       <rsc_order id="O_servidor_sshd_nfs" from="R_servidor_sshd" to="R_servidor_nfs" type="after"/>
+       <rsc_location id="Loc_servidor_localinit" rsc="G_servidor_localinit">
+         <rule id="LocRule_servidor_localinit" score="-INFINITY">
+           <expression attribute="#uname" id="LocExp_servidor_localinit" operation="ne" value="servidor"/>
+         </rule>
+       </rsc_location>
+     </constraints>
+   </configuration>
+ </cib>
