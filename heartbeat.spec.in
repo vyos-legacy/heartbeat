@@ -696,6 +696,448 @@ true
 true
 ###########################################################
 %changelog
+* Fri Dec 21 2007  Alan Robertson <alanr@unix.sh> and MANY others (see doc/AUTHORS file)
++ Version 2.1.3 - bug fixes and enhancements - changelog includes everything after 2.1.2
+  + hb_report: heartbeat reporting utility
+  + ciblint: new tool to lint a CIB
+  + snmp subagent: support for crm
+  + RA iscsi: new OCF resource agent (FATE 301250)
+  + RA SphinxSearchDaemon: new OCF resource agent
+  + RA tomcat: a new OCF agent
+  + RA ids: a new Informix OCF resource agent
+  + stonith ipmi: new external stonith plugin
+  + stonith ibmrsa-telnet: new external stonith plugin
+  + Xen RA: new features (memory mgmt, DomU monitor hook)
+  + Debian: add libxml2-utils as a dependancy: we need xmllint for the BSC
+  + pgsql RA: postmaster confusion
+  + apache RA: remove children in case the top process didn't
+  + ldirectord: add forking mode
+  + ldirectord: Various updates to OCF compatible RA
+  + ccm (LF 1806): restart all instead of exiting (low impact)
+  + High: Heartbeat: Include an option to start the CRM in respawn mode
+  + dopd: make it work with multiple concurrent outdate requests
+  + dopd: don't hardcode path of drbdadm; it has to be in the PATH, though.
+  + dopd: fix potential segfault due to leakage of invalid/freed pointer
+  + LF bug 1795 - timeout control for crm_mon --one-shot
+  + CTS - if we can't get all the nodes running again, call an external script
+  + fix a problem building on Red Hat with tog-pegasus installed
+  + pgsql RA: handle the missing pg software properly
+  + LF bugzilla 1667:  ppc64 RPMs contain 32-bit binaries
+  + mgmt: Translations for the new parameters of pengine
+  + mgmt: Remove the default settings for master_slave from attlist
+  + mgmt: Bugfix: Error caused by blank description of parameter
+  + mgmt (LF 1724): Prevent saved login information from being corrupted
+  + add bzip2-devel as a build dependency for Fedora and RH
+  + fixes for fedora: system(3) function return value cannot be ignored
+  + Filesystem: Make mount point required for the GUI
+  + dopd: don't cl_free variables on local stack
+  + build (LF 1803): add -fgnu89-inline to CFLAGS if gcc version is >=4.1.3 and <4.3
+  + haresources2cib.py: set default-action-timeout to the default (20s)
+  + pgsql RA: move check for root down to enable meta-data for regular users
+  + LF 1678: stonith command core dumps with -h option
+  + haresources2cib.py: update ra parameters lists
+  + Low: lrmd: Make the -r option the default behavior
+  + OpenBSD bugs: 1731 1761 1743 1659
+  + CTS: changed a test from causing a reboot to not triggering a reboot
+  + CTS: increased timeouts and made the stonithd test use the livedangerously option
+  + RPM specfile change:  made is_fedora macro turn off is_rhel macro
+  + Corrected a warning found on FC8 in the cl_reboot code
+  + LF 1794: Modified the external/ssh plugin to have a livedangerously flag
+  + LF 1794: external/ssh should first check if the host is reachable
+  + RA Filesystem: add lustre to the list of fs which don't need fsck
+  + ldirectord: SimpleTCP service check documentation
+  + ldirectord: SimpleTCP service check
+  + LF Bug 1732: Error handling is bad for comm media
+  + High: cib: Make sure everyone uses (add|get)_message_xml() for data fields
+  + RA SAPDatabase/SAPInstance: report proper exit codes in case required software is not installed
+  + RA mysql: don't look for mysql users in the OS database
+  + High: CRM: Compressed XML needs to be retrieved as a binary blob, not a string
+  + High: CRM: Future-proof get_message_xml()
+  + High: GUI: Fix compilation after changes to update_attr() form the CIB
+  + Low: TE: Logging - unconfirmed actions can happen under normal conditions
+  + High: heartbeat: Fix getnodes() compilation with gcc 4.3
+  + Medium: PE: Create a syntactic shortcut for the common use-case of "{resource} prefers {node} with {score}"
+  + High: CIB: Fix the behavior of update_attr() and delete_attr() when the command is ambiguous
+  + ipc (LF 1339): enable message compression
+  + Changed HIGHLY to STRONGLY in how strongly we recommend STONITH
+  + LF bug 1690: there should be a tool to audit (validate) node names in constraints among other things...
+  + Low: clplumbing: Fix log message:  size_t != int on 64-bit arch's
+  + Low: Admin: crm_standby - Don't complain abot missing values, print the default value instead
+  + Low: PE: Update the expected graphs to include the batch-limit option
+  + Medium: TE: Allow the CRM to limit the number of resource actions the TE can execute in parallel.
+  + Low: crmd: Provide a more informative error when DCs detect other DCs during a join
+  + Low: CTS: The Process class requries an integer for triggersreboot
+  + High: CRM: In ccm_have_quorum(), an OC_EV_MS_PRIMARY_RESTORED event means we _do_ have quorum
+  + Low: crmd: Cleanup - remove all 'return I_NULL' statements from the FSA
+  + High: PE: Set next_role recursivly so that group promotion will work
+  + High: PE: Introduce a new API call for determining the location of complex resources
+  + Medium: PE: Dont make changes to location constraints, when applying to groups, persistent
+  + High: crmd: Prevent shutdown hangs caused by pending ops that can't be cancelled - because the no longer exist in the lrm
+  + Medium: Do not disconnect blocking write processes, but discard traffic.
+  + Novell 293922: Don't use non-blocking writers, but instead don't block
+  + Changed the version of RHEL requiring OpenHPI to be 6 or greater...
+  + LF Bug 1662: Put in some RHEL changes provided by Keisuke MORI
+  + LF bug 1662: PM spec file should be more usable (Fedora changes)
+  + Medium: crm: Dont generate core files for non-fatal assert (ie. the CRM_CHECK macro).
+  + Low: PE: ptest - Handle malformed inputs more gracefully
+  + Low: crmd: Minor logging improvement to update_dc()
+  + Low: crm: Handle a few xml-related error conditions without resorting to CRM_ASSERT
+  + Low: Admin: Do a full simulation when we have the live CIB - since we'll always have a status section
+  + High: PE: Fix a botched commit (cs: 3de5760b06e0) that incorrectly allowed resources to start without quorum or stonith
+  + Medium: PE: Disable delete-then-refresh code.  The crmd will remove the resource from the CIB itself making the refresh redundant
+  + Medium: PE: All other things being equal, prefer to keep non-failed instances alive
+  + Medium: attrd: Bug 1776 - Attrd doesn't exit or reconnect when the CIB is respawned
+  + Low: PE: Actions for stonith agents should never default to requiring fencing or quorum
+  + High: PE: increment_clone() did not overflow correctly 9->10, 99->100, etc
+  + Medium: crmd: Don't remap LRM_OP_PENDING when building full lrm updates
+  + Medium: TE: Pending operations shouldn't be processed
+  + High: PE: Bug 1765 - Prevent master-master colocation constraints from preventing slaves from starting
+  + Low: PE: Reduce logging severity regarding creation of notifications
+  + Low: PE: Split the contraint unpacking code into its own file
+  + hbagent: reset gMembershipTable on dropping global resources
+  + hbagent: fix memory leaks on dropping global resources
+  + hbclient: fix memory leaks on signon/signoff
+  + RA Xinetd (LF 1742): multiple fixes
+  + LRM regression test: make common.filter (sed) script work with non-gnu sed (Darwin)
+  + LRM regression test: use LSB_RA_DIR instead of /etc/init.d
+  + LF 1766: Heartbeat installs man pages in the wrong directories by default...
+  + LF bug 1772: apphbd needs to be able to have clients declare themselves critical resulting in a "fast fail" of the system when they fail
+  + debugging for LF bug 1393 - includes a bug fix for the postfork() callback in the GSource.c module for the tempproc trigger Gsource
+date:        Fri Nov 09 06:54:25 2007 -0700
+  + Put in simple debugging code for CCM negative uptime message - plus made some related code slighly safer.
+  + HBcomm: use proper define (MSG_DONTWAIT instead of MSG_NONBLOCK)
+  + Novell 293922: Heartbeat network processes would block on full buffers.
+  + LF bug 1393 - Cannot rename /var/lib/heartbeat/hostcache.tmp to /var/lib/heartbeat/hostcache (scope, risk and severity: all minor)
+  + Trying a different approach to get debug info for LF bug 1393 (low risk, important for debugging)
+  + Added -p pidfile option to cl_respawn
+  + LF bug 1706 (finishing up associated issues)
+  + mgmtd (LF 1719): fix the pam file for suse
+  + raised timeouts in CTS to account for a slow machine I own
+  + LF bug 1705 - cl_respawn core dumps when given -h or --help
+  + ccm: speed up ccm considerably in case a node is alone in the membership
+  + LF bugzilla 1757: apache resource agent grep methodology can't handle newlines
+  + Added debugging and very minor code improvements for LF bug 1393
+  + mysql RA (LF 1760): defaults for OpenBSD
+  + BSC (LRM test): replace cron with heartbeat as an lsb agent
+  + CTS: changed the code to wait for nodes to come up before we try and get uuid list
+  + changed configure.in to force 64-bit objects when on gcc-based ppc64 platform
+  + Removed RPM dependency on sysklogd - because package name can vary
+  + Moved python gtk dependencies into GUI package
+  + ccm (LF 1546): ensure that the membership instance number never decrements
+  + stonithd: check for storage size when copying the host list
+  + stonithd (LF 1727): shuffle dropping privileges around again
+  + [LDIRECTORD] allow per-virtual checkinterval configuration
+  + stonithd: drop root privileges earlier
+  + Debian: rename ha_logd.cf to logd.cf in debian/heartbeat.files
+  + stonithd (LF 1727): fix dropping privileges
+  + Low: heartbeat: Use the correct define when choosing to enable valgrind
+  + Medium: crmd: Prevent shutdowns initiated immediately after a node is removed from the cluster with hb_delnode from stalling.
+  + [DEBIAN] Add dependacy on gawk as it is required by the OCF IPaddr resource
+  + [lvs-users] Patch for ldirectord when using mysql service
+  + Low: Fix Makefile.am reference (ha_logd.cf -> logd.cf)
+  + Low: Rename example ha_logd.cf file to the proper name.
+  + Low: cib: Increase the retry interval when connecting to the ccm to 3s
+  + Low: cts: Remove the backup CIB too if --clobber-cib is specified
+  + Medium: crmd: Bug 1737 - Inconsistent join state detected - Possible fix
+  + High: cib: G_main_del_IPC_Channel() doesn't like being called with a NULL pointer and crashes
+  + Low: Fix compile of mgmtd (fixes cs 575ceac23368)
+  + Medium: mgmt: Use the new bit-field for resource_t objects
+  + Low: cib: Set callback_source=NULL after call to G_main_del_IPC_Channel()
+  + Low: crm: Reduce severity of digest mismatch message in apply_xml_diff
+  + High: crm: Bug 1749 - Make sure the diff-related digests contain the complete CIB, not just the first line
+  + Low: PE: Convert all the resource's boolean flags into a single bit-set
+  + ccm (LF 1723): fix logging
+  + lrmd (LF 1729): revise return codes
+  + Low: heartbeat: Some compilers feel that the fcli variable could be used uninitialized - shut them up
+  + Low: core: proctrack - Tweak some log messages to be of a similar form to those in heartbeat.c
+  + High: PE: Bug 1712 - Ensure manditory ordering constraints can cause complex resources to be shut down
+  + Low: cts: Remove patterns that are no longer of interest
+  + Medium: Tools: Bug 1738 - the crmd ignores some requests from crm_resource because it exited too quickly
+  + Low: PE: Reduce log priority for some development logging
+  + Low: cts: Remove erroneous search pattern from component fail test
+  + Low: crmd: Use the unaltered rc for timed out operation events from the lrmd
+  + Low: Build: Make sure make clean works in the cts directory
+  + Medium: cib: Include digests of the cib a diff was made from and verify it when applying
+  + High: PE: Prevent use-of-NULL when the admin creates a colocaiton constraint with an empty group
+  + LF bug 1712: ha_logd prevented node from shutting down - changed code to use the waitout() primitive
+  + Put in a missing include of <memory.h> for the DRBD code
+  + LF bug 1700: HA Signon always reports success
+  + rpm build change: allow openhpi to be optional, but default it to be required.  Don't require it for SUSE < 10.2
+  + stonithd (LF 1727): change attach shmem seg to read only
+  + Low: cts: Add a missing comma to the patterns list
+  + Low: crmd: Use EXECRA_OK instead of hard-coding rc=0
+  + Low: crmd: Increase the retry interval when stalling the FSA to 2s (used when connecting to the ccm, lrmd, cib)
+  + Low: crmd: Remove code made redundant by the use of ProcTrack
+  + Low: cts: Wait for the cluster to see the node come back before checking for S_IDLE after shooting the ccm.
+  + Low: cts: Add an extra ignore pattern for stonithd
+  + Low: cts: NearQuorumPoint - only check for Pat:DC_IDLE if there will be nodes up at the end
+  + Low: PE: Produce a config error when a clone contains more than one resource/group to clone
+  + Low: RA: PureFTPd - Support debian's pure-ftpd-wrapper script
+  + Medium: Tools: ocf-tester - Ensure OCF_ROOT is available to the RA subshell
+  + Low: contrib: dopd - Remove a pointless and annoying dependancy on the crm
+  + Low: TE: Code cleanup
+  + stonithd: improve logging
+  + LF bug 1502: udpport statement in ha.cf is ignored by heartbeat
+  + LF bug 1589: ia64 heartbeat unaligned access messages (SGI965396) - copy fields in structures
+  + LF bug 1679: hardcoded heartbeat userid and group in init script
+  + LF bug 1681: BSC fails to identify active interface on OpenBSD
+  + LF bug 1702: during emergency restarts, heartbeat doesn't close watchdog correctly
+  + Updated a specfile dependency to require the minimum version of openhpi
+  + LF bug 1734 - removed duplicate return statement as per bug report.
+  + LF bug 1731: wrong location of libraries for OpenBSD 64Bit architectures
+  + High: crmd: Prevent shutdown hangs by allowing the crmd to forget about pending actions for deleted resources
+  + High: PE: Relax an assumption regarding clones that is not true when they are unmanaged
+  + Medium: PE: Bug 1722 - By default, exhibit the old start-failures-are-fatal behaviour regardless of how resource-failure-stickines is set
+  + Remove one unlink() of the temporary hostcache file.
+  + hb_uuid: Remove superfluous sync().
+  + STONITH: external/ssh: Disable StrictHostKeyChecking and PasswordAuthentication by default.
+  + RA: mysql: Allow arbitrary commandline arguments for mysqld
+  + CTS: patterns adjusted for exiting processes (LF 1725).
+  + High: PE: Prevent an infinit pe/te loop when reprobing with resources in master mode
+  + mgmt: Provide "Default" setting for crm configurations
+  + mgmt: Provide complete pengine and crmd configurations with dynamic rendering
+  + mgmt: Prevent haclient from falling into an error caused by blank resource metadata
+  + mgmt: Add "meta_attributes" support to mgmt
+  + mgmt: Resolve target_role problem for sub-resource
+  + High: PE: Prevent use of NULL in crm_mon when date_expressions are used by ensuring that data_set->now is always set
+  + PE: High: Remove an errant call to exit() than prevented an assert from being triggered
+  + Low: Build: Remove unused LDADD entries (libpils.la and libapphb.la)
+  + High: PE: Clone colocation fixes
+  + Low: PE: Extra debug information
+  + Low: PE: Avoid pointless copying of XML items (actions) during graph creation
+  + Low: PE: Log the current cluster state at LOG_NOTICE instead of LOG_INFO
+  + Medium: PE: Master internal ordering enhancements. Added stopped->start, stopped->promote.
+  + Medium: PE: Make sure all slaves (not just re-allocated ones) have role=Slave
+  + Medium: PE: Fix minor memory leak when stopping orphaned resources
+  + Medium: CRM: Re-evaluate appropriate IPC message queue lengths and throtle IPC _clients_ that hit them
+  + High: PE: Missing header file change from previous commit (cs: 0c14cfe57dd9)
+  + High: PE: Ensure that resources depending (by order) on a master are not promoted if no master is available
+  + Low: PE: Update regression tests - some action numbers changed
+  + Low: Tools: crm_resource - send errors to stderr and to regular logging
+  + Medium: DTD: Fix comment regarding rsc_ordering constraints
+  + High: PE: Fix manditory ordering with m/s resources
+  + Low: PE: clones - Remove debug logging and simplify asserts in expand_list()
+  + Low: crmd: Update the CIB with the node's version data when it becomes DC
+  + mgmt: Prevent clone and master_slave from belonging to group
+  + mgmt: Make several fields of rsc_location editable
+  + mgmt: Rename "Places" to "Locations" to match with the CIB name
+  + mgmt: Specify the default type of added item to correspond to the object that the cursor focused on
+  + mgmt: Add boolean_op for location rules in mgmt
+  + RA mysql, pgsql: use getent(1) instead of /etc/passwd
+  + stonithd (LF 1714,1727): fix a race condition
+  + stonithd (LF 1726): a hostlist may be empty
+  + stonith/ibmrsa: allow ',' in the hostlist
+  + RA: Xinetd: Fix stop/monitor to not fail if service isn't available yet
+  + CTS: Fix a path reference to LSBDummy, so that CTS has a chance of working.
+  + RA: Raid1: Allow the homehost setting to be specified.
+  + Novell 329833: dotted-quad netmask notation broken in findif
+  + lrm stonith plugin: fix exit code handling
+  + stonith/external: improve logging
+  + stonithd/lib: replace cookie generation with uuid
+  + stonithd: code review and cleanup
+  + LRM test: test xml of stonith agents through stonithd (included in the BSC)
+  + stonithd: have -a really mean startup alone
+  + Low: Stonith: external/rackpdu - Fix the metadata short descriptions
+  + cl_msg: fix a typo
+  + stonithd: library code review and cleanup
+  + stonithd: increase the maxdispatchtime
+  + Debian: heartbeat doesn't depend on libperl-dev
+  + lrmd (LF 1715): increase the max dispatch time for lrmd
+  + Corrected spelling/grammar errors in BasicSanityCheck
+  + Medium: PE: Enact a saner default for rsc_order.score (s/0/INFINITY)
+  + High: PE: More generic method of detecting colocation loops in native_merge_weights
+  + Medium: Logging: Sanitize and centrally define the log facility used by various subsystems
+  + Low: Build: Build the contrib directory last
+  + Low: cts: Fix the log facility map
+  + Low: CRM: Key of the already set debug_level global variable when setting crm_log_level
+  + Low: CRM: Downgrade digest logging now that its under control
+  + Low: cib: Logging - version message should not have been an error
+  + Low: PE: Logging - Include the transition_magic key when logging changed parameters
+  + Low: CTS: Add extra ignore pattern when the CCM is shot - do it properly this time
+  + Medium: Core: Ensure heartbeat flushes all its logs before exiting
+  + Low: TE: Pause for a moment before trying to reconnect to stonithd
+  + Medium: cib: Improved transparency when in operating in degraded mode
+  + Low: crmd: Remove redundant code
+  + Low: CTS: Add extra ignore pattern when the CCM is shot
+  + Low: CTS: Add BadNews pattern - parameters should never change
+  + Low: Admin: crmadmin - Logging tweak
+  + Low: PE: More efficient logging of orphan resources
+  + Medium: PE: Bug 1710 - A resource's failcount was ignored on nodes with no operations for the resource
+  + LRM test: various cleanups
+  + Added a script for creating the configuration for a single node
+  + Low: PE: Prevent users from trying to use on_fail=fence and stonith-enabled=false
+  + Low: CIB: Allow notification to remote clients
+  + Low: PE: Downgrade logging when we fallback to default option values
+  + High: Core: Prevent logging buffer overflow - ensure the entity is NULL terminated
+  + High: PE: Make sure only the correct number of cloned groups are started
+  + Low: PE: Stop the master placement score from affecting the synapse's priority
+  + High: PE: Include preferences of colocated resources when promoting masters
+  + High: RA: Remove bashism from Filesystem OCF agent
+  + Low: CTS: Limit the number of PE input files created
+  + Low: DTD: Include helpful comment for rsc_order constraints
+  + Medium: PE: Bug #1705 - Don't segfault when allocating empty groups
+  + Low: Stonith: external/ssh - simplify the reset command and wait the same amount of time as the non-external variant
+  + Medium: RA: Treat migrating (status 1) as running to avoid
+  + Low: Tools: Allow pingd to change identity based on the name of its executable - workaround for Bug #1701
+  + High: PE: Ensure manditory ordering constraints behave correctly
+  + proctrack/LRM (LF 1697): really remove sources (performance/memory leak fix)
+  + mgmtd: allow old clients to connect
+  + Low: PE: Regression test for group colocation
+  + Medium: PE: Simplify the allocation of group resources
+  + High: PE: Optimize the merge_weights functionfor groups
+  + High: PE: Make sure the merge_weights function is called for complex resources
+  + High: PE: More accurate method of detecting colocation loops in native_merge_weights
+  + High: PE: Implement a smarter algorithm for colocation
+  + Low: PE: Fold child-loop functions back into the ones doing the actual work
+  + Medium: PE: Expose rsc->children which should mean we can delete all the 'loop' functions for complex objects
+  + LRM test: report findings if the tests failed
+  + RA: Filesystem: VARLIB -> RSCTMP
+  + RA: Filesystem: Fix path reference.
+  + Move INITDIR to proper include.
+  + RA: o2cb: Fix path broken in recent "cleanups".
+  + LRM test: include parts of lrm regression testing in the BasicSanityCheck
+  + raexecocf: include time.h
+  + lrmd: log non-recurring operations
+  + lrmd: wrong reference in one debug message
+  + stonithd (LF 1615): get the list of hosts from an RA asynchronously
+  + High: crmd: Tell the LRM to refresh the resource's default parameters
+  + LRM: add capability to copy parameters from op to rsc
+  + raexecocf: a fix for bug introduced in 2a787bbd73f6; longer sleep in get_resource_meta
+  + Medium: Stonith: prevent superfluous logging
+  + High: DTD: Remove stary character that made the DTD invalid
+  + Low: Admin: Bug 1691 - crm_resource doesn't complain about empty strings as property values
+  + Low: CRM: DTD - Explicitly specify a default for rsc_colocation.symmetrical
+  + Low: CRM: DTD - Expand the list of accepted values for boolean fields
+  + Low: RA: ManageVE - Fix status when VE files are not persistent
+  + lrmd: performance 2: remove unnecessary memstat
+  + lrmd: performance 1: replace linear with binary search for msg type.
+  + Corrected a directory name in the '%pre' script in the spec file
+  + RA apache: drop annoying messages if no configuration files are found
+  + Changed the specfile so that it uses only the correct name for python/gtk package according to the distro
+  + [LDIRECTORD] Remove supervise-ldirectord-config
+  + specfile: converted %elseif chains to %endif %if
+  + apache RA (LF 1692): move sourcing /resource.d/heartbeat/.ocf-shellfuncs before var reference
+  + detect fedora correctly
+  + a number of small fixes to make fedora packages correctly
+  + Put in an APCmastersnmp.c patch from Peter Kruse which makes the plugin work with new APC master switches
+  + LRM (LF 1684): a meta-data operation fix introducing short sleep on zero reads
+  + configure.in: fix for platforms with libc in /lib/tls
+  + Updated arguments to crm_log_init to be consistent with new API.
+  + LF bug # 1662 - massive heartbeat specfile update - to make it more usable
+  + Medium: RA: EvmsSCC - Handle start failures caused by peers starting at the same time
+  + Low: logd: Update the default config file to reflect the new default log facility
+  + High: clplumbing: Use the correct environment variable when deciding to log via ha_logd
+  + Low: Admin: crmadmin - exit with rc=0 when the command completed successfully
+  + Medium: PE: Bug 1685 - Supply the correct default for rsc_order constraints
+  + Low: PE: Fix a parse error in the attr8 regression test
+  + High: TE: target_rc should default to 0 (LRM_OP_DONE) to detect monitor actions that fail the first time they are executed
+  + High: PE: Bug 1682 - Prevent use-of-NULL when clones have no active children
+  + [STONITH] Disable ipmilan by default
+  + [STONITH] ipmilan: fix potential segvfault in options parsing
+  + [RA] patch to fix bashism in resources/OCF/pgsql
+  + LRM (LF 1458): include timing information in the op data.
+  + RA: eDir88: fix to allow meta-data to work in case NDS is not installed
+  + Put in updates to the Informix script as supplied by Lars Forseth
+  + An open call with the O_CREAT flag was missing the file mode.
+  + High: crmd: Sanitize the maintenance of node_state entries
+  + High: cib: Support the removal of multiple child objects - required for subsequent commit
+  + Low: cts: 'Updating failcount for' is no longer worth tracking (action failures show up as other ERROR logs)
+  + Low: TE: Improved logging of unconfirmed actions
+  + Medium: TE: Dont modify the failcount for 'pending' action updates (rc=-1)
+  + Medium: admin: Set the exit code to non-zero if crmadmin can't connect to the crmd
+  + High: PE: Break graph loops involving stonith + regression test
+  + Low: PE: Improvements to the graph and .dot creation code
+  + Medium: crm: Bug 1680 - parse_xml() can fail to detect mismatching close tags
+  + High: PE: all_stopped should only depend on native resources to avoid recursion
+  + High: PE: The all_stopped action should only be part of the graph when the stop actions are runnable
+  + High: PE: Only create _one_ pseudo op per name (all_stopped/stonith_up)
+  + Low: PE: Logging of changed resource definition
+  + High: TE: Allow reconnection to stonithd if it is respawned
+  + High: stonithd: Sanitize the login/logout functions and add the ability to reset the callback IPC channel
+  + [STONITH] ipmilan: accept documented auth and priv values
+  + [BUILD] don't remove tarbals in clean target
+  + [BUILD] don't ignore errors on install
+  + [RA] patch to fix bashism in heartbeat/lib/hb_setsite.in
+  + [RA] patch to fix bashism in resources/OCF/pgsql
+  + [RA] patch to fix bashism in resources/OCF/o2cb
+  + [RA] patch to fix bashism in heartbeat/lib/hb_setweight.in
+  + [RA] patch to fix bashism in heartbeat/lib/hb_setsite.in
+  + [RA] patch to fix bashism in heartbeat/lib/hb_delnode.in
+  + [RA] patch to fix bashism in heartbeat/lib/hb_addnode.in
+  + [RA] patch to fix bashism in resources/OCF/eDir
+  + [RA] patch to fix bashism in resources/OCF/SysInfo
+  + [RA] patch to fix bashism in resources/OCF/Stateful
+  + [RA] patch to fix bashism in heartbeat/lib/LRMBasicSanityCheck.in
+  + hbagent: add partial configuration
+  + tools: ocf-tester: add capability to test with lrmadmin/lrmd
+  + Low: PE: Handle the 'fail' task in text2task()
+  + Medium: PE: Dont check the parameter digest of orphan operations
+  + Low: PE: ptest - dont execute the graph by default
+  + High: PE: check_action_definition() - Ensure the meta attributes are also set so that the digest is calculated correctly (and consistently with the crmd)
+  + High: CRM: filter_action_parameters() - Make a copy of interval/timeout in as they're about to be free'd
+  + Low: PE: Update expected outputs with new version number
+  + Low: PE: Warn when multiple nodes have the same uname
+  + Low: cib: Refactor reading and writing of the CIB to disk
+  + Medium: cib: Ensure fflush() and fsync() are always called when writing XML digests to disk
+  + Medium: CRM: Ensure fflush() and fsync() are always called when writing XML to disk
+  + High: cib: Allow the CIB to reconnect if the CCM is killed and respawned
+  + High: cib: Handle master updates that fail DTD validation
+  + High: TE: Allow the TE to reconnect if stonithd is killed and respawned
+  + Low: cts: ResourceRecover - Match the interval to that used by crm_resource
+  + Low: Stonith: New external plugin for handling 'APC Switched Rack PDU AP7952' devices
+  + [DEBIAN] make heartbeat binNMU safe
+  + LOW: cts: Remove unneeded argument for DC_IDLE pattern
+  + Low: cib: Enhancements to logging of DTD errors
+  + Low: cib: Rearrange so code to avoid excessive indenting
+  + Low: PE: Correct spelling in log message
+  + Low: crm: Let the caller decide how to log DTD validation failures
+  + Low: crmd: Ensure our assumption that all resources have a class and type is true
+  + Low: cts: Update the expected log patterns and remove dups
+  + Low: cts: Resurrect the ComponentFail test
+  + Low: cts: make cluster_stable() more informative
+  + High: crmd: Simplify node_state maintenance
+  + High: CIB: Improved CCM interaction
+  + Low: CIB: Minor logging improvement
+  + High: crmd: Improvements to shutdown sequence (particularly in response to failures)
+  + CTS: Low: Ignore the correct BadNews message in ResourceRecover
+  + CTS: Low: Tell NearQuorumPointTest to look for Pat:DC_IDLE before declaring success
+  + CTS: Low: Optimize filtering of BadNews
+  + Admin: Low: Bug 1603 - Allow CIB digest files to be verified
+  + RA: apache - make status quieter
+  + [RA] eDir88: include the stop option
+  + OSDL bug 1666: in BSC, make sure temp rsc dir exists for RAs
+  + Contrib: dopd - Fix usage of crm_log_init() by code that shouldn't be using it
+  + Tools: ocf-tester - use the default value for OCF_ROOT if it exists
+  + RA: IPaddr2 - Make the check for the modprobe/iptables utilities conditional on the IP being cloned
+  + CRM: Update crm/cib feature sets and the set of tags/attributes used for feature set detection
+  + crmd: Simplify the detection of active actions and resources at shutdown
+  + PE: Use failcount to handle failed stops and starts
+  + TE: Set failcount to INFINITY for resources that fail to start or stop
+  + CRM: Remove debug code that should not have been committed
+  + PE: Add regression test for previous commit
+  + PE: Regression: Allow M/S resources to be promoted based solely on rsc_location constraints
+  + PE: Fix up the tests now that compare_version() functions correctly (as of cs: 7d69ef94a258)
+  + CRM: Fix compare_version() to actually work correctly on a regular basis
+  + PE: Update testcases to include all_stopped (added in cs: 800c2fec24ee)
+  + crmd: Bug 1655 - crmd can't exit when the PE or TE is killed from underneath it
+  + Tools: Bug 1653 - Misc attrd/attrd_updater cleanups
+  + Tools: Bug 1653 - Further changes to prevent use of NULL when no attribute is specified
+  + CRM: Make logging setup consistent and do not log the command-line to stderr
+  + RA: Delay (v1) - Remove extra characters from call to ra_execocf
+  + Tools: Bug 1653 - attrd crashes when no attribute is specified
+  + OCF: Provide the location of /sbin as used by some agents (HA_SBIN_DIR)
+  + PE: Move the creation of stonith shutdown constraints to native_internal_constraints()
+  + crmd: Only remap monitor operation status to LRM_OP_DONE under the correct conditions
+  + PE: Handle two new actions in text2task
+  + CTS: Give stonith devices penty of time to start
+  + PE: Include description for the remove-after-stop option
+  + PE: Streamline STONITH ordering. Make sure 'all_stopped' depends on all STONITH ops.
+  + PE: Aggregate the startup of fencing resources into a stonith_up pseudo-action
+  + PE: STONITH Shutdown ordering
+  + Bugzilla 1657: Speed up BasicSanityCheck and also make logging inheritance more uniform.
+  + OSDL 1449 / Novell 291749: GUI should not overwrite more specific settings of contained resources.
+  + Remove autoconf and friends on make distclean
+
 * Mon Jul 30 2007  Alan Robertson <alanr@unix.sh> and MANY others (see doc/AUTHORS file)
 + Version 2.1.2 - packaging changes and a small number of small bug fixes
   + fixed the packaging errors in 2.1.1
