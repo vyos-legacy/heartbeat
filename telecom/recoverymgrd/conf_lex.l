@@ -39,6 +39,11 @@ extern int yy_flex_strlen( yyconst char *s );
 #else
 #	define	MAKE_WARNINGS_GO_AWAY	;
 #endif
+#define	ECHO	{								\
+			if (fwrite(yytext, yyleng, 1, yyout) != 1) {		\
+				perror("fwrite failed");			\
+			}							\
+		}
 
 %}
 
