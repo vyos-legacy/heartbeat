@@ -70,6 +70,7 @@ clean:
 	-$(MAKE) clean MAKE=make
 	-$(MAKE) distclean MAKE=make
 	rm -f tools/ccdv
+	-find . -name '*.py[co]' | xargs rm -f
 	dh_clean build-stamp install-stamp
 	rm -f debian/init debian/*.debhelper debian/*.substvars config.log
 	rm -r -f debian/heartbeat debian/heartbeat-dev debian/ldirectord \
