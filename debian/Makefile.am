@@ -29,7 +29,6 @@ EXTRA_DIST		= apply changelog compat control copyright \
 			  heartbeat-gui.dirs heartbeat-gui.files \
 			  ldirectord.files ldirectord.postinst \
 			  ldirectord.postrm \
-			  patches/chown-check-2.patch \
 			  patches/ipv6-check.patch \
 			  patches/series/2.1.3-1
 
