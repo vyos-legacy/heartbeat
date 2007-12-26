@@ -1,9 +1,37 @@
-heartbeat (2.1.2+hg.11310.702e4f418ca8-3) unstable; urgency=low
+heartbeat (2.1.3-1) unstable; urgency=low
 
-  * Add dependacy on gawk as it is required by the OCF IPaddr resource
-    (closes: #447932)
+  * New Upstream (closes: #457577)
+  * Add Debian patches that were missing in the tarball
+  * Add dependacy on to heartbeat gawk as it is required by
+    the OCF IPaddr resource (closes: #447932)
+  * Updated check to enable build of IPv6Addr
+    - hopefully this one can be merged upstream
+    - The old check was applied to configure.in but configure had not been
+      updated
+    (closes: #455255)
+  * Add a prerm to heartbeat-2 to remove stale .pyc files (closes: #455050)
+  * Add dependancy on libxml2-utils to hartbeat as the BasicSanityCheck
+    needs xmllint
+  * Use -common files in hbmgmtd's pam file (closes: #444371)
+    - Add dependancy on libpam-runtime (>= 0.76-14) to heartbeat to ensure
+      that common-* files exist
+  * Don't include .pyc and .pyo files in heartbeat package
+    - As per section 2.6 of the Debian Python Policy
+  * Add tomcat OCF module
 
- -- Simon Horman <horms@debian.org>  Mon, 29 Oct 2007 15:37:49 +0900
+  * Build notes:
+    - Unpacked tarball from linux-ha.org
+    - Applied changes detaile above
+    - Applied debian patches: ./debian/rules patch
+    - Affected changes to configure.in
+      + Backed up libltdl.tar, haclient.zh_CN.mo
+      + Ran ./ConfigureMe bootstrap to effect changes to configure.in
+      + Removed symlinks created by ./ConfigureMe:
+        - autoconf, automake, autoheader
+      + Restored libltdl.tar, haclient.zh_CN.mo
+    - Built package
+
+ -- Simon Horman <horms@debian.org>  Wed, 26 Dec 2007 11:07:17 +0900
 
 heartbeat (2.1.2+hg.11310.702e4f418ca8-2) unstable; urgency=low
 
