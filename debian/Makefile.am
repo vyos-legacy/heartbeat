@@ -31,7 +31,7 @@ EXTRA_DIST		= apply changelog compat control copyright \
 			  ldirectord.postrm \
 			  patches/chown-check-2.patch \
 			  patches/ipv6-check.patch \
-			  patches/series/2.1.2-1
+			  patches/series/2.1.3-1
 
 clean-local:
 	rm -f *.substvars *.debhelper files
