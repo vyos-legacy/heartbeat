@@ -27,14 +27,11 @@ EXTRA_DIST		= apply changelog compat control copyright \
 			  heartbeat.preinst \
 			  heartbeat-dev.dirs heartbeat-dev.files \
 			  heartbeat-gui.dirs heartbeat-gui.files \
-			  ldirectord.files ldirectord.postinst
-
-DEBIAN_DIST		= \
+			  ldirectord.files ldirectord.postinst \
 			  ldirectord.postrm \
 			  patches/chown-check-2.patch \
 			  patches/ipv6-check.patch \
 			  patches/series/2.1.2-1
-
 
 clean-local:
 	rm -f *.substvars *.debhelper files
