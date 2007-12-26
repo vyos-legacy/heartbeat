@@ -8,19 +8,6 @@
 # Uncomment this to turn on verbose mode.
 #export DH_VERBOSE=1
 
-#
-# Path to SSH and SCP
-# Usually this is guessed if ssh is installed.
-# However, there is a long standing bug with installing ssh
-# on arm in debian and this is preventing heartbeat from
-# moving into sarge. By adding this we can remove the build
-# dependancy on ssh and get an updated heartbeat into sarge... 
-# I hope. Horms 26th July 2004
-#
-# If this is removed then the build depandancy on ssh should be
-# restored
-#
-
 cfg:=--prefix=/usr --sysconfdir=/etc --localstatedir=/var \
   --mandir=/usr/share/man \
   --with-group-name=haclient --with-ccmuser-name=hacluster \
