@@ -36,6 +36,7 @@
 /etc/pam.d/hbmgmtd
 usr/bin/cl_respawn
 usr/bin/cl_status
+usr/include/clplumbing/cl_reboot.h
 usr/lib/heartbeat/BasicSanityCheck
 usr/lib/heartbeat/ResourceManager
 usr/lib/heartbeat/SNMPAgentSanityCheck
@@ -196,6 +197,7 @@ usr/lib/ocf/resource.d/heartbeat/SAPDatabase
 usr/lib/ocf/resource.d/heartbeat/SAPInstance
 usr/lib/ocf/resource.d/heartbeat/SendArp
 usr/lib/ocf/resource.d/heartbeat/ServeRAID
+usr/lib/ocf/resource.d/heartbeat/SphinxSearchDaemon
 usr/lib/ocf/resource.d/heartbeat/Stateful
 usr/lib/ocf/resource.d/heartbeat/SysInfo
 usr/lib/ocf/resource.d/heartbeat/VIPArip
@@ -248,6 +250,7 @@ usr/lib/stonith/plugins/stonith2/wti_nps.so
 usr/sbin/attrd_updater
 usr/sbin/ccm_tool
 usr/sbin/cibadmin
+usr/sbin/ciblint
 usr/sbin/crm_attribute
 usr/sbin/crm_diff
 usr/sbin/crm_failcount
@@ -274,9 +277,6 @@ usr/share/doc/heartbeat/HardwareGuide.html
 usr/share/doc/heartbeat/HardwareGuide.txt
 usr/share/doc/heartbeat/README
 usr/share/doc/heartbeat/README.cts
-usr/share/doc/heartbeat/hb_report.txt
-usr/share/doc/heartbeat/hb_report.html
-usr/share/doc/heartbeat/README.lrm_regression_tests
 usr/share/doc/heartbeat/Requirements.html
 usr/share/doc/heartbeat/Requirements.txt
 usr/share/doc/heartbeat/apphbd.cf
@@ -284,10 +284,12 @@ usr/share/doc/heartbeat/authkeys
 usr/share/doc/heartbeat/faqntips.html
 usr/share/doc/heartbeat/faqntips.txt
 usr/share/doc/heartbeat/ha.cf
-usr/share/doc/heartbeat/logd.cf
 usr/share/doc/heartbeat/haresources
+usr/share/doc/heartbeat/hb_report.html
+usr/share/doc/heartbeat/hb_report.txt
 usr/share/doc/heartbeat/heartbeat_api.html
 usr/share/doc/heartbeat/heartbeat_api.txt
+usr/share/doc/heartbeat/logd.cf
 usr/share/doc/heartbeat/rsync.html
 usr/share/doc/heartbeat/rsync.txt
 usr/share/doc/heartbeat/startstop
@@ -318,6 +320,7 @@ usr/share/heartbeat/hb_setweight
 usr/share/heartbeat/hb_standby
 usr/share/heartbeat/hb_takeover
 usr/share/heartbeat/lrmtest/LRMBasicSanityCheck
+usr/share/heartbeat/lrmtest/README.regression
 usr/share/heartbeat/lrmtest/defaults
 usr/share/heartbeat/lrmtest/descriptions
 usr/share/heartbeat/lrmtest/evaltest.sh
