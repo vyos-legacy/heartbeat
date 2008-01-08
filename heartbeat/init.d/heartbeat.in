@@ -37,7 +37,7 @@
 # Short-Description: High-availability services.
 # Provides: heartbeat HA
 # Required-Start: $remote_fs $network $time $syslog
-# Should-Start: ntp openhpid
+# Should-Start: openhpid
 # Required-Stop: $remote_fs $network $time $syslog
 # Should-stop: openhpid
 # Default-Start: 2 3 4 5
