@@ -1114,6 +1114,7 @@ RoleMetadataType = MetadataValueType("enum", {"started":1, "stopped":1,"master":
 NodeMetadataType = MetadataValueType("enum", {"normal":1})
 OrderMetadataType = MetadataValueType("enum", {"before":1, "after":1})
 StopStartMetadataType = MetadataValueType("enum", {"stop_start":1, "stop_only":1, "block":1})
+OnFailMetadataType = MetadataValueType("enum", {"ignore":1, "block":1, "stop":1, "restart":1, "fence":1})
 RestartMetadataType = MetadataValueType("enum", {"ignore":1, "restart":1})
 OpMetadataType = MetadataValueType("enum", {"lt":1, "lte":1,"gt":1,"gte":1,
 				"eq":1, "neq":1, "defined":1, "not_defined":1})
@@ -1140,28 +1141,33 @@ NVPairValidKeys = {}
 #
 AttributeKeys = {
 	"op": {		"id": (StringMetadataType,1),
-                        "name": (StringMetadataType,1),
-	                "timeout": (TimeMetadataType,0),
-                        "start_delay": (TimeMetadataType, 0),
-			"interval": (TimeMetadataType,0),
 			"disabled": (BooleanMetadataType,0),
+			"interval": (TimeMetadataType,0),
+                        "name": (StringMetadataType,1),
+			"on_fail": (OnFailMetadataType,0),
+			"prereq": (PrereqMetadataType,0),
                         "role": (RoleMetadataType,0),
-			"prereq": (PrereqMetadataType,0)},
+                        "start_delay": (TimeMetadataType, 0),
+	                "timeout": (TimeMetadataType,0)},
 
 	"primitive":{	"id": (StringMetadataType,1),
 			"class": (StringMetadataType,1),
+			"description": (StringMetadataType,0),
 			"provider": (StringMetadataType,0),
 			"type": (StringMetadataType,1)},
 	"group": {	"id": (StringMetadataType,1),
+			"description": (StringMetadataType,0),
 			"ordered": (BooleanMetadataType,0),
 			"colocated":(BooleanMetadataType,0)},
-	"clone": {	"id": (StringMetadataType,1)},
+	"clone": {	"id": (StringMetadataType,1),
+			"description": (StringMetadataType,0)},
 
 	"enum":	{},
 	"enumvals":	{},
 	"enumval":	{"value":(StringMetadataType,1)},
 
-	"master_slave":	idonly,
+	"master_slave": {"id": (StringMetadataType,1),
+			"description": (StringMetadataType,0)},
 
 	"nvpair": {	"id": (StringMetadataType,1),
 			"name": (StringMetadataType,1),
@@ -1183,6 +1189,7 @@ AttributeKeys = {
 			"num_updates":(IntegerMetadataType,1)},
 
 	"node": {	"id": (UuidMetadataType,1),
+			"description": (StringMetadataType,0),
 			"uname": (StringMetadataType,1),
 			"type": (NodeMetadataType,1)},
 	"instance_attributes": idonly,
@@ -1610,7 +1617,6 @@ class OperationsTag(UserDict):
       if child.nodeType != child.ELEMENT_NODE:
         continue
       if child.tagName == "op":
-        CheckAttributes(child)
         CheckXMLNodeUniqueness(child)
         name = child.getAttribute("name")
         if name == "":
@@ -1624,6 +1630,9 @@ class OperationsTag(UserDict):
         if child.getAttribute("start_delay") != "" and name != "monitor":
           print ("WARNING: <op name=\"%s\" start_delay=\"%s\"...>: start_delay" \
 	  +   " only appropriate for op \"monitor\".") % (name, child.getAttribute("start_delay"))
+        if child.getAttribute("on_fail") != "" and name != "stop":
+          print ("WARNING: <op name=\"%s\" on_fail=\"%s\"...>: on_fail" \
+	  +   " only appropriate for op \"stop\".") % (name, child.getAttribute("on_fail"))
       else:
         print "ERROR: Don't know how to deal with funky child of <%s>" % xmlnode.tagName
         print "Funky child: " + node2str(child)
@@ -1995,7 +2004,7 @@ class ExpressionTag(EvalExpress):
       return lhs >= rhs
     elif self.operation == "eq":
       return lhs == rhs
-    elif self.operation == "neq":
+    elif self.operation == "ne":
       return lhs != rhs
     print "ERROR: unimplemented expression operator [%s] - returning false"\
     %		self.operation
@@ -2353,7 +2362,7 @@ def analyze_CIB(doc):
     if stonithresourcecount == 0:
       stonithwarn=1
       print "ERROR:  STONITH enabled, but No STONITH resources configured.  STONITH is NOT available."
-  elif stonithremarks:
+  elif stonithremarks and len(clusterNodes) >= 2:
     stonithwarn=1
     print "WARNING: STONITH disabled <nvpair name=\"%s\" value=\"%s\">.  STONITH is STRONGLY recommended."\
     %	(stonithtag, enableval)
