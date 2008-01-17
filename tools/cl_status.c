@@ -355,7 +355,7 @@ listnodes(ll_cluster_t *hb, int argc, char ** argv, const char * optstr)
 	const char * node, * type;
 
 	do {
-		option_char = getopt(argc, argv, optstr);
+		option_char = getopt(argc-1, argv+1, optstr);
 
 		if (option_char == -1) {
 			break;
@@ -711,7 +711,7 @@ hbparameter(ll_cluster_t *hb, int argc, char ** argv, const char * optstr)
 	char *		pvalue;
 
 	do {
-		option_char = getopt(argc, argv, optstr);
+		option_char = getopt(argc-1, argv+1, optstr);
 
 		if (option_char == -1) {
 			break;
@@ -766,7 +766,7 @@ general_simple_opt_deal(int argc, char ** argv, const char * optstr)
 {
 	int option_char;
 	do {
-		option_char = getopt(argc, argv, optstr);
+		option_char = getopt(argc-1, argv+1, optstr);
 
 		if (option_char == -1) {
 			break;
