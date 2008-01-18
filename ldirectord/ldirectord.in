@@ -965,6 +965,7 @@ sub check_signal
 sub reread_config
 {
 	@OLDVIRTUAL = @VIRTUAL;
+	@VIRTUAL = ();
 	my %OLD_INSTANCE = %LD_INSTANCE;
 	my %RELOAD;
 	my %STOP;
