@@ -214,11 +214,7 @@ main(int argc, char *argv[])
 		unlink(pidfilename);
 		return EXIT_FAILURE;
 	}
-#ifdef ON_DARWIN
- 	if ((signed)(ip = libnet_name2addr4(l, (unsigned char *)ipaddr, 1)) == -1) {
-#else
 	if ((signed)(ip = libnet_name2addr4(l, ipaddr, 1)) == -1) {
-#endif
 		cl_log(LOG_ERR, "Cannot resolve IP address [%s]", ipaddr);
 		unlink(pidfilename);
 		return EXIT_FAILURE;
