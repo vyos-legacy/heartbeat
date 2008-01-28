@@ -310,7 +310,12 @@ int		ha_msg_add_nv(struct ha_msg* msg, const char * nvline, const char * bufmax)
 /* Return value associated with particular name */
 #define ha_msg_value(m,name) cl_get_string(m, name)
 
+/* Call wait(in|out) but only for a finite time */
+int cl_ipc_wait_timeout(
+    IPC_Channel * chan, int (*waitfun)(IPC_Channel * chan), unsigned int timeout);
+
 /* Reads an IPC stream -- converts it into a message */
+struct ha_msg * msgfromIPC_timeout(IPC_Channel *ch, int flag, unsigned int timeout, int *rc_out);
 struct ha_msg *	msgfromIPC(IPC_Channel * f, int flag);
 
 IPC_Message * ipcmsgfromIPC(IPC_Channel * ch);
