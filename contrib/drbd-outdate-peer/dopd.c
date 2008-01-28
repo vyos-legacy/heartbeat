@@ -347,7 +347,6 @@ outdater_ipc_connection_destroy(gpointer user_data)
 				client->id, client->source);
 		G_main_del_IPC_Channel(client->source);
 		client->source = NULL;
-		//cl_free(client->drbd_res);
 	}
 	cl_free(client->id);
 	cl_free(client);
