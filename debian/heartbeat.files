@@ -278,6 +278,7 @@ usr/share/doc/heartbeat/HardwareGuide.html
 usr/share/doc/heartbeat/HardwareGuide.txt
 usr/share/doc/heartbeat/README
 usr/share/doc/heartbeat/README.cts
+usr/share/doc/heartbeat/README.lrm_regression_tests
 usr/share/doc/heartbeat/Requirements.html
 usr/share/doc/heartbeat/Requirements.txt
 usr/share/doc/heartbeat/apphbd.cf
@@ -321,7 +322,6 @@ usr/share/heartbeat/hb_setweight
 usr/share/heartbeat/hb_standby
 usr/share/heartbeat/hb_takeover
 usr/share/heartbeat/lrmtest/LRMBasicSanityCheck
-usr/share/heartbeat/lrmtest/README.regression
 usr/share/heartbeat/lrmtest/defaults
 usr/share/heartbeat/lrmtest/descriptions
 usr/share/heartbeat/lrmtest/evaltest.sh
