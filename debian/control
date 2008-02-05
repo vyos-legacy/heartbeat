@@ -11,7 +11,7 @@ Section: admin
 Priority: extra
 Architecture: all
 Depends: ${perl:Depends}, ipvsadm, libauthen-radius-perl, libcrypt-ssleay-perl, libdbi-perl, libdigest-hmac-perl, libdigest-md5-perl, libmail-pop3client-perl, libmailtools-perl, libnet-dns-perl, libnet-imap-simple-perl, libnet-imap-simple-ssl-perl, libnet-ldap-perl, libnet-perl, libwww-perl
-Recommends: sysklogd|syslog-ng, logrotate
+Recommends: rsyslog | system-log-daemon, logrotate
 Conflicts: libpils0 (<< 2.0.8-3), libstonith0 (<< 2.0.8-3), stonith (<< 2.0.8-3)
 XB-Python-Version: ${python:Versions}
 Description: Monitors virtual services provided by LVS
@@ -24,7 +24,7 @@ Section: admin
 Priority: optional
 Architecture: any
 Depends: ${shlibs:Depends}, ${python:Depends}, iproute, adduser, iputils-ping, psmisc, gawk, libxml2-utils, libpam-runtime (>= 0.76-14)
-Recommends: sysklogd | syslog-ng | system-log-daemon, logrotate, iptables
+Recommends: rsyslog | system-log-daemon, logrotate, iptables
 XB-Python-Version: ${python:Versions}
 Description: Subsystem for High-Availability Linux
  heartbeat is a basic heartbeat subsystem for Linux-HA which implements
