@@ -2650,12 +2650,12 @@ set_release2mode(const char* value)
 	,	{"apiauth", "attrd   	uid=" HA_CCMUSER}
 	,	{"apiauth", "crmd   	uid=" HA_CCMUSER}
 
-	,	{"failfast"," "HA_CCMUSER " "HA_LIBHBDIR"/ccm"}
-	,	{"failfast"," "HA_CCMUSER " "VALGRIND_BIN" "HA_LIBHBDIR"/cib"}
+	,	{"respawn"," "HA_CCMUSER " "HA_LIBHBDIR"/ccm"}
+	,	{"respawn"," "HA_CCMUSER " "VALGRIND_BIN" "HA_LIBHBDIR"/cib"}
 	,	{"respawn", "root "          HA_LIBHBDIR"/lrmd -r"}
 	,	{"respawn", "root "	     HA_LIBHBDIR"/stonithd"}
 	,	{"respawn", " "HA_CCMUSER " "VALGRIND_BIN" "HA_LIBHBDIR"/attrd" }
-	,	{"failfast"," "HA_CCMUSER " "VALGRIND_BIN" "HA_LIBHBDIR"/crmd"}
+	,	{"respawn"," "HA_CCMUSER " "VALGRIND_BIN" "HA_LIBHBDIR"/crmd"}
 		/* Don't 'respawn' pingd - it's a resource agent */
 	};
     
