@@ -257,6 +257,11 @@ lib/mgmt/pymgmt_wrap.c
 tsa_plugin/ha_mgmt_client_wrap.c
 
 # Misc
+GPATH
+GRTAGS
+GSYMS
+GTAGS
+HTML
 TAGS
 .gres.*
 *.orig

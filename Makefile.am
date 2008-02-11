@@ -59,10 +59,6 @@ if SNMP_SUBAGENT_BUILD
 SNMP_SUBAGENT_DIR = snmp_subagent
 endif
 
-if MGMT_BUILD
-MGMT_DIR = mgmt
-endif
-
 if CIM_PROVIDER_BUILD
 CIM_PROVIDER_DIR = cim
 endif

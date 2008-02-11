@@ -36,11 +36,6 @@ halib_SCRIPTS		= haresources2cib.py
 hanoarch_DATA		= utillib.sh
 sbin_SCRIPTS		= ciblint hb_report ocf-tester
 
-if CRM_BUILD
-halib_PROGRAMS		= attrd pingd
-sbin_PROGRAMS		= attrd_updater
-endif
-
 ## SOURCES
 ccdv: 	$(top_srcdir)/tools/ccdv.c
 	gcc $(AM_CFLAGS) $(CFLAGS) -o ccdv $(top_srcdir)/tools/ccdv.c
@@ -58,31 +53,6 @@ cl_respawn_LDADD	= $(top_builddir)/lib/clplumbing/libplumb.la	\
 			  $(top_builddir)/lib/apphb/libapphb.la 	\
 			  $(gliblib)					\
 			  $(top_builddir)/replace/libreplace.la
-
-
-attrd_SOURCES		= attrd.c
-attrd_LDADD		=  				\
-		  $(top_builddir)/lib/clplumbing/libplumb.la		\
-		  $(top_builddir)/lib/crm/common/libcrmcommon.la	\
-		  $(top_builddir)/lib/hbclient/libhbclient.la		\
-		  $(top_builddir)/lib/crm/cib/libcib.la			\
-		  $(GLIBLIB)						\
-		  $(LIBRT)
-
-pingd_SOURCES		= pingd.c
-pingd_LDADD		=  				\
-		  $(top_builddir)/lib/clplumbing/libplumb.la		\
-		  $(top_builddir)/lib/crm/common/libcrmcommon.la	\
-		  $(top_builddir)/lib/hbclient/libhbclient.la		\
-		  $(GLIBLIB)						\
-		  $(LIBRT)
-
-attrd_updater_SOURCES	= attrd_updater.c
-attrd_updater_LDADD	=  				\
-		  $(top_builddir)/lib/clplumbing/libplumb.la		\
-		  $(top_builddir)/lib/crm/common/libcrmcommon.la	\
-		  $(GLIBLIB)						\
-		  $(LIBRT)
 
 install-data-hook:    # install-exec-hook doesn't work (!)
 	-chgrp $(apigid) $(DESTDIR)/$(habindir)/cl_status
