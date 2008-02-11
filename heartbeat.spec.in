@@ -432,7 +432,9 @@ make
 ###########################################################
 #make DESTDIR=$RPM_BUILD_ROOT install-strip
 make DESTDIR=$RPM_BUILD_ROOT install
+%if %{ENABLE_MGMT}
 %find_lang haclient
+%endif
 
 ###########################################################
 %files
@@ -446,19 +448,13 @@ make DESTDIR=$RPM_BUILD_ROOT install
 %{HA_LIBHBDIR}
 %{libdir}/libapphb.so.*
 %{libdir}/libccmclient.so.*
-%{libdir}/libcib.so.*
 %{libdir}/libclm.so.*
-%{libdir}/libcrmcommon.so.*
-%{libdir}/libtransitioner.so.*
 %{libdir}/libhbclient.so.*
 %{libdir}/liblrm.so.*
-%{libdir}/libpengine.so.*
 %{libdir}/libplumb.so.*
 %{libdir}/libplumbgpl.so.*
 %{libdir}/librecoverymgr.so.*
 %{libdir}/libstonithd.so.*
-%{libdir}/libpe_rules.so.*
-%{libdir}/libpe_status.so.*
 %{HA_NOARCHDATAHBDIR}
 %{OCF_ROOT_DIR}
 %exclude %{OCF_RA_DIR}/heartbeat/ldirectord
@@ -476,40 +472,19 @@ make DESTDIR=$RPM_BUILD_ROOT install
 %attr (2555, %{HA_CCMUSER}, %{HA_APIGROUP}) %{bindir}/cl_status
 %{bindir}/cl_respawn
 %{sbindir}/ciblint
-%{sbindir}/ptest 
-%{sbindir}/crmadmin 
-%{sbindir}/cibadmin 
-%{sbindir}/ccm_tool 
-%{sbindir}/crm_diff 
-%{sbindir}/crm_uuid
-%{sbindir}/crm_mon 
 %{sbindir}/ocf-tester
 %{sbindir}/hb_report
-%{sbindir}/iso8601
-%{sbindir}/crm_master 
-%{sbindir}/crm_standby
-%{sbindir}/crm_attribute 
-%{sbindir}/crm_resource
-%{sbindir}/crm_verify
-%{sbindir}/attrd_updater
-%{sbindir}/crm_failcount
-%{sbindir}/crm_sh
 %{sbindir}/ha_logger
 %dir %attr (755, %{HA_CCMUSER}, %{HA_APIGROUP}) %{HA_VARRUNDIR}/ccm
-%dir %attr (750, %{HA_CCMUSER}, %{HA_APIGROUP}) %{HA_VARRUNDIR}/crm
-%dir %attr (750, %{HA_CCMUSER}, %{HA_APIGROUP}) %{localstatedir}/lib/%{HB_PKG}/crm
-%dir %attr (750, %{HA_CCMUSER}, %{HA_APIGROUP}) %{localstatedir}/lib/%{HB_PKG}/pengine
 %doc %{mandir}/man1/cl_status.1*
 %doc %{mandir}/man1/ha_logger.1*
 %doc %{mandir}/man1/hb_standby.1*
 %doc %{mandir}/man1/hb_takeover.1*
 %doc %{mandir}/man1/hb_addnode.1*
 %doc %{mandir}/man1/hb_delnode.1*
-%doc %{mandir}/man8/crm_resource.8*
 %doc %{mandir}/man8/heartbeat.8*
 %doc %{mandir}/man8/apphbd.8*
 %doc %{mandir}/man8/ha_logd.8*
-%doc %{mandir}/man8/cibadmin.8*
 %doc %{docdir}
 %if %{ENABLE_SNMP_SUBAGENT}
 	%{MIBS_DIR}/LINUX-HA-MIB.mib
@@ -563,49 +538,31 @@ make DESTDIR=$RPM_BUILD_ROOT install
 %{base_includedir}/pils/
 %{libdir}/libapphb.so
 %{libdir}/libccmclient.so
-%{libdir}/libcib.so
 %{libdir}/libclm.so
-%{libdir}/libcrmcommon.so
-%{libdir}/libtransitioner.so
 %{libdir}/libhbclient.so
 %{libdir}/liblrm.so
-%{libdir}/libpengine.so
 %{libdir}/libplumb.so
 %{libdir}/libplumbgpl.so
 %{libdir}/librecoverymgr.so
 %{libdir}/libstonithd.so
-%{libdir}/libpe_rules.so
-%{libdir}/libpe_status.so
 %exclude %{libdir}/libapphb.la
 %exclude %{libdir}/libccmclient.la
-%exclude %{libdir}/libcib.la
 %exclude %{libdir}/libclm.la
-%exclude %{libdir}/libcrmcommon.la
-%exclude %{libdir}/libtransitioner.la
 %exclude %{libdir}/libhbclient.la
 %exclude %{libdir}/liblrm.la
-%exclude %{libdir}/libpengine.la
 %exclude %{libdir}/libplumb.la
 %exclude %{libdir}/libplumbgpl.la
 %exclude %{libdir}/librecoverymgr.la
 %exclude %{libdir}/libstonithd.la
-%exclude %{libdir}/libpe_rules.la
-%exclude %{libdir}/libpe_status.la
 %exclude %{libdir}/libapphb.a
 %exclude %{libdir}/libccmclient.a
-%exclude %{libdir}/libcib.a
 %exclude %{libdir}/libclm.a
-%exclude %{libdir}/libcrmcommon.a
-%exclude %{libdir}/libtransitioner.a
 %exclude %{libdir}/libhbclient.a
 %exclude %{libdir}/liblrm.a
-%exclude %{libdir}/libpengine.a
 %exclude %{libdir}/libplumb.a
 %exclude %{libdir}/libplumbgpl.a
 %exclude %{libdir}/librecoverymgr.a
 %exclude %{libdir}/libstonithd.a
-%exclude %{libdir}/libpe_rules.a
-%exclude %{libdir}/libpe_status.a
 
 ###########################################################
 # Files for the stonith library
