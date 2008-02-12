@@ -15,14 +15,10 @@
 #
 #
 #       Note on logging:
-#       If any of debugfile, logfile and logfacility are defined then they
-#       will be used. If debugfile and/or logfile are not defined and
-#       logfacility is defined then the respective logging and debug
-#       messages will be loged to syslog. If logfacility is not defined
-#       then debugfile and logfile will be used to log messges. If
-#       logfacility is not defined and debugfile and/or logfile are not
-#       defined then defaults will be used for debugfile and logfile as
-#       required and messages will be sent there.
+#       If all of debugfile, logfile and logfacility are not defined, 
+#       logging is the same as use_logd yes. In other case, they are
+#       respectively effective. if detering the logging to syslog,
+#       logfacility must be "none".
 #
 #	File to write debug messages to
 #debugfile /var/log/ha-debug
