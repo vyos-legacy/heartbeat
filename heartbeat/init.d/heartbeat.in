@@ -44,6 +44,11 @@
 # Default-Stop: 0 1 6
 ### END INIT INFO
 
+[ -f /etc/sysconfig/heartbeat ] && . /etc/sysconfig/heartbeat
+
+: ${USE_LOGD=yes}
+LOGD_OPT=""
+[ -n "$LOGD_CFG" ] && LOGD_OPT="$LOGD_OPT -c $LOGD_CFG"
 
 HA_DIR=@sysconfdir@/ha.d; export HA_DIR
 CONFIG=$HA_DIR/ha.cf
@@ -151,6 +156,10 @@ CrmEnabled() {
 }
 StartLogd() {
 
+    if [ "$USE_LOGD" != "yes" ]; then
+	return 0
+    fi
+
     $HA_BIN/ha_logd -s >/dev/null 2>&1
 
     if 
@@ -161,7 +170,7 @@ StartLogd() {
     fi
     
 
-    $HA_BIN/ha_logd -d >/dev/null 2>&1
+    $HA_BIN/ha_logd -d $LOGD_OPT >/dev/null 2>&1
     if 
 	[ $? -ne 0 ]
     then
@@ -171,6 +180,10 @@ StartLogd() {
 }
 
 StopLogd() {
+    if [ "$USE_LOGD" != "yes" ]; then
+	return 0
+    fi
+
     $HA_BIN/ha_logd -s >/dev/null 2>&1
     
     if 
