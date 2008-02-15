@@ -346,7 +346,7 @@ StopHA() {
   EchoNoNl "Stopping High-Availability services: "
 
   if
-    $HA_BIN/heartbeat -k &> /dev/null	# Kill it
+    $HA_BIN/heartbeat -k >/dev/null 2>&1	# Kill it
   then
     echo_success
     return 0
