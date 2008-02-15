@@ -22,8 +22,6 @@ MAINTAINERCLEANFILES    = Makefile.in
 hbagent_srces  = snmp-config-resolve.h	\
 	hbagent.h			\
 	hbagent.c			\
-	hbagentv2.h			\
-	hbagentv2.c			\
 	LHANodeTable.h			\
 	LHANodeTable_columns.h		\
 	LHANodeTable_enums.h		\
@@ -77,9 +75,6 @@ hbagent_SOURCES		= $(hbagent_srces)
 hbagent_LDADD	 	= \
                         $(top_builddir)/lib/clplumbing/libplumb.la \
 			$(top_builddir)/lib/hbclient/libhbclient.la \
-			$(top_builddir)/lib/crm/common/libcrmcommon.la \
-			$(top_builddir)/lib/crm/cib/libcib.la \
-			$(top_builddir)/lib//crm/pengine/libpe_status.la \
 			$(top_builddir)/membership/ccm/libccmclient.la \
 			$(top_builddir)/membership/ccm/libclm.la \
 			$(CURSESLIBS) \

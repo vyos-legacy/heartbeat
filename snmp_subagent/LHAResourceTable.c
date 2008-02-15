@@ -318,9 +318,6 @@ LHAResourceTable_handler(netsnmp_mib_handler *handler,
 static int LHAResourceTable_load(netsnmp_cache *cache, void *vmagic)
 {
     LHAResourceTable_free(cache, vmagic);
-
-    gResourceTableV2 = get_resource_table_v2();
-
     return 0;
 }
 

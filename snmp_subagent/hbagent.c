@@ -24,7 +24,6 @@
 #include <lha_internal.h>
 
 #include "hbagent.h"
-#include "hbagentv2.h"
 
 #include "hb_api.h"
 #include "heartbeat.h"
@@ -1324,7 +1323,6 @@ main(int argc, char ** argv)
 	struct timeval tv, *tvp;
 	int flag, block = 0, numfds, hb_fd = 0, mem_fd = 0, debug = 0;
 	int hb_already_dead = 0;
-	int cib_fd = 0;
 
 	/* change this if you want to be a SNMP master agent */
 	int agentx_subagent=1; 
@@ -1428,13 +1426,6 @@ main(int argc, char ** argv)
 	init_LHAMembershipTable();
 	init_LHAHeartbeatConfigInfo();
 
-
-	/* now implementing: hbagentv2 */
-	if ((ret = init_hbagentv2()) != HA_OK ||
-	    (cib_fd = get_cib_fd()) <= 0) {
-		return -4;
-	}
-
 	/* LHA-agent will be used to read LHA-agent.conf files. */
 	init_snmp("LHA-agent");
 
@@ -1470,10 +1461,6 @@ main(int argc, char ** argv)
 
 			if (mem_fd > hb_fd)
 				numfds = mem_fd + 1;
-		}
-		FD_SET(cib_fd, &fdset);
-		if (numfds < (cib_fd + 1)) {
-			numfds = cib_fd + 1;
 		}
 
 		tv.tv_sec = DEFAULT_TIME_OUT;
@@ -1544,12 +1531,6 @@ main(int argc, char ** argv)
 			    	cl_log(LOG_DEBUG, "unrecoverable membership error. quit now.");
 				break;
 			}
-		} else  if (FD_ISSET(cib_fd, &fdset)) {
-			/* change cib info events */
-			if ((ret = handle_cib_msg()) == HA_FAIL) {
-		  		cl_log(LOG_DEBUG, "unrecoverable CIB error. quit now.");
-				break;
-			}
 		} else {
 
 			/* snmp request */
@@ -1567,7 +1548,6 @@ process_pending:
 	hbagent_trap(0, myid);
 	snmp_shutdown("LHA-agent");
 
-	free_hbagentv2();
  	free_hbconfig();
 	cl_free(myid);
 	cl_free(myuuid);
