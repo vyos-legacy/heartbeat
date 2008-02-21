@@ -44,7 +44,7 @@
 # Default-Stop: 0 1 6
 ### END INIT INFO
 
-[ -f /etc/sysconfig/heartbeat ] && . /etc/sysconfig/heartbeat
+[ -f @INITDEFDIR@/heartbeat ] && . @INITDEFDIR@/heartbeat
 
 : ${USE_LOGD=yes}
 LOGD_OPT=""
