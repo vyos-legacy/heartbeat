@@ -358,8 +358,10 @@ main(int argc, char **argv)
 panic:
 	gDumpCmdArgs = 1;	/* print cmd when there are errors */
 	DumpFormattedOutput();
-	while ((nread = read(fd, emerg, (size_t) sizeof(emerg))) > 0)
-		(void) write(2, emerg, (size_t) nread);
+	while ((nread = read(fd, emerg, (size_t) sizeof(emerg))) > 0) {
+		ssize_t retval;
+		retval = write(2, emerg, (size_t) nread);
+	}
 	Wait();
 	exit(gExitStatus);
 }	/* main */
