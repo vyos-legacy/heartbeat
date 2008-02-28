@@ -206,6 +206,7 @@ usr/lib/stonith/plugins/external/rackpdu
 usr/lib/stonith/plugins/external/riloe
 usr/lib/stonith/plugins/external/ssh
 usr/lib/stonith/plugins/external/vmware
+usr/lib/stonith/plugins/external/xen0
 usr/lib/stonith/plugins/stonith2/apcmaster.so
 usr/lib/stonith/plugins/stonith2/apcmastersnmp.so
 usr/lib/stonith/plugins/stonith2/apcsmart.so
