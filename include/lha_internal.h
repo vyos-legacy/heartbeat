@@ -135,6 +135,20 @@ inet_pton(int af, const char *src, void *dst);
 
 #define	HAURL(url)	HA_URLBASE url
 
+/*
+ * Some compilers may not have defined __FUNCTION__.
+ */
+#ifndef __FUNCTION__
+
+/* Sun studio compiler */
+# ifdef __SUNPRO_C
+#  define __FUNCTION__ __func__
+# endif
+
+/* Similarly add your compiler here ... */
+
+#endif
+
 /* You may need to change this for your compiler */
 #ifdef HAVE_STRINGIZE
 #	define	ASSERT(X)	{if(!(X)) ha_assert(#X, __LINE__, __FILE__);}
