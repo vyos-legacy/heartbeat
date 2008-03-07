@@ -104,6 +104,7 @@ usr/lib/heartbeat/plugins/test/test.so
 usr/lib/heartbeat/plugins/tiebreaker/twonodes.so
 usr/lib/heartbeat/quorumd
 usr/lib/heartbeat/quorumdtest
+usr/lib/heartbeat/ra-api-1.dtd
 usr/lib/heartbeat/recoverymgrd
 usr/lib/heartbeat/req_resource
 usr/lib/heartbeat/send_arp
@@ -306,6 +307,7 @@ usr/share/heartbeat/lrmtest/testcases/rscmgmt.exp
 usr/share/heartbeat/lrmtest/testcases/rscmgmt.log_filter
 usr/share/heartbeat/lrmtest/testcases/xmllint.sh
 usr/share/heartbeat/mach_down
+usr/share/heartbeat/ra-api-1.dtd
 usr/share/heartbeat/req_resource
 usr/share/heartbeat/stonithdtest/STONITHDBasicSanityCheck
 usr/share/heartbeat/utillib.sh
