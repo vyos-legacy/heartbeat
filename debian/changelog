@@ -1,3 +1,12 @@
+heartbeat (2.1.3-4) unstable; urgency=low
+
+  * Add LSB tags to ldirectord init script
+    Upstream-Status: commit 34212491d1e069d99c0339e0479145af5d480711
+    Patch: ldirectord-init-lsb.patch
+    (closes: #469764)
+
+ -- Simon Horman <horms@debian.org>  Fri, 07 Mar 2008 10:52:51 +0900
+
 heartbeat (2.1.3-3) unstable; urgency=low
 
   * Updated syslog related recommends
