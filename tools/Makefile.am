@@ -38,7 +38,7 @@ sbin_SCRIPTS		= ciblint hb_report ocf-tester
 
 ## SOURCES
 ccdv: 	$(top_srcdir)/tools/ccdv.c
-	$(CC) $(AM_CFLAGS) $(CFLAGS) -o ccdv $(top_srcdir)/tools/ccdv.c
+	$(REAL_CC) $(AM_CFLAGS) $(CFLAGS) -o ccdv $(top_srcdir)/tools/ccdv.c
 
 cl_status_SOURCES	= cl_status.c
 # A little trick. Now ccdv can be auto-built but not auto-cleaned.
