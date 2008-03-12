@@ -17,13 +17,13 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #
-MAINTAINERCLEANFILES    = Makefile.in ccdv
+MAINTAINERCLEANFILES    = Makefile.in
 
 INCLUDES                = -I$(top_builddir)/include -I$(top_srcdir)/include \
 			  -I$(top_builddir)/linux-ha -I$(top_srcdir)/linux-ha \
 			  -I$(top_builddir)/libltdl -I$(top_srcdir)/libltdl
 
-EXTRA_DIST		= ccdv.c attrd.h $(hanoarch_DATA) $(sbin_SCRIPTS)
+EXTRA_DIST		= attrd.h $(hanoarch_DATA) $(sbin_SCRIPTS)
 
 apigid			= @HA_APIGID@
 habindir		= @bindir@
@@ -36,13 +36,7 @@ halib_SCRIPTS		= haresources2cib.py
 hanoarch_DATA		= utillib.sh
 sbin_SCRIPTS		= ciblint hb_report ocf-tester
 
-## SOURCES
-ccdv: 	$(top_srcdir)/tools/ccdv.c
-	$(REAL_CC) $(AM_CFLAGS) $(CFLAGS) -o ccdv $(top_srcdir)/tools/ccdv.c
-
 cl_status_SOURCES	= cl_status.c
-# A little trick. Now ccdv can be auto-built but not auto-cleaned.
-cl_status_DEPENDENCIES  = ccdv
 cl_status_LDADD		= $(top_builddir)/lib/hbclient/libhbclient.la	\
 			  $(top_builddir)/lib/clplumbing/libplumb.la	\
 			  $(gliblib)					\
