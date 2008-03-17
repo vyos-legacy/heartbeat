@@ -128,7 +128,7 @@ chktime() {
 	[ "$1" ] || fatal "bad time specification: $2"
 }
 msgcleanup() {
-	fatal "destination directory $DESTDIR exists, please cleanup"
+	fatal "destination directory $DESTDIR exists on $1, please cleanup"
 }
 nodistdirectory() {
 	fatal "could not create the destination directory $DESTDIR"
@@ -584,12 +584,12 @@ if [ "$SLAVE" = "" ]; then
 		fi
 	fi
 # final check: don't run if the destination directory exists
-	[ -d $DESTDIR ] && msgcleanup
+	[ -d $DESTDIR ] && msgcleanup "local node"
 	[ "$ssh_good" ] &&
 		for node in `getnodes`; do
 			[ "$node" = "$WE" ] && continue
 			ssh $ssh_opts $node "test -d $DESTDIR" &&
-				msgcleanup
+				msgcleanup $node
 		done
 fi
 

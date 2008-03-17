@@ -372,7 +372,8 @@ hb_ver() {
 	}
 	# for Linux .rpm based systems
 	which rpm > /dev/null 2>&1 && {
-		rpm -q --qf '%{version}' heartbeat &&
+		rpm -q --qf '%{version}-%{release}' heartbeat &&
+		echo &&
 		rpm --verify heartbeat
 		return
 	}
