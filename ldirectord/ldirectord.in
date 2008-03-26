@@ -2766,7 +2766,7 @@ sub check_sql
 	require DBI;
 	my ($v, $r, $dbd, $dbname) = @_;
 	my $port = ld_checkport($v, $r);
-	my ($dbh, $sth, $query, $row, $result);
+	my ($dbh, $sth, $query, $rows, $result);
 	$result = $SERVICE_DOWN;
 	$query = $$r{request};
 	$query =~ s#^/##;
