@@ -48,10 +48,6 @@ usr/include/heartbeat/lrm/lrm_api.h
 usr/include/heartbeat/lrm/lrm_msg.h
 usr/include/heartbeat/lrm/racommon.h
 usr/include/heartbeat/lrm/raexec.h
-usr/include/heartbeat/mgmt/mgmt.h
-usr/include/heartbeat/mgmt/mgmt_client.h
-usr/include/heartbeat/mgmt/mgmt_common.h
-usr/include/heartbeat/mgmt/mgmt_tls.h
 usr/include/heartbeat/recoverymgr.h
 usr/include/heartbeat/replace_uuid.h
 usr/include/ocf/oc_event.h

@@ -33,7 +33,6 @@
 /etc/heartbeat
 /etc/init.d/heartbeat
 /etc/logrotate.d/heartbeat
-/etc/pam.d/hbmgmtd
 usr/bin/cl_respawn
 usr/bin/cl_status
 usr/include/clplumbing/cl_reboot.h
@@ -74,8 +73,6 @@ usr/lib/heartbeat/lrmadmin
 usr/lib/heartbeat/lrmd
 usr/lib/heartbeat/lrmtest
 usr/lib/heartbeat/mach_down
-usr/lib/heartbeat/mgmtd
-usr/lib/heartbeat/mgmtdtest
 usr/lib/heartbeat/mlock
 usr/lib/heartbeat/ocf-returncodes
 usr/lib/heartbeat/ocf-shellfuncs
@@ -110,9 +107,7 @@ usr/lib/heartbeat/req_resource
 usr/lib/heartbeat/send_arp
 usr/lib/heartbeat/stonithd
 usr/lib/heartbeat/stonithdtest/apitest
-usr/lib/heartbeat/tengine
 usr/lib/heartbeat/transient-test.sh
-usr/lib/heartbeat/ttest
 usr/lib/heartbeat/utillib.sh
 usr/lib/libapphb.so.0
 usr/lib/libapphb.so.0.0.0
@@ -122,18 +117,6 @@ usr/lib/libclm.so.1
 usr/lib/libclm.so.1.0.0
 usr/lib/libhbclient.so.1
 usr/lib/libhbclient.so.1.0.0
-usr/lib/libhbmgmt.so
-usr/lib/libhbmgmt.so.0
-usr/lib/libhbmgmt.so.0.0.0
-usr/lib/libhbmgmtclient.so
-usr/lib/libhbmgmtclient.so.0
-usr/lib/libhbmgmtclient.so.0.0.0
-usr/lib/libhbmgmtcommon.so
-usr/lib/libhbmgmtcommon.so.0
-usr/lib/libhbmgmtcommon.so.0.0.0
-usr/lib/libhbmgmttls.so
-usr/lib/libhbmgmttls.so.0
-usr/lib/libhbmgmttls.so.0.0.0
 usr/lib/liblrm.so.0
 usr/lib/liblrm.so.0.0.0
 usr/lib/libpils.so.1
@@ -228,7 +211,6 @@ usr/lib/stonith/plugins/stonith2/rps10.so
 usr/lib/stonith/plugins/stonith2/ssh.so
 usr/lib/stonith/plugins/stonith2/suicide.so
 usr/lib/stonith/plugins/stonith2/wti_nps.so
-usr/sbin/ccm_tool
 usr/sbin/ciblint
 usr/sbin/ha_logger
 usr/sbin/hb_report
