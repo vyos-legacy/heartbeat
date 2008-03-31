@@ -22,13 +22,16 @@ MAINTAINERCLEANFILES    = Makefile.in
 
 EXTRA_DIST		= apply changelog compat control copyright \
 			  dpkg-checkbuild rules \
-			  heartbeat.dirs heartbeat.files \
-			  heartbeat.postinst heartbeat.postrm \
-			  heartbeat.preinst \
-			  heartbeat-dev.dirs heartbeat-dev.files \
 			  heartbeat-2.prerm \
-			  ldirectord.files ldirectord.postinst \
-			  ldirectord.postrm
+			  heartbeat-dev.dirs \
+			  heartbeat-dev.install \
+			  heartbeat.dirs \
+			  heartbeat.install \
+			  heartbeat.postinst \
+			  heartbeat.postrm \
+			  heartbeat.preinst \
+			  ldirectord.dirs \
+			  ldirectord.install
 
 clean-local:
 	rm -f *.substvars *.debhelper files
