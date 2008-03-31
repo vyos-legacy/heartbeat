@@ -166,6 +166,10 @@ revision=${version#*-}
 
 home="$PWD/debian/patches"
 
+if [ ! -e "$home/series/" ]; then
+	warn "No patches."
+	exit 0
+fi
 
 if [ -f version.Debian ]; then
 	current=$(cat version.Debian)
