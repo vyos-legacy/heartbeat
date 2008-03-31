@@ -29,9 +29,7 @@ EXTRA_DIST		= apply changelog compat control copyright \
 			  heartbeat-gui.dirs heartbeat-gui.files \
 			  heartbeat-2.prerm \
 			  ldirectord.files ldirectord.postinst \
-			  ldirectord.postrm \
-			  patches/ipv6-check.patch \
-			  patches/series/2.1.3-1
+			  ldirectord.postrm
 
 clean-local:
 	rm -f *.substvars *.debhelper files
