@@ -557,6 +557,16 @@ Default:
 
 =back 4
 
+B<monitorfile = ">I</path/to/monitorfile>B<">
+
+File to continuously log the real service checks to for this virtual
+service. This is useful for monitoring when and why real services were down
+or for statistics.
+
+The log format is:
+[timestamp|pid|real_service_id|status|message]
+
+Default: no separate logging of service checks.
 
 =head1 FILES
 
@@ -1305,6 +1315,12 @@ sub read_config
 					$vsrv{emailalertfreq} = $1;
 				} elsif  ($rcmd =~ /^emailalertstatus\s*=\s*(.*)/) {
 					$vsrv{emailalertstatus} = &parse_emailalertstatus($line, $1);
+				} elsif  ($rcmd =~ /^monitorfile\s*=\s*(.*)/) {
+					my $monitorfile = $1;
+					unless (open(MONITORFILE, ">>$monitorfile") and close(MONITORFILE)) {
+						&config_error($line, "unable to open monitorfile $monitorfile: $!");
+					}
+					$vsrv{monitorfile} = $monitorfile;
 				} else {
 					&config_error($line, "Unknown command \"$linedata\"");
 				}
@@ -2133,13 +2149,13 @@ sub ld_start
 			if (! defined($or->{$real_str}) or
 					$or->{$real_str}->{weight} == 0) {
 				$server_down->{$real_str} = [$nv, $nr];
-				#service_set($nv, $nr, "down", "force");
+				#service_set($nv, $nr, "down", {force => 1});
 			}
 			else {
 				if (defined $server_down->{$real_str}) {
 					delete($server_down->{$real_str});
 				}
-				service_set($nv, $nr, "up", "force");
+				service_set($nv, $nr, "up", {force => 1});
 			}
 			delete($or->{$real_str});
 		}
@@ -2156,7 +2172,7 @@ sub ld_start
 
 	for my $k (keys (%$server_down)) {
 	        my $v = $server_down->{$k};
-		service_set(@$v[0], @$v[1], "down", "force");
+		service_set(@$v[0], @$v[1], "down", {force => 1});
 		delete($server_down->{$k});
 		#sleep 5;
 	}
@@ -2291,7 +2307,7 @@ sub run_child
         my $virtual_id = get_virtual_id_str($v);
         $0 = $virtual_id;
         foreach my $r (@$real) {
-                service_set($v, $r, "down", "force");
+                service_set($v, $r, "down", {force => 1});
         }
         while (1) {
                 foreach my $r (@$real) {
@@ -2436,12 +2452,14 @@ sub check_http
 	my $recstr = $$r{receive};
 	if ($res->is_success && (!($recstr =~ /.+/) || 
 				$res->content =~ /$recstr/)) {
-		service_set($v, $r, "up");
+		service_set($v, $r, "up", {do_log => 1}, $res->content);
 		&ld_debug(2, "check_http: $$r{url} is up\n");
 		return $SERVICE_UP;
 	}
 
-	service_set($v, $r, "down");
+	my $log_message = $res->is_success ? $res->content : $res->status_line;
+	service_set($v, $r, "down", {do_log => 1}, $log_message);
+
 	&ld_debug(3, "Headers " .  $res->headers->as_string);
 	&ld_debug(2, "check_http: $$r{url} is down\n");
 	return $SERVICE_DOWN;
@@ -2460,10 +2478,10 @@ sub check_smtp
 			Timeout => $$v{negotiatetimeout});
 	if ($smtp) {
 		$smtp->quit;
-		service_set($v, $r, "up");
+		service_set($v, $r, "up", {do_log => 1});
 		return $SERVICE_UP;
 	} else {
-		service_set($v, $r, "down");
+		service_set($v, $r, "down", {do_log => 1});
 		return $SERVICE_DOWN;
 	}
 }
@@ -2485,7 +2503,7 @@ sub check_pop
                                         TIMEOUT => $$v{negotiatetimeout});
 
         if (!$pop) {
-                service_set($v, $r, "down");
+                service_set($v, $r, "down", {do_log => 1});
                 return $SERVICE_UP;
         }
 
@@ -2493,13 +2511,13 @@ sub check_pop
                 my $authres = $pop->login();
                 $pop->close();
                 if (!$authres) {
-                        service_set($v, $r, "down");
+                        service_set($v, $r, "down", {do_log => 1});
                         return $SERVICE_DOWN;
                 }
         }
 
         $pop->close();
-        service_set($v, $r, "up");
+        service_set($v, $r, "up", {do_log => 1});
         return $SERVICE_UP;
 }
 
@@ -2519,7 +2537,7 @@ sub check_pops
                                         DEBUG => 0,
                                         TIMEOUT => $$v{negotiatetimeout});
         if (!$pops) {
-                service_set($v, $r, "down");
+                service_set($v, $r, "down", {do_log => 1});
                 return $SERVICE_DOWN;
         }
 
@@ -2527,14 +2545,14 @@ sub check_pops
                 my $authres = $pops->login();
                 $pops->close();
                 if (!$authres) {
-                        service_set($v, $r, "down");
+                        service_set($v, $r, "down", {do_log => 1});
                         return $SERVICE_DOWN;
                 }
         }
 
 
         $pops->close();
-        service_set($v, $r, "up");
+        service_set($v, $r, "up", {do_log => 1});
         return $SERVICE_UP;
 }
 
@@ -2551,7 +2569,7 @@ sub check_imap
                                         timeout => $$v{negotiatetimeout});
         
         if (!$imap) {
-                service_set($v, $r, "down");
+                service_set($v, $r, "down", {do_log => 1});
                 return $SERVICE_DOWN;
         }
         
@@ -2559,13 +2577,13 @@ sub check_imap
                 my $authres = $imap->login($$v{login},$$v{passwd});
                 $imap->quit;
                 if (!$authres) {
-                        service_set($v, $r, "down");
+                        service_set($v, $r, "down", {do_log => 1});
                         return $SERVICE_DOWN;
                 }
         }
         
         $imap->quit();
-        service_set($v, $r, "up");
+        service_set($v, $r, "up", {do_log => 1});
         return $SERVICE_UP;
 }
 
@@ -2581,7 +2599,7 @@ sub check_imaps
                                         port => $port,
                                         timeout => $$v{negotiatetimeout});
         if (!$imaps) {
-                service_set($v, $r, "down");
+                service_set($v, $r, "down", {do_log => 1});
                 return $SERVICE_DOWN;
         }
 
@@ -2589,13 +2607,13 @@ sub check_imaps
                 my $authres = $imaps->login($$v{login},$$v{passwd});
                 $imaps->quit;
                 if (!$authres) {
-                        service_set($v, $r, "down");
+                        service_set($v, $r, "down", {do_log => 1});
                         return $SERVICE_DOWN;
                 }
         }
 
         $imaps->quit();
-        service_set($v, $r, "up");
+        service_set($v, $r, "up", {do_log => 1});
         return $SERVICE_UP;
 }
 
@@ -2611,7 +2629,7 @@ sub check_ldap
 	my $ldap = Net::LDAP->new("$$r{server}", port => $port,
 					timeout => $$v{negotiatetimeout});
 	if(!$ldap) {
-		service_set($v, $r, "down");
+		service_set($v, $r, "down", {do_log => 1});
 		&ld_debug(4, "Connection failed");
 		return $SERVICE_DOWN;
 	}
@@ -2624,7 +2642,7 @@ sub check_ldap
 		$mesg = $ldap->bind ;
 	}
 	if ($mesg->is_error) {
-		service_set($v, $r, "down");
+		service_set($v, $r, "down", {do_log => 1});
 		&ld_debug(4, "Bind failed");
 		return $SERVICE_DOWN;
 	}
@@ -2637,7 +2655,7 @@ sub check_ldap
 		);
 
 	if($result->count != 1) {
-		service_set($v, $r, "down");
+		service_set($v, $r, "down", {do_log => 1});
 		&ld_debug(2, "Count failed : " . $result->count);
 		return $SERVICE_DOWN;
 	}
@@ -2645,10 +2663,10 @@ sub check_ldap
 	my $href = $result->as_struct;
 	my @arrayOfDNs  = keys %$href ;
 	if (!($recstr =~ /.+/) || $arrayOfDNs[0] =~ /$recstr/) {
-		service_set($v, $r, "up");
+		service_set($v, $r, "up", {do_log => 1});
 		return $SERVICE_UP;
 	} else {
-		service_set($v, $r, "down");
+		service_set($v, $r, "down", {do_log => 1});
 		&ld_debug(4,"Message differs : " . ", " . $$r{receive} 
 				. ", " . $arrayOfDNs[0] . ".");
 		return $SERVICE_DOWN;
@@ -2672,20 +2690,20 @@ sub check_nntp
         unless ($sock = IO::Socket::INET->new(PeerAddr => $$r{server},
                 PeerPort => $port, Proto => 'tcp',
                 TimeOut => $$v{negotiatetimeout})) {
-                service_set($v, $r, "down");
+                service_set($v, $r, "down", {do_log => 1});
                 return $SERVICE_DOWN;
         }
         $s = IO::Select->new();
         $s->add($sock);
         if (scalar($s->can_read($$v{negotiatetimeout})) == 0) {
-                service_set($v, $r, "down");
+                service_set($v, $r, "down", {do_log => 1});
         } else {
                 sysread($sock, $buf, 64);
                 if ($buf =~ /^2/) {
-                        service_set($v, $r, "up");
+                        service_set($v, $r, "up", {do_log => 1});
 			$status = 0;
                 } else {
-                        service_set($v, $r, "down");
+                        service_set($v, $r, "down", {do_log => 1});
                 }
         }
         $s->remove($sock);
@@ -2724,12 +2742,12 @@ sub check_radius
                 alarm 0; # Cancel the alarm
         };
         if ($result eq "") {
-                &service_set($v, $r, "down");
+                &service_set($v, $r, "down", {do_log => 1});
                 &ld_debug(3, "Deactivated service $$r{server}:$$r{port}: $@");
                 &ld_debug(3, "Radius Error: ".$radius->get_error);
                 return $SERVICE_DOWN;
         } else {
-                &service_set($v, $r, "up");
+                &service_set($v, $r, "up", {do_log => 1});
                 &ld_debug(3, "Activated service $$r{server}:$$r{port}");
                 return $SERVICE_UP;
         }
@@ -2841,7 +2859,7 @@ err_finish:
 err_disconnect:
 	$dbh->disconnect();
 err_down:
-	service_set($v, $r, $result == $SERVICE_UP ? "up" : "down");
+	service_set($v, $r, $result == $SERVICE_UP ? "up" : "down", {do_log => 1});
 	return $result;
 }
 
@@ -2867,11 +2885,11 @@ sub check_connect
 		alarm 0; # Cancel the alarm
 	};
 	if ($@) {
-		&service_set($v, $r, "down");
+		&service_set($v, $r, "down", {do_log => 1});
 		&ld_debug(3, "Deactivated service $$r{server}:$$r{port}: $@");
 		return $SERVICE_DOWN;
 	} else {
-		&service_set($v, $r, "up");
+		&service_set($v, $r, "up", {do_log => 1});
 		&ld_debug(3, "Activated service $$r{server}:$$r{port}");
 		return $SERVICE_UP;
 	}
@@ -2899,13 +2917,13 @@ sub check_external
 		$result >>= 8;
 	};
 	if ($@ or $result != 0) {
-		&service_set($v, $r, "down");
+		&service_set($v, $r, "down", {do_log => 1});
 		&ld_debug(3, "Deactivated service $$r{server}:$$r{port}: " .
 			  "$@ after calling $$v{checkcommand} with result " .
 			  "$result");
 		return 0;
 	} else {
-		&service_set($v, $r, "up");
+		&service_set($v, $r, "up", {do_log => 1});
 		&ld_debug(3, "Activated service $$r{server}:$$r{port}");
 		return 1;
 	}
@@ -2997,11 +3015,11 @@ sub check_sip
 	};
 
 	if ($@) {
-		&service_set($v, $r, "down");
+		&service_set($v, $r, "down", {do_log => 1});
 		&ld_debug(3, "Deactivated service $$r{server}:$$r{port}: $@");
 		return $SERVICE_DOWN;
 	} else {
-		&service_set($v, $r, "up");
+		&service_set($v, $r, "up", {do_log => 1});
 		&ld_debug(3, "Activated service $$r{server}:$$r{port}");
 		return $SERVICE_UP;
 	}
@@ -3065,11 +3083,11 @@ sub check_simpletcp
        };
 
        if ($@) {
-	       &service_set($v, $r, "down");
+	       &service_set($v, $r, "down", {do_log => 1});
 	       &ld_debug(3, "Deactivated service $$r{server}:$$r{port}: $@");
 	       return $SERVICE_DOWN;
        } else {
-	       &service_set($v, $r, "up");
+	       &service_set($v, $r, "up", {do_log => 1});
 	       &ld_debug(3, "Activated service $$r{server}:$$r{port}");
 	       return $SERVICE_UP;
        }
@@ -3113,11 +3131,11 @@ sub check_ftp
 	close TMP;
 
 	if ($memory =~ /$$r{receive}/) {
-		service_set($v, $r, "up");
+		service_set($v, $r, "up", {do_log => 1});
 		return $SERVICE_UP;
 	}
 
-	service_set($v, $r, "down");
+	service_set($v, $r, "down", {do_log => 1});
 	return $SERVICE_DOWN;
 }
 
@@ -3160,19 +3178,19 @@ sub check_dns
 	};
  
 	if (@$ eq "timeout\n" or ! $query) {
-		 service_set($v,$r,"down");
+		 service_set($v, $r, "down", {do_log => 1});
 		 return $SERVICE_DOWN;
 	}
  
 	foreach $rr ($query->answer) {
 	        if (($rr->type eq "A" and $rr->address eq $$r{"receive"}) or
 	            ($rr->type eq "PTR" and $rr->ptrdname eq $$r{"receive"})) {
-	         	service_set($v,$r,"up");
+			service_set($v, $r, "up", {do_log => 1});
 			return $SERVICE_UP;
 		}
 	}
  
-	service_set($v,$r,"down");
+	service_set($v, $r, "down", {do_log => 1});
 	return $SERVICE_DOWN;
 }
 
@@ -3191,7 +3209,7 @@ sub check_ping
 	for (my $attempt = 0; $attempt < $$v{"checkcount"}; $attempt++) {
 		if ($p->ping($$r{server}, $$v{"checktimeout"})) {
     			&ld_debug(2, "pong from $$r{server}\n");
-			service_set($v,$r,"up");
+			service_set($v, $r, "up", {do_log => 1});
 			return $SERVICE_UP;
 		}
   		&ld_debug(2, "ping to $$r{server} timed out " .
@@ -3199,7 +3217,7 @@ sub check_ping
 					$$v{"checkcount"} . ")\n");
 	}
 
-	service_set($v,$r,"down");
+	service_set($v, $r, "down");
 	return $SERVICE_DOWN;
 }
 
@@ -3214,10 +3232,9 @@ sub check_none
 
 	&ld_debug(2, "Checking none");
 	
-	service_set($v, $r, "up");
+	service_set($v, $r, "up", {do_log => 1});
 	return $SERVICE_UP;
 }
-
 
 # service_set
 # Used to bring up and down real servers.
@@ -3232,15 +3249,30 @@ sub check_none
 #      state: up or down
 #             up to bring the real service up
 #             down to bring the real service up
+#      flags: hash with the following (optional) keys:
+#             force => 1  - force setting of the specified state
+#             do_log => 1 - log the state to the monitorfile
+#                           (when called as the result of a check)
 # post: The real server is brough up or down for each virtual service
 #       it belongs to.
 # return: none
 
 sub service_set()
 {
-	my ($v, $r, $state, $force) = @_;
+	my ($v, $r, $state, $flags, $log_msg) = @_;
 
-	my ($real, $virtual, $virt);
+	my ($real, $virtual, $virt, $now);
+	
+	if ($$flags{'do_log'}) {
+		$now = time();
+		
+		if (!defined($log_msg)) {
+			$log_msg = "-";
+		}
+
+		# URI-escape special log characters ('|' and newlines)
+		$log_msg =~ s/([%|\r\n])/sprintf("%%%.2x", ord($1))/eg;
+	}
 
         # Find the real server in @REAL
 	foreach $real (@REAL) {
@@ -3260,7 +3292,8 @@ sub service_set()
 	        my $found = 0;
 		my $tmp_id;
 		my $virtual_id = get_virtual_id_str($v);
-		my $log_str = "real server=" . get_real_id_str($r, $v) .
+		my $real_id = get_real_id_str($r, $v);
+		my $log_str = "real server=$real_id" .
 			      " (virtual=$virtual_id)";
 		foreach $tmp_id (@$virtual) {
 			if($virtual_id eq $tmp_id) {
@@ -3270,11 +3303,19 @@ sub service_set()
 		}
 		if ($found == 1) {
 			if ($state=~/up/i) {
-				_service_up($v, $r, $force);
+				_service_up($v, $r, $$flags{"force"});
 				&ld_debug(2, "Enabled  $log_str");
 			} elsif ($state=~/down/i) {
-				_service_down($v, $r, $force);
+				_service_down($v, $r, $$flags{"force"});
 				&ld_debug(2, "Disabled $log_str");
+			}
+			
+			if ($$v{"monitorfile"} and $$flags{"do_log"}) {
+				unless(
+					open(CHECKLOG, ">>$$v{monitorfile}") and
+					print CHECKLOG "$now|$$|$real_id|$state|$log_msg\n" and
+					close(CHECKLOG)
+				) { die("Error writing to monitorfile '$$v{monitorfile}': $!"); }
 			}
 		}
 	}
