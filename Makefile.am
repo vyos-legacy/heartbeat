@@ -55,10 +55,6 @@ hauser = 		@HA_CCMUSER@
 
 ## proc-ha is left out from SUBDIRS (completely obsolete)
 
-if SNMP_SUBAGENT_BUILD
-SNMP_SUBAGENT_DIR = snmp_subagent
-endif
-
 if CIM_PROVIDER_BUILD
 CIM_PROVIDER_DIR = cim
 endif
@@ -74,7 +70,7 @@ endif
 # 'buildtools' must be first in the list: tools to aid building of remainder.
 SUBDIRS	= buildtools $(LIBLTDL_DIR) debian pkg port replace include lib	\
           heartbeat membership telecom resources lrm $(CRM_DIR)		\
-          fencing logd $(SNMP_SUBAGENT_DIR) tools doc cts $(MGMT_DIR)   \
+          fencing logd tools doc cts $(MGMT_DIR)   \
           $(CIM_PROVIDER_DIR) $(LDIRECTORD_DIR) config $(TSA_PLUGIN_DIR) contrib 
 
 HANDY_DOCS = doc/ChangeLog doc/GettingStarted.html doc/DirectoryMap.txt
