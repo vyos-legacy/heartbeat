@@ -55,10 +55,6 @@ hauser = 		@HA_CCMUSER@
 
 ## proc-ha is left out from SUBDIRS (completely obsolete)
 
-if TSA_PLUGIN_BUILD
-TSA_PLUGIN_DIR = tsa_plugin
-endif
-
 if LDIRECTORD_BUILD
 LDIRECTORD_DIR = ldirectord
 endif
@@ -67,7 +63,7 @@ endif
 SUBDIRS	= buildtools $(LIBLTDL_DIR) debian pkg port replace include lib	\
           heartbeat membership telecom resources lrm $(CRM_DIR)		\
           fencing logd tools doc cts $(MGMT_DIR)   \
-          $(LDIRECTORD_DIR) config $(TSA_PLUGIN_DIR) contrib
+          $(LDIRECTORD_DIR) config contrib
 
 HANDY_DOCS = doc/ChangeLog doc/GettingStarted.html doc/DirectoryMap.txt
 HBDOCS = doc/heartbeat_api.html
