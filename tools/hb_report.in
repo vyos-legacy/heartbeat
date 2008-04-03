@@ -30,6 +30,10 @@ echo "$PROGDIR" | grep -qs '^/' || {
 		PROGDIR=$HA_NOARCHBIN
 }
 
+# the default syslog facility is not (yet) exported by heartbeat
+# to shell scripts
+#
+export DEFAULT_HA_LOGFACILITY="daemon"
 LOGD_CF=`findlogdcf @sysconfdir@ $HA_DIR`
 export LOGD_CF
 
@@ -153,9 +157,17 @@ logmarks() {
 		fi
 	done
 }
+#
+# first try syslog files, if none found then use the
+# logfile/debugfile settings
+#
 findlog() {
+	logf=""
 	if [ "$HA_LOGFACILITY" ]; then
-		findmsg $UNIQUE_MSG | awk '{print $1}'
+		logf=`findmsg $UNIQUE_MSG | awk '{print $1}'`
+	fi
+	if [ -f "$logf" ]; then
+		echo $logf
 	else
 		echo ${HA_DEBUGFILE:-$HA_LOGFILE}
 	fi

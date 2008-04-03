@@ -45,7 +45,7 @@ syslogmsg() {
 	shift 1
 	logtag=""
 	[ "$HA_LOGTAG" ] && logtag="-t $HA_LOGTAG"
-	logger -p ${HA_LOGFACILITY:-"daemon"}.$severity $logtag $*
+	logger -p ${HA_LOGFACILITY:-$DEFAULT_HA_LOGFACILITY}.$severity $logtag $*
 }
 
 #
@@ -74,17 +74,21 @@ findlogdcf() {
 	return 1
 }
 getlogvars() {
-	savecf=$HA_CF
+	HA_LOGFACILITY=${HA_LOGFACILITY:-$DEFAULT_HA_LOGFACILITY}
+	HA_SYSLOGMSGFMT=""
 	if uselogd; then
 		[ -f "$LOGD_CF" ] ||
-			fatal "could not find logd.cf or ha_logd.cf"
-		HA_CF=$LOGD_CF
+			return  # no configuration: use defaults
 	fi
+	savecf=$HA_CF
+	HA_CF=$LOGD_CF
+	# unless logfacility is set to none, heartbeat/ha_logd are
+	# going to log through syslog
 	HA_LOGFACILITY=`getcfvar logfacility`
+	[ "" = "$HA_LOGFACILITY" ] && HA_LOGFACILITY=$DEFAULT_HA_LOGFACILITY
 	[ none = "$HA_LOGFACILITY" ] && HA_LOGFACILITY=""
 	HA_LOGFILE=`getcfvar logfile`
 	HA_DEBUGFILE=`getcfvar debugfile`
-	HA_SYSLOGMSGFMT=""
 	iscfvartrue syslogmsgfmt &&
 		HA_SYSLOGMSGFMT=1
 	HA_CF=$savecf
