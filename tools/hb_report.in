@@ -30,6 +30,11 @@ echo "$PROGDIR" | grep -qs '^/' || {
 		PROGDIR=$HA_NOARCHBIN
 }
 
+# logs to collect in addition
+# NB: they all have to be in syslog format
+#
+EXTRA_LOGS="/var/log/messages"
+
 # the default syslog facility is not (yet) exported by heartbeat
 # to shell scripts
 #
@@ -63,6 +68,7 @@ usage: hb_report -f {time|"cts:"testnum} [-t time] [-u user] [-l file] [-p patt]
 	-L patt: regular expression to match in log files for analysis;
 	         this option is additive (dflt: $LOG_PATTERNS)
 	-e prog: your favourite editor
+	-M     : don't collect extra logs (/var/log/messages)
 	-D     : don't invoke editor to write description
 	-C     : remove the destination directory
 	-S     : single node operation; don't try to start report
@@ -95,6 +101,9 @@ EOF
 	  have more sensitive information, please supply additional
 	  patterns yourself. The logs and the crm_mon, ccm_tool, and
 	  crm_verify output are *not* sanitized.
+	  Additional system logs (/var/log/messages) are collected in
+	  order to have a more complete report. If you don't want that
+	  specify -M.
 	  IT IS YOUR RESPONSIBILITY TO PROTECT THE DATA FROM EXPOSURE!
 EOF
 	exit
@@ -700,6 +709,14 @@ if [ "$THIS_IS_NODE" ]; then
 	sanitize $DESTDIR/$WE
 	sys_info > $DESTDIR/$WE/sysinfo.txt
 	sys_stats > $DESTDIR/$WE/sysstats.txt 2>&1
+
+	for l in $EXTRA_LOGS; do
+		[ "$NO_str2time" ] && break
+		if [ "$l" != "$HA_LOG" -a -f "$l" ]; then
+			findlogseg $l $FROM_TIME $TO_TIME
+			dumplog $l $FROM_LINE $TO_LINE > $DESTDIR/$WE/`basename $l`
+		fi
+	done
 fi
 
 #
