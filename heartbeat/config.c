@@ -422,7 +422,7 @@ init_config(const char * cfgfile)
 	setenv(CURHOSTENV, localnodename, 1);
 	if (config->deadtime_ms <= 2 * config->heartbeat_ms) {
 		ha_log(LOG_ERR
-		,	"Dead time [%ld] is too small compared to keeplive [%ld]"
+		,	"Dead time [%ld] is too small compared to keepalive [%ld]"
 		,	config->deadtime_ms, config->heartbeat_ms);
 		++errcount;
 	}
@@ -445,12 +445,12 @@ init_config(const char * cfgfile)
 
 	/* Check deadtime parameters */
 	if (config->initial_deadtime_ms < config->deadtime_ms) {
-		ha_log(LOG_ERR
+		ha_log(LOG_WARNING
 		,	"Initial dead time [%ld] is smaller than"
 	        " deadtime [%ld]"
 		,	config->initial_deadtime_ms, config->deadtime_ms);
-		++errcount;
-	}else if (config->initial_deadtime_ms < 10000) {
+	}
+	if (config->initial_deadtime_ms < 10000) {
 		ha_log(LOG_WARNING, "Initial dead time [%ld ms] may be too small!"
 		,	config->initial_deadtime_ms);
 		ha_log(LOG_INFO
