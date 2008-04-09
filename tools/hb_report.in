@@ -552,7 +552,7 @@ getlogvars
 if [ "$SLAVE" = "" ]; then
 	setvarsanddefaults
 	userargs="$@"
-	while getopts f:t:l:u:p:L:e:SDCh o; do
+	while getopts f:t:l:u:p:L:e:MSDCh o; do
 		case "$o" in
 			h) usage;;
 			f)
@@ -575,6 +575,7 @@ if [ "$SLAVE" = "" ]; then
 			S) NO_SSH=1;;
 			D) NO_DESCRIPTION=1;;
 			C) REMOVE_DEST=1;;
+			M) EXTRA_LOGS="";;
 			[?]) usage short;;
 		esac
 	done
@@ -710,6 +711,7 @@ if [ "$THIS_IS_NODE" ]; then
 	sys_info > $DESTDIR/$WE/sysinfo.txt
 	sys_stats > $DESTDIR/$WE/sysstats.txt 2>&1
 
+	HA_SYSLOGMSGFMT=1 # extra logs are always syslog format
 	for l in $EXTRA_LOGS; do
 		[ "$NO_str2time" ] && break
 		if [ "$l" != "$HA_LOG" -a -f "$l" ]; then
