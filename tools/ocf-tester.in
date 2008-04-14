@@ -27,7 +27,7 @@
 
 LRMD=@libdir@/heartbeat/lrmd
 LRMADMIN=@libdir@/heartbeat/lrmadmin
-METADATA_LINT="xmllint --noout --path @HA_NOARCHDATAHBDIR@ --dtdvalid ra-api-1.dtd -"
+METADATA_LINT="xmllint --noout --path @HA_NOARCHDATAHBDIR@ --valid -"
 
 num_errors=0
 
