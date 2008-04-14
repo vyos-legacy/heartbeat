@@ -27,6 +27,7 @@
 
 LRMD=@libdir@/heartbeat/lrmd
 LRMADMIN=@libdir@/heartbeat/lrmadmin
+METADATA_LINT="xmllint --noout --path @HA_NOARCHDATAHBDIR@ --dtdvalid ra-api-1.dtd -"
 
 num_errors=0
 
@@ -165,6 +166,18 @@ lrm_test_command() {
 	exec_resource $action "$lrm_ra_args"
 }
 
+test_metadata() {
+    action=meta-data
+    msg=${1:-"Testing: $action"}
+    if [ $verbose -ne 0 ]; then
+    	echo $msg
+    fi
+    bash $agent $action | $METADATA_LINT
+    rc=$?
+    #echo rc: $rc
+    return $rc
+}
+
 test_command() {
     action=$1; shift
     msg=${1:-"Testing: $action"}
@@ -190,6 +203,9 @@ echo Beginning tests for $agent...
 if [ ! -f $agent ]; then
     assert 7 0 "Could not find file: $agent"
 fi
+
+test_metadata
+assert $? 0 "Your agent produces meta-data which does not conform to ra-api-1.dtd"
 
 test_command meta-data
 rc=$?
