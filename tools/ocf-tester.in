@@ -166,6 +166,15 @@ lrm_test_command() {
 	exec_resource $action "$lrm_ra_args"
 }
 
+test_permissions() {
+    action=meta-data
+    msg=${1:-"Testing permissions with uid nobody"}
+    if [ $verbose -ne 0 ]; then
+    	echo $msg
+    fi
+    su nobody $agent $action > /dev/null
+}
+
 test_metadata() {
     action=meta-data
     msg=${1:-"Testing: $action"}
@@ -202,6 +211,13 @@ echo Beginning tests for $agent...
 
 if [ ! -f $agent ]; then
     assert 7 0 "Could not find file: $agent"
+fi
+
+if [ `id -u` = 0 ]; then
+	test_permissions
+	assert $? 0 "Your agent has too restrictive permissions: should be 755"
+else
+	echo "WARN: Can't check agent's permissions because we're not root; they should be 755"
 fi
 
 test_metadata
