@@ -258,9 +258,9 @@ iscrmrunning() {
 	fi
 }
 dumpstate() {
-	crm_mon -1 | grep -v '^Last upd' > $1/crm_mon.txt
-	cibadmin -Ql > $1/cib.xml
-	ccm_tool -p > $1/ccm_tool.txt 2>&1
+	crm_mon -1 | grep -v '^Last upd' > $1/$CRM_MON_F
+	cibadmin -Ql > $1/$CIB_F
+	ccm_tool -p > $1/$CCMTOOL_F 2>&1
 }
 getconfig() {
 	[ -f "$HA_CF" ] &&
@@ -271,12 +271,12 @@ getconfig() {
 		dumpstate $1
 		touch $1/RUNNING
 	else
-		cp -p $HA_VARLIB/crm/cib.xml $1/ 2>/dev/null
+		cp -p $HA_VARLIB/crm/$CIB_F $1/ 2>/dev/null
 		touch $1/STOPPED
 	fi
 	cp -p $HA_VARLIB/hostcache $1/ 2>/dev/null
-	[ -f "$1/cib.xml" ] &&
-		crm_verify -V -x $1/cib.xml >$1/crm_verify.txt 2>&1
+	[ -f "$1/$CIB_F" ] &&
+		crm_verify -V -x $1/$CIB_F >$1/$CRM_VERIFY_F 2>&1
 }
 
 #

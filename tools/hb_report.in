@@ -38,13 +38,28 @@ EXTRA_LOGS="/var/log/messages"
 # the default syslog facility is not (yet) exported by heartbeat
 # to shell scripts
 #
-export DEFAULT_HA_LOGFACILITY="daemon"
+DEFAULT_HA_LOGFACILITY="daemon"
+export DEFAULT_HA_LOGFACILITY
 LOGD_CF=`findlogdcf @sysconfdir@ $HA_DIR`
 export LOGD_CF
 
 : ${SSH_OPTS="-T"}
 LOG_PATTERNS="CRIT: ERROR:"
 PEINPUTS_PATT="peng.*PEngine Input stored"
+
+# the goods
+ANALYSIS_F=analysis.txt
+DESCRIPTION_F=description.txt
+HALOG_F=ha-log.txt
+BT_F=backtraces.txt
+SYSINFO_F=sysinfo.txt
+SYSSTATS_F=sysstats.txt
+export ANALYSIS_F DESCRIPTION_F HALOG_F BT_F SYSINFO_F SYSSTATS_F
+CRM_MON_F=crm_mon.txt
+CCMTOOL_F=ccm_tool.txt
+CRM_VERIFY_F=crm_verify.txt
+CIB_F=cib.xml
+export CRM_MON_F CCMTOOL_F CRM_VERIFY_F CIB_F
 
 #
 # the instance where user runs hb_report is the master
@@ -294,10 +309,10 @@ getpeinputs() {
 		patt="$PEINPUTS_PATT"
 	fi
 	flist=$(
-	if [ -f $3/ha-log ]; then
-		grep "$patt" $3/ha-log | awk '{print $NF}'
-	elif [ -f $3/../ha-log ]; then # central log
-		grep "$patt" $3/../ha-log | awk '{print $NF}'
+	if [ -f $3/$HALOG_F ]; then
+		grep "$patt" $3/$HALOG_F | awk '{print $NF}'
+	elif [ -f $3/../$HALOG_F ]; then # central log
+		grep "$patt" $3/../$HALOG_F | awk '{print $NF}'
 	else
 		find_files $HA_VARLIB/pengine $1 $2
 	fi | sed "s,$HA_VARLIB/,,g"
@@ -339,7 +354,7 @@ sys_stats() {
 # replace sensitive info with '****'
 #
 sanitize() {
-	for f in $1/ha.cf $1/cib.xml $1/pengine/*; do
+	for f in $1/ha.cf $1/$CIB_F $1/pengine/*; do
 		[ -f "$f" ] && sanitize_one $f
 	done
 }
@@ -363,24 +378,24 @@ consolidate() {
 #
 checkcrmvfy() {
 	for n in `getnodes`; do
-		if [ -s $1/$n/crm_verify.txt ]; then
+		if [ -s $1/$n/$CRM_VERIFY_F ]; then
 			echo "WARN: crm_verify reported warnings at $n:"
-			cat $1/$n/crm_verify.txt
+			cat $1/$n/$CRM_VERIFY_F
 		fi
 	done
 }
 checkbacktraces() {
 	for n in `getnodes`; do
-		[ -s $1/$n/backtraces.txt ] && {
+		[ -s $1/$n/$BT_F ] && {
 			echo "WARN: coredumps found at $n:"
 			egrep 'Core was generated|Program terminated' \
-					$1/$n/backtraces.txt |
+					$1/$n/$BT_F |
 				sed 's/^/	/'
 		}
 	done
 }
 checklogs() {
-	logs=`find $1 -name ha-log`
+	logs=`find $1 -name $HALOG_F`
 	[ "$logs" ] || return
 	pattfile=`maketempfile` ||
 		fatal "cannot create temporary files"
@@ -421,13 +436,13 @@ diffcheck() {
 		return 1
 	}
 	case `basename $1` in
-	ccm_tool.txt)
+	$CCMTOOL_F)
 		txtdiff $1 $2;; # worddiff?
-	cib.xml)
+	$CIB_F)
 		cibdiff $1 $2;;
 	ha.cf)
 		txtdiff $1 $2;; # confdiff?
-	crm_mon.txt|sysinfo.txt)
+	$CRM_MON_F|$SYSINFO_F)
 		txtdiff $1 $2;;
 	esac
 }
@@ -445,13 +460,13 @@ analyze_one() {
 	return $rc
 }
 analyze() {
-	flist="hostcache ccm_tool.txt cib.xml crm_mon.txt ha.cf logd.cf sysinfo.txt"
+	flist="hostcache $CCMTOOL_F $CIB_F $CRM_MON_F ha.cf logd.cf $SYSINFO_F"
 	for f in $flist; do
 		perl -e "printf \"Diff $f... \""
 		ls $1/*/$f >/dev/null 2>&1 || continue
 		if analyze_one $1 $f; then
 			echo "OK"
-			[ "$f" != cib.xml ] &&
+			[ "$f" != $CIB_F ] &&
 				consolidate $1 $f
 		else
 			echo "varies"
@@ -491,14 +506,14 @@ Detailed description:
 
 EOF
 
-	if [ -f $DESTDIR/sysinfo.txt ]; then
+	if [ -f $DESTDIR/$SYSINFO_F ]; then
 		echo "Common system info found:"
-		cat $DESTDIR/sysinfo.txt
+		cat $DESTDIR/$SYSINFO_F
 	else
 		for n in `getnodes`; do
-			if [ -f $DESTDIR/$n/sysinfo.txt ]; then
+			if [ -f $DESTDIR/$n/$SYSINFO_F ]; then
 				echo "System info $n:"
-				sed 's/^/	/' $DESTDIR/$n/sysinfo.txt
+				sed 's/^/	/' $DESTDIR/$n/$SYSINFO_F
 			fi
 		done
 	fi
@@ -675,9 +690,9 @@ if [ -f "$HA_LOG" ]; then
 		fi
 		dumplog $HA_LOG $FROM_LINE $TO_LINE |
 		if [ "$THIS_IS_NODE" ]; then
-			cat > $DESTDIR/$WE/ha-log
+			cat > $DESTDIR/$WE/$HALOG_F
 		else
-			cat > $DESTDIR/ha-log # we are log server, probably
+			cat > $DESTDIR/$HALOG_F # we are log server, probably
 		fi
 	fi
 else
@@ -705,11 +720,11 @@ fi
 if [ "$THIS_IS_NODE" ]; then
 	getconfig $DESTDIR/$WE
 	getpeinputs $FROM_TIME $TO_TIME $DESTDIR/$WE
-	getbacktraces $FROM_TIME $TO_TIME $DESTDIR/$WE/backtraces.txt
+	getbacktraces $FROM_TIME $TO_TIME $DESTDIR/$WE/$BT_F
 	touch_DC_if_dc $DESTDIR/$WE
 	sanitize $DESTDIR/$WE
-	sys_info > $DESTDIR/$WE/sysinfo.txt
-	sys_stats > $DESTDIR/$WE/sysstats.txt 2>&1
+	sys_info > $DESTDIR/$WE/$SYSINFO_F
+	sys_stats > $DESTDIR/$WE/$SYSSTATS_F 2>&1
 
 	HA_SYSLOGMSGFMT=1 # extra logs are always syslog format
 	for l in $EXTRA_LOGS; do
@@ -731,12 +746,12 @@ if [ "$SLAVE" ]; then
 	(cd $DESTDIR && tar cf - $WE)
 else
 	wait $SLAVEPIDS
-	analyze $DESTDIR > $DESTDIR/analysis.txt
-	mktemplate > $DESTDIR/description.txt
+	analyze $DESTDIR > $DESTDIR/$ANALYSIS_F
+	mktemplate > $DESTDIR/$DESCRIPTION_F
 	[ "$NO_DESCRIPTION" ] || {
 		echo press enter to edit the problem description...
 		read junk
-		edittemplate $DESTDIR/description.txt
+		edittemplate $DESTDIR/$DESCRIPTION_F
 	}
 	cd $DESTDIR/..
 	tar czf $DESTDIR.tar.gz `basename $DESTDIR`
