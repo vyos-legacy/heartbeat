@@ -45,7 +45,7 @@ export LOGD_CF
 
 : ${SSH_OPTS="-T"}
 LOG_PATTERNS="CRIT: ERROR:"
-PEINPUTS_PATT="peng.*PEngine Input stored"
+# PEINPUTS_PATT="peng.*PEngine Input stored"
 
 # the goods
 ANALYSIS_F=analysis.txt
