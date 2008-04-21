@@ -75,7 +75,6 @@ findlogdcf() {
 }
 getlogvars() {
 	HA_LOGFACILITY=${HA_LOGFACILITY:-$DEFAULT_HA_LOGFACILITY}
-	HA_SYSLOGMSGFMT=""
 	if uselogd; then
 		[ -f "$LOGD_CF" ] ||
 			return  # no configuration: use defaults
@@ -89,8 +88,6 @@ getlogvars() {
 	[ none = "$HA_LOGFACILITY" ] && HA_LOGFACILITY=""
 	HA_LOGFILE=`getcfvar logfile`
 	HA_DEBUGFILE=`getcfvar debugfile`
-	iscfvartrue syslogmsgfmt &&
-		HA_SYSLOGMSGFMT=1
 	HA_CF=$savecf
 }
 findmsg() {
@@ -123,16 +120,33 @@ str2time() {
 	}
 	'
 }
-getstamp() {
-	if [ "$HA_SYSLOGMSGFMT" -o "$HA_LOGFACILITY" ]; then
-		awk '{print $1,$2,$3}'
-	else
-		awk '{print $2}' | sed 's/_/ /'
-	fi
+getstamp_syslog() {
+	awk '{print $1,$2,$3}'
+}
+getstamp_legacy() {
+	awk '{print $2}' | sed 's/_/ /'
 }
 linetime() {
-	l=`tail -n +$2 $1 | head -1 | getstamp`
+	l=`tail -n +$2 $1 | head -1 | $getstampproc`
 	str2time "$l"
+}
+find_getstampproc() {
+	t=0 l="" func=""
+	trycnt=10
+	while [ $trycnt -gt 0 ] && read l; do
+		t=$(str2time `echo $l | getstamp_syslog`)
+		if [ "$t" ]; then
+			func="getstamp_syslog"
+			break
+		fi
+		t=$(str2time `echo $l | getstamp_legacy`)
+		if [ "$t" ]; then
+			func="getstamp_legacy"
+			break
+		fi
+		trycnt=$((trycnt-1))
+	done
+	echo $func
 }
 findln_by_time() {
 	logf=$1
