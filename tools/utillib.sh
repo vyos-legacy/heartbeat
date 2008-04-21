@@ -144,7 +144,7 @@ find_getstampproc() {
 			func="getstamp_legacy"
 			break
 		fi
-		trycnt=$((trycnt-1))
+		trycnt=$(($trycnt-1))
 	done
 	echo $func
 }
@@ -154,23 +154,23 @@ findln_by_time() {
 	first=1
 	last=`wc -l < $logf`
 	while [ $first -le $last ]; do
-		mid=$(((last+first)/2))
+		mid=$((($last+$first)/2))
 		trycnt=10
 		while [ $trycnt -gt 0 ]; do
 			tmid=`linetime $logf $mid`
 			[ "$tmid" ] && break
 			warning "cannot extract time: $logf:$mid; will try the next one"
-			trycnt=$((trycnt-1))
-			mid=$((mid+1))
+			trycnt=$(($trycnt-1))
+			mid=$(($mid+1))
 		done
 		if [ -z "$tmid" ]; then
 			warning "giving up on log..."
 			return
 		fi
 		if [ $tmid -gt $tm ]; then
-			last=$((mid-1))
+			last=$(($mid-1))
 		elif [ $tmid -lt $tm ]; then
-			first=$((mid+1))
+			first=$(($mid+1))
 		else
 			break
 		fi
@@ -186,7 +186,7 @@ dumplog() {
 		return
 	tail -n +$from_line $logf |
 		if [ "$to_line" ]; then
-			head -$((to_line-from_line+1))
+			head -$(($to_line-$from_line+1))
 		else
 			cat
 		fi
@@ -262,7 +262,7 @@ iscrmrunning() {
 	maxwait=10
 	while kill -0 $pid 2>/dev/null && [ $maxwait -gt 0 ]; do
 		sleep 1
-		maxwait=$((maxwait-1))
+		maxwait=$(($maxwait-1))
 	done
 	if kill -0 $pid 2>/dev/null; then
 		kill $pid
