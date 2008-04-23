@@ -45,7 +45,7 @@ export LOGD_CF
 
 : ${SSH_OPTS="-T"}
 LOG_PATTERNS="CRIT: ERROR:"
-PEINPUTS_PATT="peng.*PEngine Input stored"
+# PEINPUTS_PATT="peng.*PEngine Input stored"
 
 # the goods
 ANALYSIS_F=analysis.txt
@@ -232,7 +232,7 @@ cts_findlogseg() {
 	else
 		FROM_TIME=`linetime $logf $FROM_LINE`
 	fi
-	TO_LINE=`grep -n "Running test.*\[$((testnum+1))\]" $logf | sed 's/:.*//'`
+	TO_LINE=`grep -n "Running test.*\[$(($testnum+1))\]" $logf | sed 's/:.*//'`
 	[ "$TO_LINE" ] ||
 		TO_LINE=`wc -l < $logf`
 	TO_TIME=`linetime $logf $TO_LINE`
@@ -302,20 +302,8 @@ getbacktraces() {
 		getbt $flist > $3
 }
 getpeinputs() {
-	if [ "$HA_LOGFACILITY" ]; then
-		n=`basename $3`
-		patt=" $n $PEINPUTS_PATT"
-	else
-		patt="$PEINPUTS_PATT"
-	fi
 	flist=$(
-	if [ -f $3/$HALOG_F ]; then
-		grep "$patt" $3/$HALOG_F | awk '{print $NF}'
-	elif [ -f $3/../$HALOG_F ]; then # central log
-		grep "$patt" $3/../$HALOG_F | awk '{print $NF}'
-	else
-		find_files $HA_VARLIB/pengine $1 $2
-	fi | sed "s,$HA_VARLIB/,,g"
+		find_files $HA_VARLIB/pengine $1 $2 | sed "s,$HA_VARLIB/,,g"
 	)
 	[ "$flist" ] &&
 		(cd $HA_VARLIB && tar cf - $flist) | (cd $3 && tar xf -)
@@ -683,16 +671,22 @@ if [ -f "$HA_LOG" ]; then
 		warning "a log found; but we cannot slice it"
 		warning "please install the perl Date::Parse module"
 	else
-		if [ "$CTS" ]; then
-			cts_findlogseg $HA_LOG $CTS
+		getstampproc=`find_getstampproc < $HA_LOG`
+		if [ "$getstampproc" ]; then
+			export getstampproc # used by linetime
+			if [ "$CTS" ]; then
+				cts_findlogseg $HA_LOG $CTS
+			else
+				findlogseg $HA_LOG $FROM_TIME $TO_TIME
+			fi
+			dumplog $HA_LOG $FROM_LINE $TO_LINE |
+			if [ "$THIS_IS_NODE" ]; then
+				cat > $DESTDIR/$WE/$HALOG_F
+			else
+				cat > $DESTDIR/$HALOG_F # we are log server, probably
+			fi
 		else
-			findlogseg $HA_LOG $FROM_TIME $TO_TIME
-		fi
-		dumplog $HA_LOG $FROM_LINE $TO_LINE |
-		if [ "$THIS_IS_NODE" ]; then
-			cat > $DESTDIR/$WE/$HALOG_F
-		else
-			cat > $DESTDIR/$HALOG_F # we are log server, probably
+			warning "could not figure out the log format of $HA_LOG"
 		fi
 	fi
 else
@@ -726,12 +720,16 @@ if [ "$THIS_IS_NODE" ]; then
 	sys_info > $DESTDIR/$WE/$SYSINFO_F
 	sys_stats > $DESTDIR/$WE/$SYSSTATS_F 2>&1
 
-	HA_SYSLOGMSGFMT=1 # extra logs are always syslog format
 	for l in $EXTRA_LOGS; do
 		[ "$NO_str2time" ] && break
-		if [ "$l" != "$HA_LOG" -a -f "$l" ]; then
+		[ "$l" = "$HA_LOG" -o ! -f "$l" ] && continue
+		getstampproc=`find_getstampproc < $l`
+		if [ "$getstampproc" ]; then
+			export getstampproc # used by linetime
 			findlogseg $l $FROM_TIME $TO_TIME
 			dumplog $l $FROM_LINE $TO_LINE > $DESTDIR/$WE/`basename $l`
+		else
+			warning "could not figure out the log format of $l"
 		fi
 	done
 fi

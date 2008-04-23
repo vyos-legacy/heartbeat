@@ -314,6 +314,7 @@ get_resource_meta(const char* rsc_type, const char* provider)
 
 	file = popen(ra_pathname, "r");
 	if (NULL==file) {
+		cl_log(LOG_ERR, "%s: popen failed: %s", __FUNCTION__, strerror(errno));
 		return NULL;
 	}
 
@@ -328,8 +329,11 @@ get_resource_meta(const char* rsc_type, const char* provider)
 			nanosleep(&short_sleep,NULL);
 		}
 	}
+	if( pclose(file) ) {
+		cl_log(LOG_ERR, "%s: pclose failed: %s", __FUNCTION__, strerror(errno));
+	}
 	if (0 == g_str_tmp->len) {
-		pclose(file);
+		g_string_free(g_str_tmp, TRUE);
 		return NULL;
 	}
 	data = (char*)g_new(char, g_str_tmp->len+1);
@@ -338,7 +342,6 @@ get_resource_meta(const char* rsc_type, const char* provider)
 
 	g_string_free(g_str_tmp, TRUE);
 	
-	pclose(file);
 	return data;
 }
 
