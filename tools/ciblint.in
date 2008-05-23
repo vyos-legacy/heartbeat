@@ -86,6 +86,7 @@ It currently looks for a number of classes of possible errors, including these:
   - note what resources are running where
   - Ensure that <clone> and <master_slave> tags have exactly one child resource
   - warn about infinity used as a score in rsc_location statements
+  - warn about rsc_colocation without corresponding rsc_order
 
 More documentation can be found online at http://linux-ha.org/ciblint
 '''
@@ -1208,9 +1209,7 @@ AttributeKeys = {
 			"from": (ResourceMetadataType,1),
                         "to": (ResourceMetadataType,1),
 			"action":(LrmOpMetadataType,0),
-                        "to_action":(LrmOpMetadataType,0),
-			"score":(ScoreMetadataType,0),
-                        "symmetrical":(BooleanOpMetadataType,0)},
+                        "to_action":(LrmOpMetadataType,0)},
 
 	"rsc_location":	{"id": (StringMetadataType,1),
 			"rsc": (ResourceMetadataType,1),
@@ -1640,7 +1639,7 @@ class OperationsTag(UserDict):
         self=None
         return
 
-global AllPrimitives, AllGroups, AllMasterSlave, AllClones
+global AllPrimitives, AllGroups, AllMasterSlave, AllClones, AllRscOrders, AllRscFromOrders, AllRscToOrders
 global AllResourceLocations, AllResourceCoLocations
 AllPrimitives = {}
 AllGroups = {}
@@ -1649,6 +1648,9 @@ AllClones = {}
 AllResources = {}
 AllResourceLocations = []
 AllResourceCoLocations = []
+AllResourceRscOrders = []
+AllResourceRscFromOrders = {}
+AllResourceRscToOrders = {}
 
 #
 # Base class for all of our Resource Types (PrimitiveTag, GroupTag, etc.)
@@ -1787,6 +1789,9 @@ class GroupTag(ResourceType):
         self.childrscs.append(PrimitiveTag(child, inclone=0, parent=self, ingroup=1))
       elif child.tagName == "meta_attributes":
         self._process_meta_attributes(child)
+      elif child.tagName == "instance_attributes":
+        print "WARNING: <group> has <instance_attributes> (should be <meta_attributes>)"
+        self._process_meta_attributes(child)
       else:
         print "ERROR: Don't know how to deal with funky child of <%s>" % xmlnode.tagName
         print "Funky child: " + node2str(child)
@@ -1899,6 +1904,39 @@ class ResourceCoLocationTag:
 
 
 #
+# A class for processing the <rsc_order> tag
+#
+class ResourceOrderTag:
+  def __init__(self, xmlnode):
+    CheckXMLNodeUniqueness(xmlnode)
+    self.rules = []
+    self.name = xmlnode.getAttribute("id")
+    self.fromid = xmlnode.getAttribute("from")
+    self.toid = xmlnode.getAttribute("to")
+    self.action = xmlnode.getAttribute("action")
+    self.to_action = xmlnode.getAttribute("to_action")
+    if not AllResources.has_key(self.fromid):
+      print "ERROR: <rsc_order id=\"%s\"...>: no such resource [%s]" \
+      %		(self.name, self.fromid)
+    elif self.action != "" and not AllMasterSlave.has_key(self.fromid):
+      print ("ERROR: Resource %s must be a master slave" + \
+             " to have specified action %s") % (self.fromid, self.action)
+    if not AllResources.has_key(self.toid):
+      print "ERROR: <rsc_order id=\"%s\"...>: no such resource [%s]" \
+      %		(self.name, self.toid)
+    elif self.to_action != "" and not AllMasterSlave.has_key(self.fromid):
+      print ("ERROR: Resource %s must be a master slave" + \
+             " to have specified action %s") % (self.toid, self.to_action)
+    if self.action != "" and self.to_action != "":
+      print "ERROR: cannot specify both action and to_action in the same <rsc_order> tag"
+    AllResourceRscOrders.append(self)
+    if not AllResourceRscFromOrders.has_key(self.fromid):
+      AllResourceRscFromOrders[self.fromid] = []
+    AllResourceRscFromOrders[self.fromid].append(self)
+    if not AllResourceRscFromOrders.has_key(self.toid):
+      AllResourceRscFromOrders[self.toid] = []
+    AllResourceRscFromOrders[self.toid].append(self)
+#
 # A class for processing the <rsc_location> tag
 #
 class ResourceLocationTag:
@@ -1909,7 +1947,7 @@ class ResourceLocationTag:
     self.rsc = xmlnode.getAttribute("rsc")
     if not AllResources.has_key(self.rsc):
       print "ERROR: <rsc_location id=\"%s\"...>: no such resource [%s]" \
-      %		(self.rsc, self.rsc)
+      %		(self.name, self.rsc)
 
     for child in xmlnode.childNodes:
       if child.nodeType != child.ELEMENT_NODE:
@@ -2271,6 +2309,8 @@ def descend(xmlnode):
       return ResourceLocationTag(xmlnode)
     if xmlnode.tagName == "rsc_colocation":
       return ResourceCoLocationTag(xmlnode)
+    if xmlnode.tagName == "rsc_order":
+      return ResourceOrderTag(xmlnode)
     #print "Element: " + xmlnode.tagName
     #mymap = xmlnode.attributes
     #if mymap != None:
@@ -2341,6 +2381,29 @@ def analyze_op_status():
       #  opstat=ResourceNodeOperationStatuses[r][cn][id]
       #  print "node: %s Op Status: %s" % (cn, opstat)
 
+def analyze_colocations():
+  for colo in AllResourceCoLocations:
+    foundit=0
+    if AllResourceRscFromOrders.has_key(colo.fromid):
+      frlist= AllResourceRscFromOrders[colo.fromid]
+      for order in frlist:
+        if order.toid == colo.toid:
+          foundit=1
+          break
+    if not foundit and AllResourceRscFromOrders.has_key(colo.toid):
+      tolist= AllResourceRscFromOrders[colo.toid]
+      for order in tolist:
+        if order.fromid == colo.toid:
+          foundit=1
+          break
+    if not foundit:
+      print ("WARNING: Specifying <rsc_colocation> between \"%s\" and \"%s\"" \
+	+ " without specifying corresponding <rsc_order> is not common.") \
+	% (colo.fromid, colo.toid)
+     
+AllResourceRscFromOrders = {}
+AllResourceRscToOrders = {}
+
 def analyze_CIB(doc):
   global crmMetadata
   global MetaAttributeMetadata
@@ -2374,6 +2437,7 @@ def analyze_CIB(doc):
   if stonithwarn:
     URLinfo("stonith")
     crm_config_url(stonithtag)
+  analyze_colocations()
   look_for_failcounts()
   analyze_op_status()
 
