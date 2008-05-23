@@ -85,6 +85,7 @@ It currently looks for a number of classes of possible errors, including these:
   - warn about resources not running anywhere
   - note what resources are running where
   - Ensure that <clone> and <master_slave> tags have exactly one child resource
+  - warn about infinity used as a score in rsc_location statements
 
 More documentation can be found online at http://linux-ha.org/ciblint
 '''
@@ -2017,7 +2018,7 @@ class RuleTag(EvalExpress):
   def __init__(self, xmlnode):
     EvalExpress.__init__(self, xmlnode)
     self.expressions= []
-    self.score = xmlnode.getAttribute("score")
+    self.score = string.lower(xmlnode.getAttribute("score"))
     self.score_attribute = xmlnode.getAttribute("score_attribute")
     self.boolean_op = xmlnode.getAttribute("boolean_op")
     if self.score != "" and self.score_attribute != "":
@@ -2025,7 +2026,9 @@ class RuleTag(EvalExpress):
     if self.score_attribute != "" and not GlobalAttributeNames.has_key(self.score_attribute):
       print "WARNING: score_attribute [%s] does not seem to be defined anywhere in the cluster."\
       %		self.score_attribute
-   
+    if self.score == "infinity" or self.score == "+infinity":
+        print "WARNING: <rule> score of \"%s\" probably not what you want because of common side effects."\
+	%	self.score
     for child in xmlnode.childNodes:
       if child.nodeType != child.ELEMENT_NODE:
         continue
