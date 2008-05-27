@@ -2971,7 +2971,7 @@ sub check_sip
 		"Max-Forwards: 70\r\n" .
 		"To: <sip:" . $$v{login} . ">\r\n" .
 		"From: <sip:" . $$v{login} . ">;tag=1928301774\r\n" .
-		"Call-ID: a84b4c76e66710\r\n" .
+		"Call-ID: " . (join "", map { unpack "H*", chr(rand(256)) } 1..8) . "\r\n" .
 		"CSeq: 63104 OPTIONS\r\n" .
 		"Contact: <sip:" . $$v{login} . ">\r\n" .
 		"Accept: application/sdp\r\n" .
