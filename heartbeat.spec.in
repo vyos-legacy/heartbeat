@@ -454,7 +454,6 @@ make DESTDIR=$RPM_BUILD_ROOT install
 %{libdir}/libplumb.so.*
 %{libdir}/libplumbgpl.so.*
 %{libdir}/librecoverymgr.so.*
-%{libdir}/libstonithd.so.*
 %{HA_NOARCHDATAHBDIR}
 %{OCF_ROOT_DIR}
 %exclude %{OCF_RA_DIR}/heartbeat/ldirectord
@@ -544,7 +543,6 @@ make DESTDIR=$RPM_BUILD_ROOT install
 %{libdir}/libplumb.so
 %{libdir}/libplumbgpl.so
 %{libdir}/librecoverymgr.so
-%{libdir}/libstonithd.so
 %exclude %{libdir}/libapphb.la
 %exclude %{libdir}/libccmclient.la
 %exclude %{libdir}/libclm.la
@@ -553,7 +551,6 @@ make DESTDIR=$RPM_BUILD_ROOT install
 %exclude %{libdir}/libplumb.la
 %exclude %{libdir}/libplumbgpl.la
 %exclude %{libdir}/librecoverymgr.la
-%exclude %{libdir}/libstonithd.la
 %exclude %{libdir}/libapphb.a
 %exclude %{libdir}/libccmclient.a
 %exclude %{libdir}/libclm.a
@@ -601,7 +598,7 @@ rm -rf $RPM_BUILD_DIR/%{HB_PKG}-%{HB_VERSION}
 ###########################################################
 # We made some directories into symlinks
 # RPM won't update them correctly
-for j in %{HA_LIBHBDIR}/cts %{HA_LIBHBDIR}/lrmtest %{HA_LIBHBDIR}/stonithdtest
+for j in %{HA_LIBHBDIR}/cts %{HA_LIBHBDIR}/lrmtest
 do test -d $j &&  rm -fr $j; done
 #
 #	This isn't perfect.  But getting every distribution
