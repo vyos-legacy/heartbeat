@@ -559,7 +559,6 @@ make DESTDIR=$RPM_BUILD_ROOT install
 %exclude %{libdir}/libplumb.a
 %exclude %{libdir}/libplumbgpl.a
 %exclude %{libdir}/librecoverymgr.a
-%exclude %{libdir}/libstonithd.a
 
 ###########################################################
 # Files for the stonith library
