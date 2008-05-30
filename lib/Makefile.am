@@ -37,7 +37,6 @@ SUBDIRS			=  	\
 	hbclient		\
 	apphb			\
 	recoverymgr		\
-	fencing			\
 	plugins 		\
 	$(CRM_DIR)		\
 	lrm			\
