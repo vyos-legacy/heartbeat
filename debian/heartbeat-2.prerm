@@ -23,7 +23,6 @@ rm -f /usr/lib/heartbeat/cts/CTStests.pyc
 rm -f /usr/lib/heartbeat/cts/OCFIPraTest.pyc
 rm -f /usr/lib/heartbeat/cts/extracttests.pyc
 rm -f /usr/lib/heartbeat/haclient.pyc
-rm -f /usr/lib/heartbeat/haresources2cib.pyc
 rm -f /usr/lib/heartbeat/mgmtcmd.pyc
 rm -f /usr/lib/heartbeat/pymgmt.pyc
 rm -f /usr/lib/stonith/plugins/stonith2/ribcl.pyc
