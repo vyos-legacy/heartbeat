@@ -30,11 +30,6 @@ echo "$PROGDIR" | grep -qs '^/' || {
 		PROGDIR=$HA_NOARCHBIN
 }
 
-# logs to collect in addition
-# NB: they all have to be in syslog format
-#
-EXTRA_LOGS="/var/log/messages"
-
 # the default syslog facility is not (yet) exported by heartbeat
 # to shell scripts
 #
@@ -71,13 +66,15 @@ fi
 
 usage() {
 	cat<<EOF
-usage: hb_report -f {time|"cts:"testnum} [-t time] [-u user] [-l file] [-p patt]
-       [-L patt] [-e prog] [-SDC] dest
+usage: hb_report -f {time|"cts:"testnum} [-t time] [-u user] [-l file]
+       [-E files] [-p patt] [-L patt] [-e prog] [-MSDC] dest
 
 	-f time: time to start from or a CTS test number
 	-t time: time to finish at (dflt: now)
 	-u user: ssh user to access other nodes (dflt: empty, hacluster, root)
 	-l file: log file
+	-E file: extra logs to collect; this option is additive
+	         (dflt: /var/log/messages)
 	-p patt: regular expression to match variables to be removed;
 	         this option is additive (dflt: "passw.*")
 	-L patt: regular expression to match in log files for analysis;
@@ -101,6 +98,9 @@ EOF
 	  preferred
 	. we try to figure where is the logfile; if we can't, please
 	  clue us in
+	. we collect only one logfile and /var/log/messages; if you
+	  have more than one logfile, then use '-E' option to supply
+	  as many as you want ('-M' empties the list)
 
 	Examples
 
@@ -137,6 +137,10 @@ setvarsanddefaults() {
 	UNIQUE_MSG="Mark:HB_REPORT:$now"
 	SANITIZE="passw.*"
 	REMOVE_DEST=""
+	# logs to collect in addition
+	# NB: they all have to be in syslog format
+	#
+	EXTRA_LOGS="/var/log/messages"
 	# used only by the master
 	NO_SSH=""
 	SSH_USER=""
@@ -251,6 +255,7 @@ MASTER_IS_HOSTLOG=$MASTER_IS_HOSTLOG
 DESTDIR=$DESTDIR
 UNIQUE_MSG=$UNIQUE_MSG
 SANITIZE="$SANITIZE"
+EXTRA_LOGS="$EXTRA_LOGS"
 REMOVE_DEST="$REMOVE_DEST"
 EOF
 }
@@ -383,7 +388,8 @@ checkbacktraces() {
 	done
 }
 checklogs() {
-	logs=`find $1 -name $HALOG_F`
+	logs=$(find $1 -name $HALOG_F;
+		for l in $EXTRA_LOGS; do find $1/* -name `basename $l`; done)
 	[ "$logs" ] || return
 	pattfile=`maketempfile` ||
 		fatal "cannot create temporary files"
@@ -555,7 +561,7 @@ getlogvars
 if [ "$SLAVE" = "" ]; then
 	setvarsanddefaults
 	userargs="$@"
-	while getopts f:t:l:u:p:L:e:MSDCh o; do
+	while getopts f:t:l:u:p:L:e:E:MSDCh o; do
 		case "$o" in
 			h) usage;;
 			f)
@@ -579,6 +585,7 @@ if [ "$SLAVE" = "" ]; then
 			D) NO_DESCRIPTION=1;;
 			C) REMOVE_DEST=1;;
 			M) EXTRA_LOGS="";;
+			E) EXTRA_LOGS="$EXTRA_LOGS $OPTARG";;
 			[?]) usage short;;
 		esac
 	done
