@@ -55,6 +55,8 @@ static int read_pipe(int fd, char ** data, gpointer user_data);
 static gboolean handle_pipe_ra_stdout(int fd, gpointer user_data);
 static gboolean handle_pipe_ra_stderr(int fd, gpointer user_data);
 static struct ha_msg* op_to_msg(lrmd_op_t* op);
+static int store_timestamps(lrmd_op_t* op);
+static void reset_timestamps(lrmd_op_t* op);
 static gboolean lrm_shutdown(void);
 static gboolean can_shutdown(void);
 static gboolean free_str_hash_pair(gpointer key
@@ -63,7 +65,9 @@ static gboolean free_str_op_pair(gpointer key
 ,	 gpointer value, gpointer user_data);
 static lrmd_op_t* lrmd_op_copy(const lrmd_op_t* op);
 static void send_last_op(gpointer key, gpointer value, gpointer user_data);
-static void record_op_completion(lrmd_client_t* client, lrmd_rsc_t* rsc, lrmd_op_t* op);
+static void replace_last_op(lrmd_client_t* client, lrmd_rsc_t* rsc, lrmd_op_t* op);
+static void record_op_completion(lrmd_rsc_t* rsc, lrmd_op_t* op);
+static void to_repeatlist(lrmd_rsc_t* rsc, lrmd_op_t* op);
 static void remove_op_history(lrmd_op_t* op);
 static void hash_to_str(GHashTable * , GString *);
 static void hash_to_str_foreach(gpointer key, gpointer value, gpointer userdata);
