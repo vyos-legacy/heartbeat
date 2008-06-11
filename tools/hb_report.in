@@ -334,6 +334,7 @@ sys_info() {
 }
 sys_stats() {
 	set -x
+	uname -n
 	uptime
 	ps axf
 	ps auxw
