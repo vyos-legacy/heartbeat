@@ -338,6 +338,7 @@ sys_stats() {
 	ps axf
 	ps auxw
 	top -b -n 1
+	ifconfig
 	netstat -i
 	arp -an
 	set +x
