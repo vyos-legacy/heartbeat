@@ -342,6 +342,12 @@ sys_stats() {
 	ifconfig
 	netstat -i
 	arp -an
+	test -d /proc && {
+		cat /proc/cpuinfo
+		test -f /proc/scsi/scsi && cat /proc/scsi/scsi
+	}
+	mount
+	df
 	set +x
 }
 
