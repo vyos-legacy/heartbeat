@@ -3757,7 +3757,10 @@ sub check_cfgfile
 	$stattime = $mtime;
 	use Digest::MD5 qw(md5 md5_hex);
 	my $ctx = Digest::MD5->new;
-	open(CFGFILE, "<$CONFIG") || &config_error(0, "can not open file $CONFIG");
+	unless (open(CFGFILE, "<$CONFIG")) {
+		&config_warn(0, "can not open file $CONFIG for checking");
+		return 0;
+	}
 	$ctx->addfile(*CFGFILE);
 	close(CFGFILE);
 	my $digest = $ctx->hexdigest;
