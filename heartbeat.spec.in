@@ -625,9 +625,14 @@ then
 else
   USEROPT="-g %{HA_APIGROUP} -u %{HA_CCMUID} -d %{HA_COREDIR}/%{HA_CCMUSER}"
   if
-    /usr/sbin/useradd $USEROPT %{HA_CCMUSER} 2>/dev/null \
-    || /usr/sbin/useradd -M $USEROPT %{HA_CCMUSER} 2>/dev/null
-    # -M to suppress creation of home directory on Red Hat
+    # try with -M first to suppress the creation of the home explicitly
+    # retry without -M for an old useradd which may not recognize the option
+    #
+    # Newer version of useradd tries to create the home by default depending
+    # on its configuration, and returns an error about creating the home
+    # even if the user was added correctly when -M was not specified.
+    /usr/sbin/useradd -M $USEROPT %{HA_CCMUSER} 2>/dev/null \
+    || /usr/sbin/useradd $USEROPT %{HA_CCMUSER} 2>/dev/null
   then
     : OK we were able to add user %{HA_CCMUSER}
   else
