@@ -81,6 +81,7 @@ add_control_msg_fields(struct ha_msg* ret)
 	int		noseqno;
 	const char *	to;
 	cl_uuid_t	touuid;
+	char uuidstr[UU_UNPARSE_SIZEOF];
 	
 
 	/* if F_TO field is present
@@ -104,7 +105,9 @@ add_control_msg_fields(struct ha_msg* ret)
 				ha_log(LOG_WARNING, " adding field to message failed");
 			}
 		}else {
-			ha_log(LOG_WARNING, " nodename not found for uuid");
+			memset(uuidstr,0,UU_UNPARSE_SIZEOF);
+			cl_uuid_unparse(&touuid, uuidstr);
+			ha_log(LOG_WARNING,"nodename not found for uuid %s",uuidstr);
 		}
 	}
 	
