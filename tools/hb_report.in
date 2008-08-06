@@ -229,14 +229,14 @@ cts_findlogseg() {
 	logf=$1
 	testnum=$2
 
-	FROM_LINE=`grep -n "Running test.*\[$testnum\]" $logf | sed 's/:.*//'`
+	FROM_LINE=`grep -n "Running test.*\[$testnum\]" $logf | tail -1 | sed 's/:.*//'`
 	if [ -z "$FROM_LINE" ]; then
 		warning "couldn't find line for CTS test $testnum; corrupt log file?"
 		return
 	else
 		FROM_TIME=`linetime $logf $FROM_LINE`
 	fi
-	TO_LINE=`grep -n "Running test.*\[$(($testnum+1))\]" $logf | sed 's/:.*//'`
+	TO_LINE=`grep -n "Running test.*\[$(($testnum+1))\]" $logf | tail -1 | sed 's/:.*//'`
 	[ "$TO_LINE" ] ||
 		TO_LINE=`wc -l < $logf`
 	TO_TIME=`linetime $logf $TO_LINE`

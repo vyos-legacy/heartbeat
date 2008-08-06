@@ -27,7 +27,7 @@
 
 LRMD=@libdir@/heartbeat/lrmd
 LRMADMIN=@libdir@/heartbeat/lrmadmin
-METADATA_LINT="xmllint --noout --path @HA_NOARCHDATAHBDIR@ --valid -"
+METADATA_LINT="xmllint --noout --valid -"
 
 num_errors=0
 
@@ -172,7 +172,7 @@ test_permissions() {
     if [ $verbose -ne 0 ]; then
     	echo $msg
     fi
-    su nobody $agent $action > /dev/null
+    su nobody -s /bin/sh $agent $action > /dev/null
 }
 
 test_metadata() {
@@ -181,7 +181,7 @@ test_metadata() {
     if [ $verbose -ne 0 ]; then
     	echo $msg
     fi
-    bash $agent $action | $METADATA_LINT
+    bash $agent $action | (cd @HA_NOARCHDATAHBDIR@ && $METADATA_LINT)
     rc=$?
     #echo rc: $rc
     return $rc
