@@ -41,7 +41,7 @@ heartbeat (2.1.3-7) unstable; urgency=low
     Upstream-Status: commit 597cfd99deee5128d77022c53112dfc1f8686889
                      "Low: Cope with empty $RANDOM"
 
-  * Update to use quilt for patching, which is supported by dpkg
+  * Update series to allow using the "3.0 (quilt)" package format
     Thanks to Raphael Hertzog
     Upstream-Status: commit 70e9df3f594d73efe4336c9f74a689d6955abac8
                      "Debian: Use quilt for patching which is supported by dpkg"
