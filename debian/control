@@ -24,7 +24,7 @@ Package: heartbeat
 Section: admin
 Priority: optional
 Architecture: any
-Depends: ${shlibs:Depends}, ${python:Depends}, iproute, adduser, iputils-ping, psmisc, gawk, libxml2-utils, libpam-runtime (>= 0.76-14)
+Depends: ${shlibs:Depends}, ${python:Depends}, iproute, adduser, iputils-ping, psmisc, gawk, libxml2-utils, libpam-runtime (>= 0.76-14), uuid-runtime
 Recommends: rsyslog | system-log-daemon, logrotate, iptables
 XB-Python-Version: ${python:Versions}
 Description: Subsystem for High-Availability Linux
