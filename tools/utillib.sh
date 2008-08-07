@@ -203,6 +203,12 @@ touchfile() {
 	perl -e "\$file=\"$t\"; \$tm=$1;" -e 'utime $tm, $tm, $file;' &&
 	echo $t
 }
+find_files_clean() {
+	[ -z "$to_stamp" ] || rmtempfile "$to_stamp"
+	to_stamp=""
+	[ -z "$from_stamp" ] || rmtempfile "$from_stamp"
+	from_stamp=""
+}
 find_files() {
 	dir=$1
 	from_time=$2
@@ -211,14 +217,24 @@ find_files() {
 		warning "sorry, can't find files based on time if you don't supply time"
 		return
 	}
-	from_stamp=`touchfile $from_time`
+	trap find_files_clean 0
+	if ! from_stamp=`touchfile $from_time`; then
+		warning "sorry, can't create temoary file for find_files"
+		return
+	fi
 	findexp="-newer $from_stamp"
 	if isnumber "$to_time" && [ "$to_time" -gt 0 ]; then
-		to_stamp=`touchfile $to_time`
+		if ! to_stamp=`touchfile $to_time`; then
+			warning "sorry, can't create temoary file for" \
+				"find_files"
+			find_files_clean
+			return
+		fi
 		findexp="$findexp ! -newer $to_stamp"
 	fi
 	find $dir -type f $findexp
-	rm -f $from_stamp $to_stamp
+	find_files_clean
+	trap "" 0
 }
 
 #
@@ -311,6 +327,12 @@ sanitize_hacf() {
 	{print}
 	'
 }
+sanitize_one_clean() {
+	[ -z "$tmp" ] || rmtempfile "$tmp"
+	tmp=""
+	[ -z "$ref" ] || rmtempfile "$ref"
+	ref=""
+}
 sanitize_one() {
 	file=$1
 	compress=""
@@ -322,8 +344,13 @@ sanitize_one() {
 		compress=cat
 		decompress=cat
 	fi
-	tmp=`maketempfile` && ref=`maketempfile` ||
+	trap sanitize_one_clean 0
+	tmp=`maketempfile`
+	ref=`maketempfile`
+	if [ -z "$tmp" -o -z "$ref" ]; then
+		sanitize_one_clean
 		fatal "cannot create temporary files"
+	fi
 	touch -r $file $ref  # save the mtime
 	if [ "`basename $file`" = ha.cf ]; then
 		sanitize_hacf
@@ -331,8 +358,10 @@ sanitize_one() {
 		$decompress | sanitize_xml_attrs | $compress
 	fi < $file > $tmp
 	mv $tmp $file
+	tmp=""
 	touch -r $ref $file
-	rm -f $ref
+	sanitize_one_clean
+	trap "" 0
 }
 
 #

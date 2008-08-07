@@ -399,6 +399,7 @@ checklogs() {
 	logs=$(find $1 -name $HALOG_F;
 		for l in $EXTRA_LOGS; do find $1/* -name `basename $l`; done)
 	[ "$logs" ] || return
+	trap '[ -z "$patfiles" ] || rmtempfile "$patfiles"]' 0
 	pattfile=`maketempfile` ||
 		fatal "cannot create temporary files"
 	for p in $LOG_PATTERNS; do
@@ -409,7 +410,8 @@ checklogs() {
 	for n in `getnodes`; do
 		cat $logs | grep -f $pattfile
 	done
-	rm -f $pattfile
+	rmtempfile $patfiles
+	trap "" 0
 }
 
 #
