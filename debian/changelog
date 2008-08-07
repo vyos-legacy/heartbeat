@@ -1,12 +1,77 @@
 heartbeat (2.2.0-1) unstable; urgency=low
 
   * New Upstream
-  * Remove some bashisms from the Xen and Filesystem OCF resources
+
+ -- Simon Horman <horms@debian.org>  Thu, 07 Aug 2008 13:17:02 +1000
+
+heartbeat (2.1.3-7) unstable; urgency=low
+
+  * Remove some bashisms from ocf, xen and filesystem plugins
+    Thanks to Luca Falavigna
+    Patch: remove-some-bashisms-from-the-ocf-xen-and-filesystem-plugins.patch
     Upstream-Status: commit 055ffbfe69b2b3810f9c71c491c30684fd67b669
-    Thanks to Luca Falavigna <dktrkranz@ubuntu.com>
+                     "Remove some Bashisms from the OCF Xen and Filesystem
+                      resources"
+
+    Note that upstream commit ed0972c7aa43699ae2ec31f68cac3b9cbcc5d5c5
+    "removing bashisms from stonith external plugins"
+    is not required as it applies to changes made after 2.1.3. At this
+    point no post-2.1.3 packages have been made available in Debian.
+
     (closes: #487167)
 
- -- Simon Horman <horms@debian.org>  Tue, 01 Jul 2008 20:54:48 +1000
+  * Remove some bashisms from STONITHBasicSanityCheck and BasicSanityCheck
+    Patch: remove-bashisms-from-STONITHDBasicSanityCheck.patch
+    Upstream-Status: submitted to pocemaker mailing list
+                     as this code has move from heartbeat to pacemaker
+    Patch: use-mktemp.patch
+    Upstream-Status: commit 82e3625e0198af52eb22ef8a42cebf5050ab69e3
+                     "Medium: safely create tempoary files"
+    (closes: #489607)
+
+  * dopd: fix basic failover; fix hb message corruption by fprintf(stderr)
+    Patch: fix-basic-failover-fix-hb-message-corruption-by-fprintf.patch
+    Upstream-Status: commit 47f60bebe7b25abd88ea7b5488e66dfe187416ae
+                     "dopd: fix basic failover; fix hb message corruption by
+                      fprintf(stderr)"
+    (closes: #486071)
+
+  * safely handle $RANDOM being empty, as the case under dash
+    Patch: cope-with-empty-random.patch
+    Upstream-Status: commit 597cfd99deee5128d77022c53112dfc1f8686889
+                     "Low: Cope with empty $RANDOM"
+
+  * Update to use quilt for patching, which is supported by dpkg
+    Thanks to Raphael Hertzog
+    Upstream-Status: commit 70e9df3f594d73efe4336c9f74a689d6955abac8
+                     "Debian: Use quilt for patching which is supported by dpkg"
+    (closes: #485103)
+
+  * Add build dependancy on uuid-runtime
+    Thanks to Joshua Hutchins
+    Upstream-Status: commit 597cfd99deee5128d77022c53112dfc1f8686889
+                     "Medium: Debian: Build dependancy on uuid-runtime"
+    (closes: #484868)
+
+ -- Simon Horman <horms@debian.org>  Thu, 07 Aug 2008 00:55:37 +0000
+
+heartbeat (2.1.3-6) unstable; urgency=low
+
+  * Run confgure before clean in debian/rules to handle the
+    bizzare case where targets exist but Makefiles don't -
+    This is actually the case in 2.1.3-5, I'm not sure when or
+    how this occured.
+    
+    Thanks to Andrew Suffield for pointing this out
+
+    (closes: #476700)
+
+  * Recompile using a version of debhelper that doesn't feature
+    a bug whereby manpages aren't compressed.
+
+    (closes: #475667)
+
+ -- Simon Horman <horms@debian.org>  Wed, 23 Apr 2008 05:18:45 +0000
 
 heartbeat (2.1.3-5) unstable; urgency=high
 
@@ -31,13 +96,27 @@ heartbeat (2.1.3-3) unstable; urgency=low
   * Updated syslog related recommends
     ldirectord: from: sysklogd | syslog-ng
                 to:   rsyslog | system-log-daemon
-		(closes: #464011)
+    (closes: #464011)
     heartbeat:  from: sysklogd | syslog-ng | system-log-daemon
                 to:   rsyslog | system-log-daemon
   * Remove bashisms in ocf-tester, hb_report and heartbeat's init script
+    Upstream-Status: commit 2b3a34dc4257b65761f1ba021623d59f15944ae5
     (closes: #464985)
+  * ldirectord: allow sql select checks to work
+    Thanks to Geoff Harrison
+    Upstream-Staus: commit eaa43842608caf75552e9f755c91e35b7a2ff6d1
+    Patch: bashisms.patch
+  * ldirectord: clear memory config on reload
+    Thanks to Geoff Harrison
+    Upstream-Status: c01c9790d2b83f493a4aa5f86e1a5b1233d7daa2
+    Patch: ldirectord-clear-config-in-memory-on-reload.patch
+  * lrm: Don't list complted opperations as failed
+    Linux Foundation Bug #1822
+    http://developerbugs.linux-foundation.org/show_bug.cgi?id=1833
+    Upstream-Status: Pending
+    Patch: lrm-dont-revise-op_status.patch
 
- -- Simon Horman <horms@debian.org>  Fri, 15 Feb 2008 18:29:18 +0900
+ -- Simon Horman <horms@debian.org>  Mon, 18 Feb 2008 12:37:47 +0900
 
 heartbeat (2.1.3-2) unstable; urgency=low
 

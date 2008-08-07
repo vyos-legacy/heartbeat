@@ -32,12 +32,6 @@ DTMP:=`pwd`/debian/tmp
 RELEASE := $(shell dpkg-parsechangelog | awk '/^Version: / { print $$2 }')
 UPSTREAM := $(shell echo "$(RELEASE)" | sed 's/:\?\([0-9\.]\+\)-[0-9].*/\1/')
 
-patch:
-	override_version=$(RELEASE) sh debian/apply
-
-unpatch:
-	override_version=$(RELEASE) sh debian/apply $(UPSTREAM)
-
 
 build: checkbuild build-stamp
 build-stamp:

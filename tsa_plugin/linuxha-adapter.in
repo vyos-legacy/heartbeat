@@ -17,6 +17,8 @@ MSG_NOJAVA='Cannot find Java - exit.'
 
 UNAME=`uname -s`
 
+. @sysconfdir@/ha.d/shellfuncs
+
 function logit ()
 {
 	if [ $LOG_LVL -ge $1 ]
@@ -114,22 +116,14 @@ function startAdapter ()
 	RC=$?
 	if [ $RC -eq $OFFLINE ] ; then
 		if [ "$UNAME" = AIX ] ; then
-			MKTEMP=''
 			LSOF=''
 		else  #linux
-			MKTEMP=`whereis mktemp | cut -d' ' -f2 | cut -d' ' -f3`
 			LSOF=`whereis lsof | cut -d' ' -f2 | cut -d' ' -f3`
 		fi
 		rm -f /tmp/$adapter.* 
 		# Create a tempfile to capture the first few lines of the output
-		if [ -n "$MKTEMP" ] ; then
-			TMPFILE=`$MKTEMP -q /tmp/$adapter.XXXXXX`
-		else
-			# It's better to use mktemp, but we don't have it, we make it cryptic
-			RNDM=$(echo $RANDOM)
-			TMPFILE=/tmp/$adapter.XXXXXX-RNDM
-			touch $TMPFILE
-		fi
+		trap '[ -z "$TMPFILE" ] || rmtempfile "$TMPFILE"' 0
+		TMPFILE=`maketempfile` || exit 1
 		# set LIBRAY path for jni parts
 		NATIVE_LIBPATH=/lib:/usr/lib
 		if [ "$UNAME" = "AIX" ] ; then
@@ -163,7 +157,7 @@ function startAdapter ()
               	fi
 
 		# cat the output to the screen and remove the tempfile
-		cat $TMPFILE && rm -f $TMPFILE
+		cat $TMPFILE
 		echo "$adapter has started."
 		logit 0 "$adapter has started."
 		RC=0

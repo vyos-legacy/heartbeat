@@ -30,7 +30,6 @@ export HA_DIR HA_RCDIR HA_FIFO HA_BIN
 export HA_DEBUGLOG HA_LOGFILE HA_LOGFACILITY
 export HA_DATEFMT HA_RESOURCEDIR HA_DOCDIR
 
-MKTEMP=@MKTEMP@
 TESTPROG=@TEST@
 PATH=$HA_BIN:${HA_SBIN_DIR}:@HA_NOARCHDATAHBDIR@:$PATH
 PATH=`echo $PATH | sed -e 's%::%%' -e 's%:\.:%:%' -e 's%^:%%' -e 's%^\.:%%'`
@@ -226,33 +225,98 @@ ha_pseudo_resource()
   esac
 }
 
-# Make temp files the paranoid way...
-maketempfile() {
-#
-#	Use mktemp if we have it, otherwise...
-#
-#	Construct a difficult-to-guess filename if we don't
-#	Make sure non-mktemp files can't be subverted
-#	$RANDOM is not strictly necessary, but nice to have...
-#
-  if
-    test "x$MKTEMP" != "x" \
-      && F=`$MKTEMP /tmp/lha-XXXXXX` && [ ! -z "$F" -a -f "$F" ]
-  then
-    echo $F
-  else
-    while
-      echo >/dev/null &
-      F=/tmp/lha-${RANDOM}-$$-$!
-      rm -f "$F"; touch "$F"
-      # Try again if we don't own it, or it's a symlink
-      # Or somehow not a regular file...
-      $TESTPROG ! -O "$F" -o -L "$F" -o ! -f "$F"
-    do
-     : Try again...
-    done
-    echo $F
-  fi
+# usage: dirname DIR
+dirname()
+{
+	local a
+	local b
+
+	[ $# = 1 ] || return 1
+	a="$1"
+	while [ 1 ]; do
+		b="${a%/}"
+		[ "$a" = "$b" ] && break
+		a="$b"
+	done
+	b=${a%/*}
+	[ -z "$b" -o "$a" = "$b"  ] && b="."
+
+	echo "$b"
+	return 0
+}
+
+# usage: maketempdir
+maketempdir()
+{
+	local i=1
+	local tmp
+
+	# The loop allows for the cases where
+	# A process has multiple tempfiles or dirs or;
+	# A previous process with the same PID that had tempfiles or
+	# directories did not exit cleanly
+	while [ $i -gt 0 ]; do
+		tmp="/tmp/lha-dir-$$-$i"
+		if (umask 077 && mkdir "$tmp" 2>/dev/null); then
+			echo "$tmp"
+			return 0
+		fi
+		i=$((i+1))
+	done
+
+	echo "Could not create tempoary directory to store logs" >& 2
+	return 1
+}
+
+# usage: rmtempdir TMPDIR
+rmtempdir()
+{
+	[ $# = 1 ] || return 1
+	if [ -e "$1" ]; then
+		rmdir "$1" || return 1
+	fi
+	return 0
+}
+
+# usage: maketempfile [-d]
+maketempfile()
+{
+	local dir="no"
+	local name
+
+	if [ $# = 1 -a "$1" = "-d" ]; then
+		dir="yes"
+	elif [ $# != 0 ]; then
+		return 1
+	fi
+
+	name=$(maketempdir) || return $?
+
+	if [ "$dir" = "yes" ]; then
+		echo "$name"
+		return 0
+	fi
+
+	name="$name/tmpfile"
+
+	if ! touch "$name"; then
+		rmtempdir
+		return 1
+	fi
+
+	echo "$name"
+	return 0
+}
+
+# usage: rmtempfile TMPFILE
+rmtempfile ()
+{
+	[ $# = 1 ] || return 1
+	if [ -e "$1" ]; then
+		rm "$1" || return 1
+	fi
+	rmtempdir $(dirname "$1") || return 1
+	return 0
 }
 
 # The 'ping' command takes highly OS-dependent arguments, so this
