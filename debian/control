@@ -1,4 +1,5 @@
 Source: heartbeat
+Format: 3.0 (quilt)
 Section: admin
 Priority: optional
 Maintainer: Simon Horman <horms@debian.org>
