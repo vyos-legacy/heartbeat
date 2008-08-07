@@ -2,7 +2,22 @@ heartbeat (2.2.0-1) unstable; urgency=low
 
   * New Upstream
 
- -- Simon Horman <horms@debian.org>  Thu, 07 Aug 2008 13:17:02 +1000
+ -- Simon Horman <horms@debian.org>  Thu, 07 Aug 2008 15:57:52 +1000
+
+heartbeat (2.1.3-8) unstable; urgency=low
+
+  * The dependancy on uuid-runtime added in 2.1.3-7 was not a build dependacy,
+    it was a regular dependancy for heartbeat. However, it should have been
+    a dependancy for heartbeat-gui.
+    (closes: #484868)
+  * Update standards version from 3.7.3 to 3.8.0
+  * Remove bashisms from character clases
+    Patch: dash-case.patch
+    Upsteram-Status: commit 5aea0e314a77c15437765593a7b4f3f13c829f83
+                     "Low: Remove bashisms from character classes"
+    Ubuntu bug #248737
+
+ -- Simon Horman <horms@debian.org>  Thu, 07 Aug 2008 15:46:35 +1000
 
 heartbeat (2.1.3-7) unstable; urgency=low
 
