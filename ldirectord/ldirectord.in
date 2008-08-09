@@ -2250,6 +2250,7 @@ sub ld_main
                         check_signal();
                         
                 } else {
+			local $SIG{CHLD} = 'IGNORE';
                         my @real_checked;
                         foreach my $v (@VIRTUAL) {
                                 my $real = $$v{real};
