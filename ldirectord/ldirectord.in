@@ -2453,7 +2453,7 @@ sub check_http
 	my $recstr = $$r{receive};
 	if ($res->is_success && (!($recstr =~ /.+/) || 
 				$res->content =~ /$recstr/)) {
-		service_set($v, $r, "up", {do_log => 1}, $res->content);
+		service_set($v, $r, "up", {do_log => 1}, $res->status_line);
 		&ld_debug(2, "check_http: $$r{url} is up\n");
 		return $SERVICE_UP;
 	}
@@ -2630,7 +2630,7 @@ sub check_ldap
 	my $ldap = Net::LDAP->new("$$r{server}", port => $port,
 					timeout => $$v{negotiatetimeout});
 	if(!$ldap) {
-		service_set($v, $r, "down", {do_log => 1});
+		service_set($v, $r, "down", {do_log => 1}, "Connection failed");
 		&ld_debug(4, "Connection failed");
 		return $SERVICE_DOWN;
 	}
@@ -2643,7 +2643,7 @@ sub check_ldap
 		$mesg = $ldap->bind ;
 	}
 	if ($mesg->is_error) {
-		service_set($v, $r, "down", {do_log => 1});
+		service_set($v, $r, "down", {do_log => 1}, "Bind failed");
 		&ld_debug(4, "Bind failed");
 		return $SERVICE_DOWN;
 	}
@@ -2656,7 +2656,7 @@ sub check_ldap
 		);
 
 	if($result->count != 1) {
-		service_set($v, $r, "down", {do_log => 1});
+		service_set($v, $r, "down", {do_log => 1}, "No answer received");
 		&ld_debug(2, "Count failed : " . $result->count);
 		return $SERVICE_DOWN;
 	}
@@ -2664,10 +2664,10 @@ sub check_ldap
 	my $href = $result->as_struct;
 	my @arrayOfDNs  = keys %$href ;
 	if (!($recstr =~ /.+/) || $arrayOfDNs[0] =~ /$recstr/) {
-		service_set($v, $r, "up", {do_log => 1});
+		service_set($v, $r, "up", {do_log => 1}, "Success");
 		return $SERVICE_UP;
 	} else {
-		service_set($v, $r, "down", {do_log => 1});
+		service_set($v, $r, "down", {do_log => 1}, "Response mismatch");
 		&ld_debug(4,"Message differs : " . ", " . $$r{receive} 
 				. ", " . $arrayOfDNs[0] . ".");
 		return $SERVICE_DOWN;
@@ -3179,19 +3179,19 @@ sub check_dns
 	};
  
 	if (@$ eq "timeout\n" or ! $query) {
-		 service_set($v, $r, "down", {do_log => 1});
+		 service_set($v, $r, "down", {do_log => 1}, "Connection timed out");
 		 return $SERVICE_DOWN;
 	}
  
 	foreach $rr ($query->answer) {
 	        if (($rr->type eq "A" and $rr->address eq $$r{"receive"}) or
 	            ($rr->type eq "PTR" and $rr->ptrdname eq $$r{"receive"})) {
-			service_set($v, $r, "up", {do_log => 1});
+			service_set($v, $r, "up", {do_log => 1}, "Success");
 			return $SERVICE_UP;
 		}
 	}
  
-	service_set($v, $r, "down", {do_log => 1});
+	service_set($v, $r, "down", {do_log => 1}, "Response mismatch");
 	return $SERVICE_DOWN;
 }
 
@@ -3265,7 +3265,7 @@ sub service_set()
 	my ($real, $virtual, $virt, $now);
 	
 	if ($$flags{'do_log'}) {
-		$now = time();
+		$now = localtime();
 		
 		if (!defined($log_msg)) {
 			$log_msg = "-";
@@ -3312,9 +3312,12 @@ sub service_set()
 			}
 			
 			if ($$v{"monitorfile"} and $$flags{"do_log"}) {
+				my $real_log_msg = $real_id;
+				$real_log_msg =~ tr/:/ /s;
+				$real_log_msg =~ s/\\//g;
 				unless(
 					open(CHECKLOG, ">>$$v{monitorfile}") and
-					print CHECKLOG "$now|$$|$real_id|$state|$log_msg\n" and
+					print CHECKLOG "[$now] [$$] $real_log_msg [$state] $log_msg\n" and
 					close(CHECKLOG)
 				) { die("Error writing to monitorfile '$$v{monitorfile}': $!"); }
 			}
