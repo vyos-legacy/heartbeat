@@ -1877,7 +1877,9 @@ reset_orderQ(struct orderQ* q)
  *	Process ordered message
  */
 
-static void
+void display_orderQ(struct orderQ* q);
+
+void
 display_orderQ(struct orderQ* q){
 	if(!q){
 		return;
