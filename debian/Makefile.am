@@ -20,7 +20,7 @@
 #
 MAINTAINERCLEANFILES    = Makefile.in
 
-EXTRA_DIST		= apply changelog compat control copyright \
+EXTRA_DIST		= changelog compat control copyright \
 			  dpkg-checkbuild rules \
 			  heartbeat-2.prerm \
 			  heartbeat-dev.dirs \
