@@ -40,11 +40,9 @@ Group:          %{pkg_group}
 Source:         heartbeat.tar.gz
 %if 0%{?suse_version}
 Source1:        heartbeat.suse.in
-%endif
 Patch1:         heartbeat-doc-directory.diff
 Patch2:         heartbeat-cmi-indication-temporary-fix.diff
-Patch4:		lrmd-return-rc.diff
-Patch5:		lrm-true-rc.diff
+%endif
 
 BuildRoot:      %{_tmppath}/%{name}-build
 Requires:       %{name}-common = %{version}-%{release}
@@ -246,11 +244,9 @@ full Heartbeat cluster stack.
 %prep
 ###########################################################
 %setup -n heartbeat
+%if 0%{?suse_version}
 %patch1 -p0
 %patch2 -p0
-#%patch4 -p1
-#%patch5 -p1
-%if 0%{?suse_version}
 cp $RPM_SOURCE_DIR/heartbeat.suse.in ./heartbeat/init.d/heartbeat.in
 %endif
 %{?suse_update_config:%{suse_update_config -f}}
