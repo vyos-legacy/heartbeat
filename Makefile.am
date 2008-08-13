@@ -23,8 +23,7 @@
 ##                        $(auxdir)/mkinstalldirs
 ##AUX_DIST_EXTRA          = $(auxdir)/readline.m4 $(auxdir)/sys_errlist.m4 \
 ##                        $(auxdir)/sys_siglist.m4
-EXTRA_DIST              = bootstrap rc.config.heartbeat 	\
-			heartbeat.spec.in heartbeat.spec	\
+EXTRA_DIST              = bootstrap rc.config.heartbeat heartbeat.spec	\
 			ConfigureMe README.in libltdl.tar
 
 RPMREL			= @RPMREL@
