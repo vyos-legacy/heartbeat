@@ -66,8 +66,8 @@ errcount=0
 # Make a safe place to store logs
 maketempdir()
 {
-	local i=1
-	local tmp
+	i=1
+	tmp
 
 	while [ $i -gt 0 ]; do
 		tmp="/tmp/lha-dir-$$-$i"
