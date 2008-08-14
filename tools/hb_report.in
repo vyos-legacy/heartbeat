@@ -490,7 +490,7 @@ Please edit this template and describe the issue/problem you
 encountered. Then, post to
 	Linux-HA@lists.linux-ha.org
 or file a bug at
-	http://old.linux-foundation.org/developer_bugzilla/
+	http://developerbugs.linux-foundation.org/
 
 See http://linux-ha.org/ReportingProblems for detailed
 description on how to report problems.
