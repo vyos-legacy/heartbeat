@@ -320,7 +320,7 @@ SaveLog() {
   SAVELOG=/tmp/linux-ha.testlog
   chmod a+r $LOGFILE
   mv $LOGFILE $SAVELOG
-  rm -rf "$LOGDIR"
+  rmdir "$LOGDIR"
   echo "$errcount errors. Log file is stored in $SAVELOG"
 }
 
