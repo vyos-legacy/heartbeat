@@ -86,6 +86,12 @@ LOGDIR=`maketempdir` || exit 1
 LOGFILE="$LOGDIR/log"
 touch "$LOGFILE"
 
+# CTSlab.py needs this otherwise it hangs.
+# Presumably it tries to stat or open the log file after
+# relinquishing root privileges. It would be nice to get to
+# the bottom of this and make a cleaner fix.
+chmod o+x "$LOGDIR"
+
 cd $HADIR
 ulimit -c unlimited
 
