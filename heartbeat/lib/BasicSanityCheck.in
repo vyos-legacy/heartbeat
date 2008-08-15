@@ -67,7 +67,6 @@ errcount=0
 maketempdir()
 {
 	i=1
-	tmp
 
 	while [ $i -gt 0 ]; do
 		tmp="/tmp/lha-dir-$$-$i"
