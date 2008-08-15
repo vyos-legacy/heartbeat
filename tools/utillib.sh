@@ -358,7 +358,9 @@ sanitize_one() {
 		$decompress | sanitize_xml_attrs | $compress
 	fi < $file > $tmp
 	mv $tmp $file
-	tmp=""
+	# note: cleaning $tmp up is still needed even after it's renamed
+	# because its temp directory is still there.
+
 	touch -r $ref $file
 	sanitize_one_clean
 	trap "" 0
