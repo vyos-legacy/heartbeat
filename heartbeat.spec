@@ -447,9 +447,6 @@ fi
 %{_libdir}/heartbeat/dopd
 %{_libdir}/heartbeat/drbd-peer-outdater
 
-%exclude %{_sbindir}/ciblint
-
-
 # Exclude pointless compatability symlinks
 %exclude %{_libdir}/heartbeat/TestHeartbeatComm
 %exclude %{_libdir}/heartbeat/BasicSanityCheck
