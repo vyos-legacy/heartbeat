@@ -418,7 +418,6 @@ fi
 %defattr(-,root,root)
 %{_libdir}/heartbeat/mach_down
 %{_libdir}/heartbeat/mlock
-%{_libdir}/heartbeat/recoverymgrd
 %{_libdir}/heartbeat/req_resource
 %{_libdir}/heartbeat/plugins/HBauth
 %{_libdir}/heartbeat/plugins/HBcomm
@@ -489,7 +488,6 @@ fi
 %{_libdir}/libclm.so.*
 %{_libdir}/libhbclient.so.*
 %{_libdir}/libccmclient.so.*
-%{_libdir}/librecoverymgr.so.*
 %{_libdir}/heartbeat/plugins/AppHBNotification
 
 /sbin/rcheartbeat
@@ -594,11 +592,9 @@ fi
 %{_includedir}/heartbeat/HBauth.h
 %{_includedir}/heartbeat/HBcomm.h
 %{_includedir}/heartbeat/hb_api.h
-%{_includedir}/heartbeat/recoverymgr.h
 %{_libdir}/libccmclient*.so
 %{_libdir}/libclm*.so
 %{_libdir}/libhbclient*.so
-%{_libdir}/librecoverymgr*.so
 %{_libdir}/heartbeat/quorumdtest
 %{_libdir}/heartbeat/clmtest
 %{_libdir}/heartbeat/api_test
