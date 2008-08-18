@@ -309,8 +309,6 @@ export CFLAGS
 export MAKE="make %{?jobs:-j%jobs}"
 make %{?jobs:-j%jobs}
 # make 
-# No longer needed, we supply our own.
-rm rc.config.heartbeat
 ###########################################################
 
 %install
