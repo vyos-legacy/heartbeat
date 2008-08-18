@@ -1,4 +1,10 @@
-heartbeat (2.2.0-1) unstable; urgency=low
+heartbeat (3.0.0-1) unstable; urgency=low
+
+  * New Upstream
+
+ -- Simon Horman <horms@debian.org>  Mon, 18 Aug 2008 22:12:16 +1000
+
+heartbeat (2.1.4-1) unstable; urgency=low
 
   * New Upstream
 
