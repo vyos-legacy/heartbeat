@@ -451,7 +451,6 @@ fi
 
 
 # Exclude pointless compatability symlinks
-#%exclude %{_libdir}/heartbeat/SNMPAgentSanityCheck
 %exclude %{_libdir}/heartbeat/TestHeartbeatComm
 %exclude %{_libdir}/heartbeat/BasicSanityCheck
 #%exclude %{_libdir}/heartbeat/ResourceManager
