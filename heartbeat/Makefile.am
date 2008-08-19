@@ -39,7 +39,7 @@ LIBRT 			= @LIBRT@
 AM_CFLAGS		= @CFLAGS@
 
 ## script subdirs
-SUBDIRS			= init.d lib logrotate.d rc.d libnet_util
+SUBDIRS			= init.d lib logrotate.d rc.d
 
 noinst_HEADERS		=	hb_config.h		\
 				hb_module.h		\

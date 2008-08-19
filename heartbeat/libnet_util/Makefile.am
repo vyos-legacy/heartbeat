@@ -28,9 +28,3 @@ gliblib			= @GLIBLIB@
 
 LIBRT 			= @LIBRT@
 AM_CFLAGS		= @CFLAGS@ @LIBNETDEFINES@
-
-halib_PROGRAMS		= send_arp
-
-send_arp_SOURCES	= send_arp.c
-send_arp_LDADD	 	= $(top_builddir)/lib/clplumbing/libplumb.la	\
-			  $(gliblib) @LIBNETLIBS@

@@ -47,6 +47,21 @@ cl_respawn_LDADD	= $(top_builddir)/lib/clplumbing/libplumb.la	\
 			  $(gliblib)					\
 			  $(top_builddir)/replace/libreplace.la
 
+if USE_LIBNET
+halib_PROGRAMS		= send_arp
+send_arp_SOURCES	= send_arp.libnet.c
+send_arp_CFLAGS		= @LIBNETDEFINES@
+send_arp_LDADD	 	= $(top_builddir)/lib/clplumbing/libplumb.la	\
+			  $(gliblib) @LIBNETLIBS@
+else
+
+if SENDARP_LINUX
+halib_PROGRAMS		= send_arp
+send_arp_SOURCES	= send_arp.linux.c
+endif
+
+endif
+
 install-data-hook:    # install-exec-hook doesn't work (!)
 	-chgrp $(apigid) $(DESTDIR)/$(habindir)/cl_status
 	-chmod g+s,a-w $(DESTDIR)/$(habindir)/cl_status
