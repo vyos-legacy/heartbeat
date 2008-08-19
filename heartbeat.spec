@@ -10,7 +10,6 @@
 
 # norootforbuild
 
-%define build_cmpi 		0
 %define with_extra_warnings   	0
 %define with_debugging  	0
 %define without_fatal_warnings 	1
@@ -41,7 +40,6 @@ Source:         heartbeat.tar.gz
 %if 0%{?suse_version}
 Source1:        heartbeat.suse.in
 Patch1:         heartbeat-doc-directory.diff
-Patch2:         heartbeat-cmi-indication-temporary-fix.diff
 %endif
 
 BuildRoot:      %{_tmppath}/%{name}-build
@@ -127,10 +125,6 @@ Requires:       iptables
 
 
 BuildRequires: curl-devel e2fsprogs-devel glib2-devel gnutls-devel iputils libxml2-devel lynx net-snmp-devel pam-devel python-devel swig
-
-%if %build_cmpi
-BuildRequires: openwbem-devel
-%endif
 
 %description
 Heartbeat is a basic high-availability subsystem for Linux-HA.
@@ -223,15 +217,6 @@ lditrecord is simple to install and works with the heartbeat code
 
 See 'ldirectord -h' and linux-ha/doc/ldirectord for more information.
 
-%if %build_cmpi
-%package cmpi
-Summary:        Heartbeat CIM Provider
-Group:          %{pkg_group}
-%description cmpi
-This package provides the CIM provider for managing heartbeat via
-OpenWBEM.
-%endif
-
 %package devel 
 Summary:        Heartbeat development package 
 Group:          %{pkg_group}
@@ -298,19 +283,11 @@ export CFLAGS
 %if %without_fatal_warnings
 	--enable-fatal-warnings=no 				\
 %endif
-%if %build_cmpi
-	--enable-cim-provider 					\
-	--with-cimom=openwbem 					\
-	--with-cmpi-headers=%{_includedir}/openwbem 		\
-	--with-provider-dir=/usr/%{_lib}/openwbem/cmpiproviders \
-%endif
 	--disable-crm
 
 export MAKE="make %{?jobs:-j%jobs}"
 make %{?jobs:-j%jobs}
 # make 
-# No longer needed, we supply our own.
-rm rc.config.heartbeat
 ###########################################################
 
 %install
@@ -441,7 +418,6 @@ fi
 %defattr(-,root,root)
 %{_libdir}/heartbeat/mach_down
 %{_libdir}/heartbeat/mlock
-%{_libdir}/heartbeat/recoverymgrd
 %{_libdir}/heartbeat/req_resource
 %{_libdir}/heartbeat/plugins/HBauth
 %{_libdir}/heartbeat/plugins/HBcomm
@@ -471,11 +447,7 @@ fi
 %{_libdir}/heartbeat/dopd
 %{_libdir}/heartbeat/drbd-peer-outdater
 
-%exclude %{_sbindir}/ciblint
-
-
 # Exclude pointless compatability symlinks
-#%exclude %{_libdir}/heartbeat/SNMPAgentSanityCheck
 %exclude %{_libdir}/heartbeat/TestHeartbeatComm
 %exclude %{_libdir}/heartbeat/BasicSanityCheck
 #%exclude %{_libdir}/heartbeat/ResourceManager
@@ -512,7 +484,6 @@ fi
 %{_libdir}/libclm.so.*
 %{_libdir}/libhbclient.so.*
 %{_libdir}/libccmclient.so.*
-%{_libdir}/librecoverymgr.so.*
 %{_libdir}/heartbeat/plugins/AppHBNotification
 
 /sbin/rcheartbeat
@@ -617,11 +588,9 @@ fi
 %{_includedir}/heartbeat/HBauth.h
 %{_includedir}/heartbeat/HBcomm.h
 %{_includedir}/heartbeat/hb_api.h
-%{_includedir}/heartbeat/recoverymgr.h
 %{_libdir}/libccmclient*.so
 %{_libdir}/libclm*.so
 %{_libdir}/libhbclient*.so
-%{_libdir}/librecoverymgr*.so
 %{_libdir}/heartbeat/quorumdtest
 %{_libdir}/heartbeat/clmtest
 %{_libdir}/heartbeat/api_test

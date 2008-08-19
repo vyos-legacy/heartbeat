@@ -19,5 +19,5 @@
 #
 MAINTAINERCLEANFILES    = Makefile.in
 
-SUBDIRS			=  apphbd recoverymgrd
-DIST_SUBDIRS		=  apphbd recoverymgrd
+SUBDIRS			=  apphbd 
+DIST_SUBDIRS		=  apphbd 

@@ -66,8 +66,7 @@ errcount=0
 # Make a safe place to store logs
 maketempdir()
 {
-	local i=1
-	local tmp
+	i=1
 
 	while [ $i -gt 0 ]; do
 		tmp="/tmp/lha-dir-$$-$i"
@@ -85,6 +84,12 @@ maketempdir()
 LOGDIR=`maketempdir` || exit 1
 LOGFILE="$LOGDIR/log"
 touch "$LOGFILE"
+
+# CTSlab.py needs this otherwise it hangs.
+# Presumably it tries to stat or open the log file after
+# relinquishing root privileges. It would be nice to get to
+# the bottom of this and make a cleaner fix.
+chmod o+x "$LOGDIR"
 
 cd $HADIR
 ulimit -c unlimited
@@ -320,7 +325,7 @@ SaveLog() {
   SAVELOG=/tmp/linux-ha.testlog
   chmod a+r $LOGFILE
   mv $LOGFILE $SAVELOG
-  rm -rf "$LOGDIR"
+  rmdir "$LOGDIR"
   echo "$errcount errors. Log file is stored in $SAVELOG"
 }
 
