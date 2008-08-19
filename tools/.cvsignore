@@ -12,10 +12,8 @@ parser-messages
 MISC_ERRORS
 ccdv
 haresources2cib.py
-attrd
-attrd_updater
-pingd
 dopd
 drbd-peer-outdater
 ocf-tester
 send_arp
+hb_report

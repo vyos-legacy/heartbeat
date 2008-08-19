@@ -28,5 +28,5 @@ if QUORUMD_BUILD
 QUORUMD_DIR = quorumd
 endif
 
-SUBDIRS			= InterfaceMgr HBauth HBcomm HBcompress stonith AppHBNotification \
+SUBDIRS			= InterfaceMgr HBauth HBcomm HBcompress stonith \
 			  $(LRM_DIR)  quorum  tiebreaker $(QUORUMD_DIR)

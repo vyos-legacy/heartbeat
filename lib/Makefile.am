@@ -36,9 +36,6 @@ SUBDIRS			=  	\
 	clplumbing		\
 	hbclient		\
 	apphb			\
-	recoverymgr		\
 	plugins 		\
-	$(CRM_DIR)		\
-	lrm			\
-	$(MGMT_DIR)
+	lrm
 

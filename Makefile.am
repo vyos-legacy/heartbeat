@@ -60,8 +60,7 @@ endif
 
 # 'buildtools' must be first in the list: tools to aid building of remainder.
 SUBDIRS	= buildtools $(LIBLTDL_DIR) debian pkg port replace include lib	\
-          heartbeat membership telecom resources lrm $(CRM_DIR)		\
-          logd tools doc cts $(MGMT_DIR)   \
+          heartbeat membership telecom resources lrm logd tools doc cts  \
           $(LDIRECTORD_DIR) config contrib
 
 HANDY_DOCS = doc/ChangeLog doc/GettingStarted.html doc/DirectoryMap.txt
@@ -97,10 +96,6 @@ install-exec-local:
 	do if [  -d $$file ]; then continue; fi;	\
 		rm -f $$file && ln -s $(HBSHAREDIR)/$$file .;	\
 	done
-if MGMT_BUILD
-	cd $(DESTDIR)@HA_LIBDIR@/heartbeat-gui && rm -f haclient.py && ln -s $(SHAREDIR)/heartbeat-gui/haclient.py .
-	rm -f $(DESTDIR)@bindir@/hb_gui && ln -s $(SHAREDIR)/heartbeat-gui/haclient.py $(DESTDIR)@bindir@/hb_gui 
-endif
 
 OBS_TAR	= heartbeat.tar.gz
 OBS_PREFIX=c001n16.suse.de:Development/obs/server:ha-clustering
