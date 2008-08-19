@@ -102,6 +102,20 @@ if MGMT_BUILD
 	rm -f $(DESTDIR)@bindir@/hb_gui && ln -s $(SHAREDIR)/heartbeat-gui/haclient.py $(DESTDIR)@bindir@/hb_gui 
 endif
 
+OBS_TAR	= heartbeat.tar.gz
+OBS_PREFIX=c001n16.suse.de:Development/obs/server:ha-clustering
+hg-dist:
+	hg archive -t tgz $(OBS_TAR)
+
+stable: hg-dist
+	scp $(OBS_TAR) $(OBS_PREFIX)/heartbeat/
+
+factory: hg-dist
+	scp $(OBS_TAR) $(OBS_PREFIX):Factory/heartbeat/
+
+unstable: hg-dist
+	scp $(OBS_TAR) $(OBS_PREFIX):UNSTABLE/heartbeat/
+
 dist-clean-local:
 	rm -f autoconf automake autoheader $(PACKAGE)-*.tar.gz
 
