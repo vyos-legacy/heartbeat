@@ -59,7 +59,6 @@ usr/lib/ocf/resource.d/heartbeat/rsyncd
 usr/lib/ocf/resource.d/heartbeat/tomcat
 usr/lib/pils/*
 usr/lib/stonith/*
-usr/sbin/ciblint
 usr/sbin/ha_logger
 usr/sbin/hb_report
 usr/sbin/meatclient
