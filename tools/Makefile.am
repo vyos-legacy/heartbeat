@@ -33,7 +33,7 @@ gliblib			= @GLIBLIB@
 
 habin_PROGRAMS		= cl_status cl_respawn 
 hanoarch_DATA		= utillib.sh
-sbin_SCRIPTS		= ciblint hb_report ocf-tester
+sbin_SCRIPTS		= hb_report ocf-tester
 
 cl_status_SOURCES	= cl_status.c
 cl_status_LDADD		= $(top_builddir)/lib/hbclient/libhbclient.la	\
