@@ -422,11 +422,11 @@ fi
 %{_libdir}/heartbeat/plugins/HBauth
 %{_libdir}/heartbeat/plugins/HBcomm
 %{_libdir}/heartbeat/plugins/HBcompress
-%{_libdir}/heartbeat/plugins/quorum
-%{_libdir}/heartbeat/plugins/quorumd
+# %{_libdir}/heartbeat/plugins/quorum
+# %{_libdir}/heartbeat/plugins/quorumd
 %{_libdir}/heartbeat/plugins/test
 %{_libdir}/heartbeat/plugins/tiebreaker
-%{_libdir}/heartbeat/quorumd
+# %{_libdir}/heartbeat/quorumd
 %{_libdir}/heartbeat/ha_*
 %{_libdir}/heartbeat/hb_*
 %{_libdir}/heartbeat/heartbeat
@@ -591,7 +591,7 @@ fi
 %{_libdir}/libccmclient*.so
 %{_libdir}/libclm*.so
 %{_libdir}/libhbclient*.so
-%{_libdir}/heartbeat/quorumdtest
+# %{_libdir}/heartbeat/quorumdtest
 %{_libdir}/heartbeat/clmtest
 %{_libdir}/heartbeat/api_test
 %{_libdir}/heartbeat/ipctest
