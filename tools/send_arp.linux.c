@@ -345,7 +345,7 @@ main(int argc, char **argv)
 			source = optarg;
 			break;
 		case 'V':
-			printf("arping utility, iputils-ss%s\n", SNAPSHOT);
+			printf("send_arp utility\n");
 			exit(0);
 		case 'p':
 		case 'i':
@@ -363,7 +363,7 @@ main(int argc, char **argv)
 	if(device == NULL) {
 	    /* send_arp compatability mode */
 	    if (argc-optind != 5) {
-		fprintf(stderr, "%s\n\n", print_usage);
+		usage();)
 		return 1;
 	    }
 	    /*
