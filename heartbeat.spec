@@ -634,3 +634,15 @@ fi
 %config(noreplace) %{_sysconfdir}/logrotate.d/ldirectord
 
 %changelog heartbeat
+* Thu Aug 21 2008 Lars Marowsky-Bree <lmb@suse.de> and many others
++ 2.99.0 - beta release of 3.0.x series.
+- Restructured heartbeat package layout.
+- Dropped code maintained elsewhere:
+  - Pacemaker (formerly known as CRM)
+  - mgmt / hb_gui
+  - stonithd
+  - CIM and SNMP
+- Dropped unmaintained code:
+  - recoverymgrd, ciblint
+  - quorumd
+- No longer depends on libnet
