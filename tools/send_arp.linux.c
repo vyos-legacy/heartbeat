@@ -59,6 +59,14 @@ int received, brd_recv, req_recv;
 #define MS_TDIFF(tv1,tv2) ( ((tv1).tv_sec-(tv2).tv_sec)*1000 + \
 			   ((tv1).tv_usec-(tv2).tv_usec)/1000 )
 
+void print_hex(unsigned char *p, int len);
+int recv_pack(unsigned char *buf, int len, struct sockaddr_ll *FROM);
+void set_signal(int signo, void (*handler)(void));
+int send_pack(int s, struct in_addr src, struct in_addr dst,
+	      struct sockaddr_ll *ME, struct sockaddr_ll *HE);
+void finish(void);
+void catcher(void);
+
 void usage(void)
 {
 	fprintf(stderr,
@@ -363,7 +371,7 @@ main(int argc, char **argv)
 	if(device == NULL) {
 	    /* send_arp compatability mode */
 	    if (argc-optind != 5) {
-		usage();)
+		usage();
 		return 1;
 	    }
 	    /*
