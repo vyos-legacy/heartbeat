@@ -17,10 +17,7 @@ usr/lib/ocf/resource.d/heartbeat/EvmsSCC
 usr/lib/ocf/resource.d/heartbeat/Evmsd
 usr/lib/ocf/resource.d/heartbeat/Filesystem
 usr/lib/ocf/resource.d/heartbeat/ICP
-usr/lib/ocf/resource.d/heartbeat/IPaddr
-usr/lib/ocf/resource.d/heartbeat/IPaddr2
-usr/lib/ocf/resource.d/heartbeat/IPsrcaddr
-usr/lib/ocf/resource.d/heartbeat/IPv6addr
+usr/lib/ocf/resource.d/heartbeat/IP*
 usr/lib/ocf/resource.d/heartbeat/LVM
 usr/lib/ocf/resource.d/heartbeat/LinuxSCSI
 usr/lib/ocf/resource.d/heartbeat/MailTo
