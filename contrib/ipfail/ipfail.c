@@ -56,7 +56,6 @@
 #include <hb_api.h>
 #include <clplumbing/cl_log.h>
 #include <clplumbing/cl_signal.h>
-#include <clplumbing/cl_malloc.h>
 #include <clplumbing/GSource.h>
 #include <clplumbing/Gmain_timeout.h>
 #include <clplumbing/coredumps.h>
@@ -85,7 +84,7 @@ main(int argc, char **argv)
 	cl_log_enable_stderr(TRUE);
 	
 	/* Get the name of the binary for logging purposes */
-	bname = cl_strdup(argv[0]);
+	bname = strdup(argv[0]);
 	cl_log_set_entity(basename(bname));
 	cl_log_set_facility(HA_LOG_FACILITY);
 	cl_inherit_logging_environment(0);
@@ -134,7 +133,7 @@ main(int argc, char **argv)
 
 		cl_log(LOG_DEBUG, "auto_failback -> %i (%s)", auto_failback,
 		       parameter);
-		cl_free(parameter);
+		free(parameter);
 	}else{
 		cl_log(LOG_ERR, "Couldn't get auto_failback setting.");
 	}

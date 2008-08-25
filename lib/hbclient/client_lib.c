@@ -523,11 +523,11 @@ hb_api_delete(struct ll_cluster* ci)
 
 	/* Free up the private information */
 	memset(pi, 0, sizeof(*pi));
-	cl_free(pi);
+	free(pi);
 
 	/* Free up the generic (llc) information */
 	memset(ci, 0, sizeof(*ci));
-	cl_free(ci);
+	free(ci);
 	return HA_OK;
 }
 
@@ -1240,7 +1240,7 @@ get_parameter(ll_cluster_t* lcl, const char* pname)
 	if ((result = ha_msg_value(reply, F_APIRESULT)) != NULL
 	&&	strcmp(result, API_OK) == 0
 	&&	(pvalue = ha_msg_value(reply, F_PVALUE)) != NULL) {
-		ret = cl_strdup(pvalue);
+		ret = strdup(pvalue);
 	}else{
 		ret = NULL;
 	}
@@ -1464,7 +1464,7 @@ zap_order_seq(llc_private_t* pi)
 
 	while (order_seq != NULL){
 		next = order_seq->next;
-		cl_free(order_seq);
+		free(order_seq);
 		order_seq = next;	 
 	}
 	pi->order_seq_head.next = NULL;
@@ -1489,7 +1489,7 @@ zap_order_queue(llc_private_t* pi)
 				oq->cluster.orderQ[i] = NULL;
 			}
 		}
-		cl_free(oq);
+		free(oq);
 		oq = next;     
 	}
 	pi->order_queue_head = NULL;
@@ -1504,7 +1504,7 @@ zap_msg_queue(llc_private_t* pi)
 	while (qelem != NULL){
 		next = qelem->next;
 		ZAPMSG(qelem->value);
-		cl_free(qelem);
+		free(qelem);
 		qelem = next;	 
 	}
 	pi->firstQdmsg = NULL;
@@ -1525,11 +1525,11 @@ new_stringlist(const char *s)
 		return(NULL);
 	}
 
-	if ((cp = cl_strdup(s)) == NULL) {
+	if ((cp = strdup(s)) == NULL) {
 		return(NULL);
 	}
 	if ((ret = MALLOCT(struct stringlist)) == NULL) {
-		cl_free(cp);
+		free(cp);
 		return(NULL);
 	}
 	ret->next = NULL;
@@ -1548,9 +1548,9 @@ destroy_stringlist(struct stringlist * s)
 
 	for (this=s; this; this=next) {
 		next = this->next;
-		cl_free(this->value);
+		free(this->value);
 		memset(this, 0, sizeof(*this));
-		cl_free(this);
+		free(this);
 	}
 }
 
@@ -1605,7 +1605,7 @@ dequeue_msg(llc_private_t* pi)
 		 * and the prev pointer of the next element in the queue.
 		 * (or possibly lastQdmsg... See below)
 		 */
-		cl_free(qret);
+		free(qret);
 	}
 	if (pi->firstQdmsg == NULL) {
 		 /* Zap lastQdmsg if it pointed at this Q element */
@@ -1645,9 +1645,9 @@ add_gen_callback(const char * msgtype, llc_private_t* lcp
 		if (gcb == NULL) {
 			return(HA_FAIL);
 		}
-		type = cl_strdup(msgtype);
+		type = strdup(msgtype);
 		if (type == NULL) {
-			cl_free(gcb);
+			free(gcb);
 			return(HA_FAIL);
 		}
 		gcb->msgtype = type;
@@ -1677,7 +1677,7 @@ del_gen_callback(llc_private_t* lcp, const char * msgtype)
 			}else{
 				lcp->genlist = gcb->next;
 			}
-			cl_free(gcb->msgtype);
+			free(gcb->msgtype);
 			gcb->msgtype = NULL;
 			free(gcb);
 			return(HA_OK);
@@ -1784,7 +1784,7 @@ moveup_backupQ(struct orderQ* q)
 			cl_log(LOG_ERR, "moveup_backupQ:"
 			       "backupQ in backupQ is not NULL");  
 		}
-		cl_free(backup_q);
+		free(backup_q);
 		q->backupQ = NULL;
 	}else {
 		/*the queue must be empty*/
@@ -1865,7 +1865,7 @@ reset_orderQ(struct orderQ* q)
 	
 	if (q->backupQ != NULL){
 		reset_orderQ(q->backupQ);
-		cl_free(q->backupQ);
+		free(q->backupQ);
 		q->backupQ = NULL;
 	}
 	
@@ -1965,7 +1965,7 @@ process_ordered_msg(struct orderQ* q, struct ha_msg* msg,
 		/*client restarted*/
 		
 		if (q->backupQ == NULL){
-			if ( (q->backupQ = cl_malloc(sizeof(struct orderQ))) 
+			if ( (q->backupQ = malloc(sizeof(struct orderQ))) 
 			     ==NULL  ){
 				
 				cl_log(LOG_ERR, "process_ordered_msg: "
@@ -2141,7 +2141,7 @@ process_hb_msg(llc_private_t* pi, struct ha_msg* msg)
 		}
 		if (oq == NULL){
 			oq = (order_queue_t *) 
-				cl_malloc(sizeof(order_queue_t));
+				malloc(sizeof(order_queue_t));
 			if (oq == NULL){
 				ha_api_log(LOG_ERR
 				,	"%s: order_queue_t malloc failed"
@@ -2367,7 +2367,7 @@ CallbackCall(llc_private_t* p, struct ha_msg * msg)
 						ZAPMSG(oq->cluster.orderQ[i]);
 					}
 				}
-				cl_free(oq);
+				free(oq);
 				if (prev) {
 					prev->next = next;
 				} else {
@@ -3038,7 +3038,7 @@ add_order_seq(llc_private_t* pi, struct ha_msg* msg)
 		}
 	}
 	if (order_seq == NULL && to_node != NULL){
-		order_seq = (order_seq_t *) cl_malloc(sizeof(order_seq_t));
+		order_seq = (order_seq_t *) malloc(sizeof(order_seq_t));
 		if (order_seq == NULL){
 			ha_api_log(LOG_ERR
 			,	"add_order_seq: order_seq_t malloc failed!");
@@ -3297,7 +3297,7 @@ hb_cluster_new()
 	}
 	memset(hb, 0, sizeof(*hb));
 	if ((ret = MALLOCT(ll_cluster_t)) == NULL) {
-		cl_free(hb);
+		free(hb);
 		hb = NULL;
 		return(NULL);
 	}

@@ -53,7 +53,6 @@
 #include <clplumbing/longclock.h>
 #include <clplumbing/ipc.h>
 #include <clplumbing/proctrack.h>
-#include <clplumbing/cl_malloc.h>
 #include <clplumbing/GSource.h>
 #define index FooIndex
 #define time FooTime

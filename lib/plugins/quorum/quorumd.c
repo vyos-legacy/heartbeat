@@ -223,7 +223,7 @@ connect_quorum_server(gpointer data)
 
 	s  = msg2wirefmt(msg, &len);
 	gnutls_record_send(session, s, len);
-	cl_free(s);
+	free(s);
 	len = gnutls_record_recv(session, buf, MAXMSG);
 	if ((ssize_t)len <=0) {
 		close(sock);
@@ -252,7 +252,7 @@ connect_quorum_server(gpointer data)
 
 	s  = msg2wirefmt(msg, &len);
 	gnutls_record_send(session, s, len);
-	cl_free(s);
+	free(s);
 	len = gnutls_record_recv(session, buf, MAXMSG);
 	ret = wirefmt2msg(buf, len, FALSE);
 	ha_msg_value_int(ret, "quorum", &quorum);
@@ -284,7 +284,7 @@ query_quorum(gpointer data)
 	
 		s  = msg2wirefmt(msg, &len);
 		gnutls_record_send(session, s, len);
-		cl_free(s);
+		free(s);
 		len = gnutls_record_recv(session, buf, MAXMSG);
 		if ((ssize_t)len < 0) {
 			gnutls_bye (session, GNUTLS_SHUT_WR);

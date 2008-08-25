@@ -570,7 +570,7 @@ lookup_node(const char * h)
 	int			j;
 	char	*shost;
 
-	if ( (shost = cl_strdup(h)) == NULL) {
+	if ( (shost = strdup(h)) == NULL) {
 		return NULL;
 	}
 	g_strdown(shost);
@@ -578,7 +578,7 @@ lookup_node(const char * h)
 		if (strcmp(shost, config->nodes[j].nodename) == 0)
 			break;
 	}
-	cl_free(shost);
+	free(shost);
 	if (j == config->nodecount) {
 		return NULL;
 	} else {
@@ -681,7 +681,6 @@ SetupFifoChild(void) {
 		case 0:		/* Child */
 				close(watchdogfd);
 				curproc = &procinfo->info[fifoproc];
-				cl_malloc_setstats(&curproc->memstats);
 				cl_msg_setstats(&curproc->msgstats);
 				curproc->type = PROC_HBFIFO;
 				while (curproc->pid != getpid()) {
@@ -800,7 +799,6 @@ make_io_childpair(int medianum, int ourproc)
 		case 0:		/* Child */
 				close(watchdogfd);
 				curproc = &procinfo->info[ourproc];
-				cl_malloc_setstats(&curproc->memstats);
 				cl_msg_setstats(&curproc->msgstats);
 				curproc->type = PROC_HBWRITE;
 				while (curproc->pid != getpid()) {
@@ -834,7 +832,6 @@ make_io_childpair(int medianum, int ourproc)
 		case 0:		/* Child */
 				close(watchdogfd);
 				curproc = &procinfo->info[ourproc];
-				cl_malloc_setstats(&curproc->memstats);
 				cl_msg_setstats(&curproc->msgstats);
 				curproc->type = PROC_HBREAD;
 				while (curproc->pid != getpid()) {
@@ -1008,7 +1005,6 @@ initialize_heartbeat()
 	ourproc = procinfo->nprocs;
 	curproc = &procinfo->info[ourproc];
 	curproc->type = PROC_MST_CONTROL;
-	cl_malloc_setstats(&curproc->memstats);
 	cl_msg_setstats(&curproc->msgstats);
 	NewTrackedProc(getpid(), 0, PT_LOGVERBOSE, GINT_TO_POINTER(ourproc)
 	,	&CoreProcessTrackOps);
@@ -1514,7 +1510,6 @@ master_control_process(void)
 	int			allstarted;
 	int			j;
 	GMainLoop*		mainloop;
-	long			memstatsinterval;
 	guint			id;
 
 	write_hostcachefile = G_main_add_tempproc_trigger(PRI_WRITECACHE
@@ -1619,12 +1614,6 @@ master_control_process(void)
 	,	NULL);
 	G_main_setall_id(id, "init deadtime passed", config->warntime_ms, 50);
 
-	/* Dump out memory stats periodically... */
-	memstatsinterval = (debug_level ? 10*60*1000 : ONEDAY*1000);
-	id=Gmain_timeout_add_full(PRI_DUMPSTATS, memstatsinterval
-	,	hb_dump_all_proc_stats, NULL, NULL);
-	G_main_setall_id(id, "memory stats", 5000, 100);
-
 	/* Audit clients for liveness periodically */
 	id=Gmain_timeout_add_full(PRI_AUDITCLIENT, 9*1000
 	,	api_audit_clients, NULL, NULL);
@@ -1680,9 +1669,9 @@ hb_del_ipcmsg(IPC_Message* m)
 			,	(unsigned long)m);
 		}
 		memset(m->msg_body, 0, m->msg_len);
-		cl_free(m->msg_buf);
+		free(m->msg_buf);
 		memset(m, 0, sizeof(*m));
-		cl_free(m);
+		free(m);
 	}else{
 		refcnt--;
 		m->msg_private = GINT_TO_POINTER(refcnt);
@@ -1708,15 +1697,15 @@ hb_new_ipcmsg(const void* data, int len, IPC_Channel* ch, int refcnt)
 	}
 
 
-	if ((hdr = (IPC_Message*)cl_malloc(sizeof(*hdr)))  == NULL) {
+	if ((hdr = (IPC_Message*)malloc(sizeof(*hdr)))  == NULL) {
 		return NULL;
 	}
 	
 	memset(hdr, 0, sizeof(*hdr));
 
-	if ((copy = (char*)cl_malloc(ch->msgpad + len))
+	if ((copy = (char*)malloc(ch->msgpad + len))
 	    == NULL) {
-		cl_free(hdr);
+		free(hdr);
 		return NULL;
 	}
 	memcpy(copy + ch->msgpad, data, len);
@@ -2261,7 +2250,7 @@ free_one_hist_slot(struct msg_xmit_hist* hist, int slot )
 	if (msg){
 		hist->lowseq = hist->seqnos[slot];
 		hist->msgq[slot] = NULL;
-		if (!cl_is_allocated(msg)) {
+		if (!msg) {
 			cl_log(LOG_CRIT,
 			       "Unallocated slotmsg in %s",
 			       __FUNCTION__);
@@ -2522,7 +2511,7 @@ getnodes(const char* nodelist, char** nodes, int* num){
 			goto errexit;
 		}
 		
-		nodes[i] = cl_malloc(nodelen + 1);
+		nodes[i] = malloc(nodelen + 1);
 		if (nodes[i] == NULL){
 			cl_log(LOG_ERR, "%s: malloc failed", __FUNCTION__);
 			goto errexit;
@@ -2541,7 +2530,7 @@ getnodes(const char* nodelist, char** nodes, int* num){
  errexit:
 	for (j = 0; j < i ; j++){
 		if (nodes[j]){
-			cl_free(nodes[j]);
+			free(nodes[j]);
 			nodes[j] =NULL;
 		}
 	}
@@ -2613,7 +2602,7 @@ HBDoMsg_T_ADDNODE(const char * type, struct node_info * fromnode
 		if (hb_add_one_node(nodes[i])!= HA_OK){
 			cl_log(LOG_ERR, "Add node %s failed", nodes[i]);
 		}
-		cl_free(nodes[i]);
+		free(nodes[i]);
 		nodes[i]=NULL;
 	}
 	G_main_set_trigger(write_hostcachefile);
@@ -2806,7 +2795,7 @@ HBDoMsg_T_DELNODE(const char * type, struct node_info * fromnode,
 	}
  out:
 	for (i = 0; i < num; i++){
-		cl_free(nodes[i]);
+		free(nodes[i]);
 		nodes[i]= NULL;	
 	}
 	
@@ -3057,7 +3046,7 @@ HBDoMsg_T_REPNODES(const char * type, struct node_info * fromnode
 		}
 		for (i = 0; i< num; i++){
 			if (nodes[i]) {
-				cl_free(nodes[i]);
+				free(nodes[i]);
 				nodes[i] = NULL;
 			}
 		}
@@ -3082,7 +3071,7 @@ HBDoMsg_T_REPNODES(const char * type, struct node_info * fromnode
 	
 		for (i = 0; i < delnum; i++){
 			if (delnodes[i]){
-				cl_free(delnodes[i]);
+				free(delnodes[i]);
 				delnodes[i] = NULL;
 			}
 		}
@@ -4127,7 +4116,7 @@ start_a_child_client(gpointer childentry, gpointer dummy)
 		(void)open(devnull, O_WRONLY);	/* Stderr: fd 2 */
 		cmdsize = STRLEN_CONST(CMDPREFIX)+strlen(centry->command)+1;
 
-		cmdexec = cl_malloc(cmdsize);
+		cmdexec = malloc(cmdsize);
 		if (cmdexec != NULL) {
 			strlcpy(cmdexec, CMDPREFIX, cmdsize);
 			strlcat(cmdexec, centry->command, cmdsize);
@@ -4191,46 +4180,6 @@ core_proc_name(enum process_type t)
 	}
 	return ct;
 }
-
-void
-hb_dump_proc_stats(volatile struct process_info * proc)
-{
-	const char *	ct;
-	unsigned long	curralloc;
-	volatile cl_mem_stats_t	*ms;
-
-	if (!proc) {
-		return;
-	}
-
-	ct = core_proc_name(proc->type);
-
-	cl_log(LOG_INFO, "MSG stats: %ld/%ld ms age %ld [pid%d/%s]"
-	,	proc->msgstats.allocmsgs, proc->msgstats.totalmsgs
-	,	longclockto_ms(sub_longclock(time_longclock()
-	,		proc->msgstats.lastmsg))
-	,	(int) proc->pid, ct);
-
-	
-	ms = &proc->memstats;
-	if (ms->numalloc > ms->numfree) {
-		curralloc = ms->numalloc - ms->numfree;
-	}else{
-		curralloc = 0;
-	}
-
-	cl_log(LOG_INFO, "cl_malloc stats: %lu/%lu  %lu/%lu [pid%d/%s]"
-	,	curralloc, ms->numalloc
-	,	ms->nbytes_alloc, ms->nbytes_req, (int) proc->pid, ct);
-
-	cl_log(LOG_INFO, "RealMalloc stats: %lu total malloc bytes."
-	" pid [%d/%s]", ms->mallocbytes, (int) proc->pid, ct);
-
-#ifdef HAVE_MALLINFO
-	cl_log(LOG_INFO, "Current arena value: %lu", ms->arena);
-#endif
-}
-
 
 /*
  *	Restart heartbeat - we never return from this...
@@ -4571,7 +4520,7 @@ send_cluster_msg(struct ha_msg* msg)
 				,	"FIFO message [type %s] written rc=%ld"
 				, type, (long) writerc);
 			}
-			cl_free(smsg);
+			free(smsg);
 		}
 		if (ffd > 0) {
 			if (close(ffd) < 0) {
@@ -4657,25 +4606,6 @@ static gboolean
 hb_update_cpu_limit(gpointer p)
 {
 	cl_cpu_limit_update();
-	return TRUE;
-}
-
-gboolean
-hb_dump_all_proc_stats(gpointer p)
-{
-	int	j;
-
-	cl_log(LOG_INFO, "Daily informational memory statistics");
-
-	hb_add_deadtime(2000);
-
-	for (j=0; j < procinfo->nprocs; ++j) {
-		hb_dump_proc_stats(procinfo->info+j);
-	}
-	
-	hb_pop_deadtime(NULL);
-	
-	cl_log(LOG_INFO, "These are nothing to worry about.");
 	return TRUE;
 }
 
@@ -4844,7 +4774,6 @@ main(int argc, char * argv[], char **envp)
 	long		running_hb_pid =  cl_read_pidfile(PIDFILE);
 	int		generic_error = LSB_EXIT_GENERIC;
 
-	cl_malloc_forced_for_glib();
 	num_hb_media_types = 0;
 	/* A precautionary measure */
 	getrlimit(RLIMIT_NOFILE, &oflimits);
@@ -4865,7 +4794,7 @@ main(int argc, char * argv[], char **envp)
 	/* Weird enum (bitfield) */
 	g_log_set_always_fatal((GLogLevelFlags)0); /*value out of range*/  
 
-	if ((tmp_cmdname = cl_strdup(argv[0])) == NULL) {
+	if ((tmp_cmdname = strdup(argv[0])) == NULL) {
 		cl_perror("Out of memory in main.");
 		exit(1);
 	}
@@ -4976,7 +4905,7 @@ main(int argc, char * argv[], char **envp)
 	}
 	set_proc_title("%s", cmdname);
 
-	hbmedia_types = cl_malloc(sizeof(struct hbmedia_types **));
+	hbmedia_types = malloc(sizeof(struct hbmedia_types **));
 
 	if (hbmedia_types == NULL) {
 		cl_log(LOG_ERR, "Allocation of hbmedia_types failed.");
@@ -5957,7 +5886,7 @@ process_outbound_packet(struct msg_xmit_hist*	hist
 	process_clustermsg(msg, NULL);
 
 	send_to_all_media(smsg, len);
-	cl_free(smsg);
+	free(smsg);
 
 	/*  Throw away "msg" here if it's not saved above */
 	if (cseq == NULL) {
@@ -6172,7 +6101,7 @@ audit_xmit_hist(void)
 		if (msg == NULL) {
 			continue;
 		}
-		if (!cl_is_allocated(msg)) {
+		if (!msg) {
 			cl_log(LOG_CRIT
 			,	"Unallocated message in audit_xmit_hist");
 			doabort=TRUE;
@@ -6207,22 +6136,22 @@ audit_xmit_hist(void)
 			,	"Too small stringlen in audit_xmit_hist");
 			doabort=TRUE;
 		}
-		if (!cl_is_allocated(msg->names)) {
+		if (!msg->names) {
 			cl_log(LOG_CRIT
 			,	"Unallocated msg->names in audit_xmit_hist");
 			doabort=TRUE;
 		}
-		if (!cl_is_allocated(msg->nlens)) {
+		if (!msg->nlens) {
 			cl_log(LOG_CRIT
 			,	"Unallocated msg->nlens in audit_xmit_hist");
 			doabort=TRUE;
 		}
-		if (!cl_is_allocated(msg->values)) {
+		if (!msg->values) {
 			cl_log(LOG_CRIT
 			,	"Unallocated msg->values in audit_xmit_hist");
 			doabort=TRUE;
 		}
-		if (!cl_is_allocated(msg->vlens)) {
+		if (!msg->vlens) {
 			cl_log(LOG_CRIT
 			,	"Unallocated msg->vallens in audit_xmit_hist");
 			doabort=TRUE;
@@ -6256,7 +6185,7 @@ add2_xmit_hist (struct msg_xmit_hist * hist, struct ha_msg* msg
 	int	slot;
 	struct ha_msg* slotmsg;
 
-	if (!cl_is_allocated(msg)) {
+	if (!msg) {
 		cl_log(LOG_CRIT, "Unallocated message in add2_xmit_hist");
 		abort();
 	}
@@ -6273,7 +6202,7 @@ add2_xmit_hist (struct msg_xmit_hist * hist, struct ha_msg* msg
 		/* Lowseq is less than the lowest recorded seqno */
 		hist->lowseq = hist->seqnos[slot];
 		hist->msgq[slot] = NULL;
-		if (!cl_is_allocated(slotmsg)) {
+		if (!slotmsg) {
 			cl_log(LOG_CRIT
 			,	"Unallocated slotmsg in add2_xmit_hist");
 		}else{
@@ -6466,7 +6395,7 @@ process_rexmit(struct msg_xmit_hist * hist, struct ha_msg* msg)
 				hist->lastrexmit[msgslot] = now;
 				send_to_all_media(smsg
 				  ,	len);
-				cl_free(smsg);
+				free(smsg);
 			}
 
 		}

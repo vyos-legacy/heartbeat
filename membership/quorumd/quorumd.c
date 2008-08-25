@@ -113,7 +113,6 @@ main(int argc, char ** argv)
 	int flag;
 	char * inherit_debuglevel;
 
-	cl_malloc_forced_for_glib();
 	while ((flag = getopt(argc, argv, OPTARGS)) != EOF) {
 		switch(flag) {
 			case 'h':		/* Help message */
@@ -448,7 +447,7 @@ get_protocol(const char* version)
 		protocol = cl_load_plugin("quorumd", version);
 		if (protocol != NULL) {
 			if (protocol->init() != -1) {
-				g_hash_table_insert(protocols, cl_strdup(version), protocol);
+				g_hash_table_insert(protocols, strdup(version), protocol);
 			}
 			else {
 				protocol = NULL;

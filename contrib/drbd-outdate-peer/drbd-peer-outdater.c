@@ -33,7 +33,6 @@
 #include <clplumbing/lsb_exitcodes.h>
 #include <clplumbing/Gmain_timeout.h>
 #include <clplumbing/GSource.h>
-#include <clplumbing/cl_malloc.h>
 #include <clplumbing/coredumps.h>
 #include <dopd.h>
 #include <memory.h>
@@ -61,7 +60,7 @@ dop_exit(dop_client_t *client)
 		exit(5);
 	rc = client->rc;
 
-	cl_free(client);
+	free(client);
 	exit(rc);
 }
 
@@ -207,10 +206,10 @@ main(int argc, char ** argv)
 				usage(crm_system_name, LSB_EXIT_OK);
 				break;
 			case 'p':
-				drbd_peer = cl_strdup(optarg);
+				drbd_peer = strdup(optarg);
 				break;
 			case 'r':
-				drbd_resource = cl_strdup(optarg);
+				drbd_resource = strdup(optarg);
 				break;
 			case 't':
 				timeout = atoi(optarg);
@@ -244,7 +243,7 @@ main(int argc, char ** argv)
 	cl_log(LOG_DEBUG, "drbd peer: %s\n", drbd_peer);
 	cl_log(LOG_DEBUG, "drbd resource: %s\n", drbd_resource);
 
-	new_client = cl_malloc(sizeof(dop_client_t));
+	new_client = malloc(sizeof(dop_client_t));
 	memset(new_client, 0, sizeof(dop_client_t));
 	new_client->timeout = timeout;
 	new_client->mainloop = g_main_new(FALSE);

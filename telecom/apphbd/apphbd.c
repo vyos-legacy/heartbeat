@@ -90,7 +90,6 @@
 #include <clplumbing/cl_signal.h>
 #include <clplumbing/lsb_exitcodes.h>
 #include <clplumbing/coredumps.h>
-#include <clplumbing/cl_malloc.h>
 #include <clplumbing/cl_pidfile.h>
 #include <clplumbing/cl_reboot.h>
 
@@ -943,7 +942,6 @@ main(int argc, char ** argv)
 	int		argerr = 0;
 	const char*	cfgfile = CONFIG_FILE;
 
-	cl_malloc_forced_for_glib(); /* Must be first */
 	cl_cdtocoredir();
 	cl_enable_coredumps(TRUE);
 	cl_log_set_entity(cmdname);

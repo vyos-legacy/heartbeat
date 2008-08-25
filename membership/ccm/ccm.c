@@ -274,10 +274,10 @@ ccm_calculate_quorum(ccm_info_t* info)
 		if (quorum_env == NULL){
 			ccm_debug(LOG_DEBUG, "No quorum selected,"
 			       "using default quorum plugin(majority:twonodes)");
-			quorum_str = cl_strdup("majority:twonodes");
+			quorum_str = strdup("majority:twonodes");
 		}
 		else {
-			quorum_str = cl_strdup(quorum_env);
+			quorum_str = strdup(quorum_env);
 		}
 		
 		begin = quorum_str;
@@ -298,7 +298,7 @@ ccm_calculate_quorum(ccm_info_t* info)
 			}
 			begin = (end == NULL)? NULL:end+1;
 		}
-		cl_free(quorum_str);
+		free(quorum_str);
 	}
 		
 	cur = g_list_first(quorum_list);

@@ -23,7 +23,6 @@
 #ifndef _HB_PROC_H
 #	define _HB_PROC_H 1
 
-#include <clplumbing/cl_malloc.h>
 #include <ha_msg.h>
 #include <clplumbing/longclock.h>
 #include <heartbeat.h>
@@ -50,7 +49,6 @@ struct process_info {
 	pid_t			pid;		/* Process' PID */
 	int			medianum;	/* Which media index does this process go with? */
 	hb_msg_stats_t		msgstats;
-	cl_mem_stats_t		memstats;
 };
 
 

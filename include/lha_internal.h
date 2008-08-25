@@ -26,6 +26,7 @@
 #define	STRLEN_CONST(conststr)  ((size_t)((sizeof(conststr)/sizeof(char))-1))
 #define	STRNCMP_CONST(varstr, conststr) strncmp((varstr), conststr, STRLEN_CONST(conststr)+1)
 #define	STRLEN(c)		STRLEN_CONST(c)
+#define MALLOCT(t)		((t *) malloc(sizeof(t)))
 
 /* Needs to be defined before any other includes, otherwise some system
  * headers do not behave as expected! Major black magic... */

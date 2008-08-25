@@ -102,7 +102,7 @@ static void
 free_data_func(gpointer data)
 {
 	if (data){
-		cl_free(data);
+		free(data);
 		data = NULL;
 	}
 }
@@ -224,7 +224,7 @@ schedule_rexmit_request(struct node_info* node, seqno_t seq, int delay)
 		delay = ((rand()*max_rexmit_delay)+RANDROUND)/RAND_MAX;
 	}
 	
-	ri = cl_malloc(sizeof(struct rexmit_info));
+	ri = malloc(sizeof(struct rexmit_info));
 	if (ri == NULL){
 		cl_log(LOG_ERR, "%s: memory allocation failed", __FUNCTION__);
 		return;

@@ -22,7 +22,6 @@
 #include <lha_internal.h>
 #include "ccm.h"
 #include "ccmmisc.h"
-#include <clplumbing/cl_malloc.h>
 #include <clplumbing/cl_signal.h>
 
 #define SECOND   1000
@@ -217,9 +216,6 @@ main(int argc, char **argv)
 	int  flag;
 	ccm_t*	ccm;
 	
-#if 1
-	cl_malloc_forced_for_glib();
-#endif
 	tmp_cmdname = g_strdup(argv[0]);
 	if ((cmdname = strrchr(tmp_cmdname, '/')) != NULL) {
 		++cmdname;

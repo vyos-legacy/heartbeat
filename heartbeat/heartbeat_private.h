@@ -75,7 +75,6 @@ void hb_emergency_shutdown(void);
 void hb_initiate_shutdown(int quickshutdown);
 
 void hb_versioninfo(void);
-void hb_dump_proc_stats(volatile struct process_info * proc);
 void hb_trigger_restart(int quickrestart);
 
 void hb_shutdown_if_needed(void);

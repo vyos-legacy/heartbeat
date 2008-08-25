@@ -132,7 +132,7 @@ msg_start_outdate(struct ha_msg *msg, void *private)
 	char *command = NULL;
 
 	/* execute outdate command */
-	command = cl_malloc(strlen(OUTDATE_COMMAND) + 1 + strlen(drbd_resource) + 1);
+	command = malloc(strlen(OUTDATE_COMMAND) + 1 + strlen(drbd_resource) + 1);
 	strcpy(command, OUTDATE_COMMAND);
 	strcat(command, " ");
 	strcat(command, drbd_resource);
@@ -164,7 +164,7 @@ msg_start_outdate(struct ha_msg *msg, void *private)
 		}
 	}
 
-	cl_free(command);
+	free(command);
 
 	cl_log(LOG_DEBUG, "msg_start_outdate: %s, command rc: %i, rc: %i",
 			 ha_msg_value(msg, F_ORIG), command_ret, rc);
@@ -351,8 +351,8 @@ outdater_ipc_connection_destroy(gpointer user_data)
 		G_main_del_IPC_Channel(client->source);
 		client->source = NULL;
 	}
-	cl_free(client->id);
-	cl_free(client);
+	free(client->id);
+	free(client);
 	return;
 }
 
@@ -362,7 +362,7 @@ outdater_ipc_connection_destroy(gpointer user_data)
 static gboolean
 outdater_client_connect(IPC_Channel *channel, gpointer user_data)
 {
-	dopd_client_t *new_client = cl_malloc(sizeof(dopd_client_t));
+	dopd_client_t *new_client = malloc(sizeof(dopd_client_t));
 	cl_log(LOG_DEBUG, "Connecting channel");
 	if(channel == NULL) {
 		cl_log(LOG_ERR, "Channel was NULL");
@@ -376,7 +376,7 @@ outdater_client_connect(IPC_Channel *channel, gpointer user_data)
 	memset(new_client, 0, sizeof(dopd_client_t));
 
 	new_client->channel = channel;
-	new_client->id = cl_malloc(10);
+	new_client->id = malloc(10);
 	strcpy(new_client->id, "outdater");
 
 	new_client->source = G_main_add_IPC_Channel(
@@ -545,7 +545,7 @@ main(int argc, char **argv)
 	IPC_WaitConnection *wait_ch;
 
 	/* Get the name of the binary for logging purposes */
-	bname = cl_strdup(argv[0]);
+	bname = strdup(argv[0]);
 
 	cl_log_set_entity(bname);
 	cl_log_set_facility(HA_LOG_FACILITY);
@@ -621,7 +621,7 @@ main(int argc, char **argv)
 	} else {
 	    G_main_add_IPC_WaitConnection(
 		G_PRIORITY_LOW, wait_ch, NULL, FALSE,
-		outdater_client_connect, cl_strdup(T_OUTDATER),
+		outdater_client_connect, strdup(T_OUTDATER),
 		outdater_client_destroy);
 	}
 

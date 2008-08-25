@@ -38,7 +38,6 @@
 #include <syslog.h>
 #include <glib.h>
 #include <clplumbing/cl_log.h>
-#include <clplumbing/cl_malloc.h>
 #include <hb_api.h>
 
 
@@ -755,7 +754,7 @@ hbparameter(ll_cluster_t *hb, int argc, char ** argv, const char * optstr)
 	} else {
 		printf("%s\n",pvalue);
 	}
-	cl_free(pvalue);
+	free(pvalue);
 	pvalue = NULL;
 
 	return ret_value;

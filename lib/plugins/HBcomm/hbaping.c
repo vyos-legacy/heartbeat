@@ -332,7 +332,7 @@ hbaping_read(struct hb_media* mp, int *lenp)
 	ha_msg_del(nmsg);
 	
 	memcpy(hbaping_pkt, pkt, *lenp);
-	cl_free(pkt);
+	free(pkt);
 	
 	return hbaping_pkt;
 	

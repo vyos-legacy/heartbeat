@@ -278,7 +278,6 @@ export CFLAGS
 	--with-group-name=%{gname} --with-ccmuser-name=%{uname} \
 	--with-group-id=%{uid} --with-ccmuser-id=%{uid} 	\
 	--with-hapkgversion=%{version} 				\
-	--enable-glib-malloc 					\
 	--enable-pretty 					\
 %if %without_fatal_warnings
 	--enable-fatal-warnings=no 				\

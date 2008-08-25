@@ -184,7 +184,7 @@ SetParameterValue(const char * name, const char * value)
 	g_hash_table_insert(Parameters, namedup, valdup);
 
 	if(name_len > 0) {
-		char *  env_name = cl_malloc(name_len + STRLEN_CONST(PREFIX)+1);		
+		char *  env_name = malloc(name_len + STRLEN_CONST(PREFIX)+1);		
 		if (env_name == NULL){
 			cl_log(LOG_ERR, "SetParameterValue():"
 			       "setenv() memory allocation failed.");

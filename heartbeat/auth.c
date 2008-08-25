@@ -156,7 +156,7 @@ parse_authfile(void)
 
 			}
 			if (config->auth_config[j].key) {
-				cl_free(config->auth_config[j].key);
+				free(config->auth_config[j].key);
 			}
 		}
 		config->auth_config[j].auth = NULL;
@@ -235,7 +235,7 @@ parse_authfile(void)
 				continue;
 			}
 
-			cpkey =	cl_strdup(key);
+			cpkey =	strdup(key);
 			if (cpkey == NULL) {
 				ha_log(LOG_ERR, "Out of memory for authkey");
 				fclose(f);

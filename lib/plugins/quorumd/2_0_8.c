@@ -164,7 +164,7 @@ static int
 init(void)
 {
 	cl_log(LOG_DEBUG, "quorumd plugin 2.0.8, init()");
-	clusters = g_hash_table_new_full(g_str_hash, g_str_equal, cl_free, del_cluster);
+	clusters = g_hash_table_new_full(g_str_hash, g_str_equal, free, del_cluster);
 	if(load_config_file() == -1) {
 		return -1;
 	}
@@ -211,10 +211,10 @@ load_config_file(void)
 					list = g_list_append(list, cluster);
 				}
 				else {
-					cl_free(cluster);
+					free(cluster);
 				}
 			}
-			cluster = (qs_cluster_t*)cl_malloc(sizeof(qs_cluster_t));
+			cluster = (qs_cluster_t*)malloc(sizeof(qs_cluster_t));
 			memset(cluster->name, 0, MAXLINE);
 			sscanf(p, "%s %s", key, cluster->name);
 			cluster->t_timeout = 5000;
@@ -284,7 +284,7 @@ load_config_file(void)
 			list = g_list_append(list, cluster);
 		}
 		else {
-			cl_free(cluster);
+			free(cluster);
 		}
 	}
 	
@@ -300,7 +300,7 @@ load_config_file(void)
 		list = g_list_remove(list, new);
 		old = (qs_cluster_t*)g_hash_table_lookup(clusters, new->name);
 		if (old == NULL) {
-			g_hash_table_insert(clusters, cl_strdup(new->name), new);
+			g_hash_table_insert(clusters, strdup(new->name), new);
 		}
 		else {
 			old->t_timeout = new->t_timeout;
@@ -331,9 +331,9 @@ int
 on_connect(int sock, gnutls_session session, const char* CN)
 {
 	static int id = 1;
-	qs_client_t* client = cl_malloc(sizeof(qs_client_t));
+	qs_client_t* client = malloc(sizeof(qs_client_t));
 	if (client == NULL) {
-		quorum_log(LOG_ERR, "cl_malloc failed for new client");
+		quorum_log(LOG_ERR, "malloc failed for new client");
 		return -1;
 	}
 	strncpy(client->CN, CN, MAX_DN_LEN);
@@ -378,7 +378,7 @@ del_cluster(gpointer data)
 		g_source_remove(cluster->waiting_src);
 	}
 	quorum_log(LOG_DEBUG, "delete cluster %s", cluster->name);
-	cl_free(cluster);
+	free(cluster);
 	return;
 }
 
@@ -420,7 +420,7 @@ del_client(gpointer data)
 		}
 	}
 	quorum_log(LOG_DEBUG, "delete client %d", client->id);
-	cl_free(client);
+	free(client);
 	return FALSE;
 }
 
@@ -467,7 +467,7 @@ on_msg_arrived(GIOChannel *ch, GIOCondition condition, gpointer data)
 				str  = msg2wirefmt(ret, &len);
 				gnutls_record_send(client->session, str, len);
 				quorum_debug(LOG_DEBUG, "send to client %d:", client->id);
-				cl_free(str);
+				free(str);
 				ha_msg_del(ret);
 			}
 			ha_msg_del(msg);

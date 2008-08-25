@@ -254,7 +254,6 @@ __parent_hb_signal_debug_action(int sig)
 	,	(int) getpid());
 	if (debug_level == 1 && olddebug == 0) {
 		hb_versioninfo();
-		hb_dump_proc_stats(curproc);
 	}
 }
 

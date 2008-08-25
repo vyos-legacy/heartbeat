@@ -219,7 +219,7 @@ add_msg_auth(struct ha_msg * m)
 	if (buflen < MAXLINE){
 		msgbuf = &msgbody[0];
 	}else{
-		msgbuf =  cl_malloc(get_stringlen(m));
+		msgbuf =  malloc(get_stringlen(m));
 		if (msgbuf == NULL){
 			cl_log(LOG_ERR, "%s: malloc failed",
 			       __FUNCTION__);
@@ -260,7 +260,7 @@ add_msg_auth(struct ha_msg * m)
 
  out:
 	if (msgbuf && buf_malloced){
-		cl_free(msgbuf);
+		free(msgbuf);
 	}       
 	
 	return ret;
@@ -287,7 +287,7 @@ isauthentic(const struct ha_msg * m)
 	if (buflen < MAXLINE){
 		msgbuf = &msgbody[0];
 	}else{
-		msgbuf =  cl_malloc(get_stringlen(m));
+		msgbuf =  malloc(get_stringlen(m));
 		if (msgbuf == NULL){
 			cl_log(LOG_ERR, "%s: malloc failed",
 			       __FUNCTION__);
@@ -354,7 +354,7 @@ isauthentic(const struct ha_msg * m)
 	
  out:	
 	if (buf_malloced && msgbuf){
-		cl_free(msgbuf);
+		free(msgbuf);
 	}
 	return ret;
 

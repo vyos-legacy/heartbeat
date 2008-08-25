@@ -27,7 +27,6 @@
 #include <errno.h>
 #include <clplumbing/cl_log.h>
 #include <clplumbing/cl_signal.h>
-#include <clplumbing/cl_malloc.h>
 #include <sys/types.h>
 #include <sys/utsname.h>
 #include <sys/time.h>
@@ -167,7 +166,7 @@ main(int argc, char ** argv)
 			cl_log(LOG_INFO, "Parameter %s is [%s]"
 			,	mandparms[j]
 			,	ctmp);
-			cl_free(ctmp); ctmp = NULL;
+			free(ctmp); ctmp = NULL;
 		}else{
 			cl_log(LOG_ERR, "Mandantory Parameter %s is not available!"
 			,	mandparms[j]);
@@ -178,7 +177,7 @@ main(int argc, char ** argv)
 			cl_log(LOG_INFO, "Optional Parameter %s is [%s]"
 			,	optparms[j]
 			,	ctmp);
-			cl_free(ctmp); ctmp = NULL;
+			free(ctmp); ctmp = NULL;
 		}
 	}
 	if ((cval = hb->llc_ops->get_resources(hb)) == NULL) {

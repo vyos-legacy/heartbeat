@@ -287,7 +287,7 @@ should_msg_sendto_client(client_proc_t* client, struct ha_msg* msg)
 			       "g_hash_table_remove failed");
 			return FALSE;
 		}
-		cl_free(snapshot);
+		free(snapshot);
 		
 		
 		if ( g_hash_table_size(table) ==0){
@@ -1311,7 +1311,7 @@ static void
 destroy_pair(gpointer key, gpointer value, gpointer user_data)
 {
 	if(value){
-		cl_free(value);
+		free(value);
 	}
 }
 static void
@@ -1355,7 +1355,7 @@ create_seq_snapshot_table(GHashTable** ptable)
 			struct seq_snapshot* snapshot;
 			
 			snapshot = (struct seq_snapshot*) 
-				cl_malloc(sizeof(struct seq_snapshot));
+				malloc(sizeof(struct seq_snapshot));
 			
 			if (snapshot == NULL){
 				cl_log(LOG_ERR, "allocating memory for"
@@ -1710,7 +1710,7 @@ api_remove_client_int(client_proc_t* req, const char * reason)
 		api_send_client_status(req, LEAVESTATUS, reason);
 		/* Zap! */
 		memset(client, 0, sizeof(*client));
-		cl_free(client); client = NULL;
+		free(client); client = NULL;
 
 	}else{
 		cl_log(LOG_ERR,	"api_remove_client_int: could not find pid [%ld]"
