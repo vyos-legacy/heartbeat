@@ -26,9 +26,6 @@
 /* have new heartbeat api */
 #undef HAVE_NEW_HB_API
 
-/* Define to 1 if the mgmt-daemon and friends are enabled. */
-#undef MGMT_ENABLED
-
 /* $malloc_desc */
 #undef CL_USE_LIBC_MALLOC
 

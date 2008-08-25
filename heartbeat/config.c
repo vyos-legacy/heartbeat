@@ -2581,9 +2581,6 @@ set_release2mode(const char* value)
 	,	{"apiauth", "stonithd  	uid=root" }
 	,	{"apiauth", "attrd   	uid=" HA_CCMUSER}
 	,	{"apiauth", "crmd   	uid=" HA_CCMUSER}
-#ifdef MGMT_ENABLED
-	,	{"apiauth", "mgmtd   	uid=root" }
-#endif
 	,	{"apiauth", "pingd   	uid=root"}
 
 	,	{"failfast"," "HA_CCMUSER " " HA_LIBHBDIR "/ccm"}
@@ -2593,9 +2590,6 @@ set_release2mode(const char* value)
 	,	{"respawn", "root "	      HA_LIBHBDIR "/stonithd"}
 	,	{"respawn", " "HA_CCMUSER " " HA_LIBHBDIR "/attrd" }
 	,	{"failfast"," "HA_CCMUSER " " HA_LIBHBDIR "/crmd" }
-#ifdef MGMT_ENABLED
-	,	{"respawn", "root "  	      HA_LIBHBDIR "/mgmtd -v"}
-#endif
 		/* Don't 'respawn' pingd - it's a resource agent */
 	};
 
@@ -2613,9 +2607,6 @@ set_release2mode(const char* value)
 	,	{"apiauth", "stonithd  	uid=root" }
 	,	{"apiauth", "attrd   	uid=" HA_CCMUSER}
 	,	{"apiauth", "crmd   	uid=" HA_CCMUSER}
-#ifdef MGMT_ENABLED
-	,	{"apiauth", "mgmtd   	uid=root" }
-#endif
 	,	{"apiauth", "pingd   	uid=root"}
 
 	,	{"respawn", " "HA_CCMUSER " " HA_LIBHBDIR "/ccm"}
@@ -2625,9 +2616,6 @@ set_release2mode(const char* value)
 	,	{"respawn", "root "	      HA_LIBHBDIR "/stonithd"}
 	,	{"respawn", " "HA_CCMUSER " " HA_LIBHBDIR "/attrd" }
 	,	{"respawn", " "HA_CCMUSER " " HA_LIBHBDIR "/crmd" }
-#ifdef MGMT_ENABLED
-	,	{"respawn", "root "  	      HA_LIBHBDIR "/mgmtd -v"}
-#endif
 		/* Don't 'respawn' pingd - it's a resource agent */
 	};
 
