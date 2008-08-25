@@ -31,7 +31,7 @@
 
 Name:           heartbeat
 Summary:        The Heartbeat Subsystem for High-Availability Linux
-Version:        3.0.0
+Version:        2.99.1
 Release:        1
 License:        GPL/LGPL
 URL:            http://www.linux-ha.org/v2
@@ -633,6 +633,9 @@ fi
 %config(noreplace) %{_sysconfdir}/logrotate.d/ldirectord
 
 %changelog heartbeat
+* Thu Aug 21 2008 Lars Marowsky-Bree <lmb@suse.de> and many others
++ 2.99.1 - beta release of 3.0.x series.
+- Remove cl_malloc.h; always use libc malloc() et al now.
 * Thu Aug 21 2008 Lars Marowsky-Bree <lmb@suse.de> and many others
 + 2.99.0 - beta release of 3.0.x series.
 - Restructured heartbeat package layout.
