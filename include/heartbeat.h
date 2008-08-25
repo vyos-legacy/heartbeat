@@ -36,6 +36,7 @@
 #endif
 
 #include <hb_config.h>
+#include <stdlib.h>
 #include <limits.h>
 #include <syslog.h>
 #include <netdb.h>
