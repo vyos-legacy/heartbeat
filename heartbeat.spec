@@ -517,6 +517,7 @@ fi
 %dir %{_datadir}/doc/packages/heartbeat
 %{_sysconfdir}/ha.d/shellfuncs
 %{_sbindir}/stonith
+%{_sbindir}/sbd
 %{_sbindir}/meatclient
 %{_sbindir}/ha_logger
 %{_sbindir}/hb_report
