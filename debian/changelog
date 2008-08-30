@@ -2,7 +2,32 @@ heartbeat (2.99.0-1) unstable; urgency=low
 
   * New Upstream
 
- -- Simon Horman <horms@debian.org>  Mon, 18 Aug 2008 22:12:16 +1000
+ -- Simon Horman <horms@debian.org>  Sat, 30 Aug 2008 11:16:30 +1000
+
+heartbeat (2.1.4-2) unstable; urgency=low
+
+  * Dependancy on uuid-runtime for heartbeat-gui
+
+    Unfortuantely the 2.1.3-7 of this fix made it into upstream 2.1.4
+    but not the 2.1.3-8 version of the fix. This should rectify this
+    problem, again...
+
+    Patch: medium_debian_uuid-duntime__e2fsprogs_dependancy_for_heartbeat-gui.patch
+    Upstream-status: Pending
+    (closes: #484868)
+
+  * Dependancy on ${shlibs:Depends} for heartbeat-gui
+    As per lintian error "missing-dependency-on-libc"
+
+  * Dependancy on python-xml for heartbeat-gui
+    (closes: #496951)
+
+  * Pass --enable-libc-malloc to configure.
+    --enable-glib-malloc was a typo.
+
+    Upstream-satatus: Pending
+
+ -- Simon Horman <horms@debian.org>  Fri, 29 Aug 2008 04:34:10 +0000
 
 heartbeat (2.1.4-1) unstable; urgency=low
 
