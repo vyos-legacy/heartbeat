@@ -53,10 +53,10 @@ clean: configure
 		debian/ldirectord.default
 
 	# Add here commands to clean up after the build process.
-	-$(MAKE) clean
-	-$(MAKE) distclean
+	[ ! -f Makefile ] || $(MAKE) clean
+	[ ! -f Makefile ] || $(MAKE) distclean
 	rm -f tools/ccdv
-	-find . -name '*.py[co]' | xargs rm -f
+	find . -name '*.py[co]' | xargs rm -f
 
 	# Zero autoconf foo
 	rm -f config.status libltdl/config.log libltdl/config.status 
