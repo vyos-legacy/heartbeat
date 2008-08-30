@@ -39,7 +39,7 @@
 
 /* These have to match the values in the header of the partition */
 static char		sbd_magic[8] = "SBD_SBD_";
-static char		sbd_version  = 0x01;
+static char		sbd_version  = 0x02;
 
 /* Tunable defaults: */
 static unsigned long	timeout_watchdog 	= 5;
@@ -68,21 +68,23 @@ usage()
 "	%s <options> <command> <cmdarguments>\n"
 "Options:\n"
 "-d <devname>	Block device to use (mandatory)\n"
+"-n <node>	Set local node name; defaults to uname -n (optional)\n"
+"\n"
 "-W		Use watchdog (recommended) (watch only)\n"
 "-w <dev>	Specify watchdog device (optional) (watch only)\n"
 "-D		Run as background daemon (optional) (watch only)\n"
-"-n <node>	Set local node name; defaults to uname -n (optional)\n"
-"-1 <N>		Set watchdog timeout to N seconds (optional) (watch only)\n"
-"-2 <N>		Set slot allocation timeout to N seconds (optional) (watch only)\n"
-"-3 <N>		Set daemon loop timeout to N seconds (optional) (watch only)\n"
-"-4 <N>		Set msgwait timeout to N seconds (optional) (watch only)\n"
+"\n"
+"-1 <N>		Set watchdog timeout to N seconds (optional) (create only)\n"
+"-2 <N>		Set slot allocation timeout to N seconds (optional) (create only)\n"
+"-3 <N>		Set daemon loop timeout to N seconds (optional) (create only)\n"
+"-4 <N>		Set msgwait timeout to N seconds (optional) (create only)\n"
 "Commands:\n"
 "create		initialize N slots on <dev> - OVERWRITES DEVICE!\n"
 "list		List all allocated slots on device, and messages.\n"
 "watch		Loop forever, monitoring own slot\n"
 "allocate <node>\n"
 "		Allocate a slot for node (optional)\n"
-"message <node> (test|reset|off|clear)\n"
+"message <node> (test|reset|off|clear|exit)\n"
 "		Writes the specified message to node's slot.\n"
 , cmdname);
 }
@@ -137,7 +139,6 @@ watchdog_init(void)
 	}
 }
 
-/*
 static void
 watchdog_close(void)
 {
@@ -153,7 +154,6 @@ watchdog_close(void)
 		watchdogfd = -1;
 	}
 }
-*/
 
 static int
 open_device(const char* devname)
@@ -188,6 +188,8 @@ cmd2char(const char *cmd)
 		return SBD_MSG_RESET;
 	} else if (strcmp("off", cmd) == 0) {
 		return SBD_MSG_OFF;
+	} else if (strcmp("exit", cmd) == 0) {
+		return SBD_MSG_EXIT;
 	}
 	return -1;
 }
@@ -221,6 +223,9 @@ char2cmd(const char cmd)
 			break;
 		case SBD_MSG_OFF:
 			return "off";
+			break;
+		case SBD_MSG_EXIT:
+			return "exit";
 			break;
 		default:
 			return "undefined";
@@ -303,15 +308,34 @@ mbox_write_verify(int mbox, const struct sector_mbox_s *s_mbox)
 }
 
 static int
-header_write(const struct sector_header_s *s_header)
+header_write(struct sector_header_s *s_header)
 {
+	s_header->sector_size = htonl(s_header->sector_size);
+	s_header->timeout_watchdog = htonl(s_header->timeout_watchdog);
+	s_header->timeout_allocate = htonl(s_header->timeout_allocate);
+	s_header->timeout_loop = htonl(s_header->timeout_loop);
+	s_header->timeout_msgwait = htonl(s_header->timeout_msgwait);
 	return sector_write(0, s_header);
 }
 
 static int
 header_read(struct sector_header_s *s_header)
 {
-	return sector_read(0, s_header);
+	if (sector_read(0, s_header) < 0)
+		return -1;
+	
+	s_header->sector_size = ntohl(s_header->sector_size);
+	s_header->timeout_watchdog = ntohl(s_header->timeout_watchdog);
+	s_header->timeout_allocate = ntohl(s_header->timeout_allocate);
+	s_header->timeout_loop = ntohl(s_header->timeout_loop);
+	s_header->timeout_msgwait = ntohl(s_header->timeout_msgwait);
+	/* This sets the global defaults: */
+	timeout_watchdog = s_header->timeout_watchdog;
+	timeout_allocate = s_header->timeout_allocate;
+	timeout_loop     = s_header->timeout_loop;
+	timeout_msgwait  = s_header->timeout_msgwait;
+
+	return 0;
 }
 
 static int
@@ -325,7 +349,7 @@ valid_header(const struct sector_header_s *s_header)
 		cl_log(LOG_ERR, "Header version does not match.");
 		return -1;
 	}
-	if (ntohl(s_header->sector_size) != sector_size) {
+	if (s_header->sector_size != sector_size) {
 		cl_log(LOG_ERR, "Header sector size does not match.");
 		return -1;
 	}
@@ -370,7 +394,11 @@ init_device(void)
 	memcpy(s_header->magic, sbd_magic, sizeof(s_header->magic));
 	s_header->version = sbd_version;
 	s_header->slots = 255;
-	s_header->sector_size = htonl(sector_size);
+	s_header->sector_size = sector_size;
+	s_header->timeout_watchdog = timeout_watchdog;
+	s_header->timeout_allocate = timeout_allocate;
+	s_header->timeout_loop = timeout_loop;
+	s_header->timeout_msgwait = timeout_msgwait;
 
 	fstat(devfd, &s);
 	/* printf("st_size = %ld, st_blksize = %ld, st_blocks = %ld\n",
@@ -561,6 +589,10 @@ slot_msg(const char *name, const char *cmd)
 		rc = -1; goto out;
 	}
 
+	if (strcmp(name, "LOCAL") == 0) {
+		name = local_uname;
+	}
+
 	mbox = slot_lookup(s_header, name);
 	if (mbox < 0) {
 		cl_log(LOG_ERR, "slot_msg(): No slot found for %s.", name);
@@ -577,6 +609,8 @@ slot_msg(const char *name, const char *cmd)
 
 	strncpy(s_mbox->from, local_uname, sizeof(s_mbox->from)-1);
 
+	cl_log(LOG_INFO, "Writing %s to node slot %s",
+			cmd, name);
 	if (mbox_write_verify(mbox, s_mbox) < -1) {
 		rc = -1; goto out;
 	}
@@ -707,6 +741,10 @@ daemonize(void)
 			case SBD_MSG_OFF:
 				do_off();
 				break;
+			case SBD_MSG_EXIT:
+				watchdog_close();
+				goto out;
+				break;
 			default:
 				/* TODO: Should we do something on
 				 * unknown messages? */
@@ -720,9 +758,31 @@ daemonize(void)
 	}
 
 out:
-	/* This is ONLY reached for non-daemon code! */
 	free(s_mbox);
 	return rc;
+}
+
+static int
+header_dump(void)
+{
+	struct sector_header_s *s_header;
+	s_header = header_get();
+	if (s_header == NULL)
+		return -1;
+
+	printf("Header version     : %u\n", s_header->version);
+	printf("Number of slots    : %u\n", s_header->slots);
+	printf("Sector size        : %lu\n",
+			(unsigned long)s_header->sector_size);
+	printf("Timeout (watchdog) : %lu\n",
+			(unsigned long)s_header->timeout_watchdog);
+	printf("Timeout (allocate) : %lu\n",
+			(unsigned long)s_header->timeout_allocate);
+	printf("Timeout (loop)     : %lu\n",
+			(unsigned long)s_header->timeout_loop);
+	printf("Timeout (msgwait)  : %lu\n",
+			(unsigned long)s_header->timeout_msgwait);
+	return 0;
 }
 
 static void
@@ -810,6 +870,8 @@ main(int argc, char** argv)
 
 	if (strcmp(argv[optind],"create") == 0) {
 		exit_status = init_device();
+	} else if (strcmp(argv[optind],"dump") == 0) {
+		exit_status = header_dump();
 	} else if (strcmp(argv[optind],"allocate") == 0) {
 		exit_status = slot_allocate(argv[optind+1]);
 	} else if (strcmp(argv[optind],"list") == 0) {
@@ -817,7 +879,7 @@ main(int argc, char** argv)
 	} else if (strcmp(argv[optind],"message") == 0) {
 		exit_status = slot_msg(argv[optind+1], argv[optind+2]);
 	} else if (strcmp(argv[optind],"watch") == 0) {
-		daemonize();
+		exit_status = daemonize();
 	} else {
 		exit_status = -1;
 	}
