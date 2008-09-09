@@ -234,7 +234,7 @@ check_drbd_peer(const char *drbd_peer)
 
 		/* Look for the peer */
 		if (!strcmp("normal", dopd_cluster_conn->llc_ops->node_type(dopd_cluster_conn, node))
-			&& !strcmp(node, drbd_peer)) {
+			&& !strcasecmp(node, drbd_peer)) {
 			cl_log(LOG_DEBUG, "node %s found\n", node);
 			found = TRUE;
 			break;

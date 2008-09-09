@@ -30,6 +30,7 @@
 #include <errno.h>
 
 #include <stdlib.h>
+#include <ctype.h>
 #include <clplumbing/lsb_exitcodes.h>
 #include <clplumbing/Gmain_timeout.h>
 #include <clplumbing/GSource.h>
@@ -186,6 +187,7 @@ main(int argc, char ** argv)
 	char *drbd_peer = NULL;
 	char *drbd_resource = NULL;
 	int timeout = DEFAULT_TIMEOUT;
+	int i;
 
 	dop_client_t *new_client = NULL;
 	GCHSource *src = NULL;
@@ -239,6 +241,9 @@ main(int argc, char ** argv)
 	if (argerr) {
 		usage(crm_system_name, LSB_EXIT_GENERIC);
 	}
+	for (i = 0; i < strlen(drbd_peer); i++)
+		drbd_peer[i] = tolower(drbd_peer[i]);
+
 
 	cl_log(LOG_DEBUG, "drbd peer: %s\n", drbd_peer);
 	cl_log(LOG_DEBUG, "drbd resource: %s\n", drbd_resource);
