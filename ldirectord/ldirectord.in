@@ -184,6 +184,15 @@ an emergency page.
 
 If defined in a virtual server section then the global value is overridden.
 
+B<fallbackcommand = ">I<path to script>B<">
+
+If this directive is defined, the supplied script is executed whenever all
+real servers for a virtual service are down or when the first real server
+comes up again. In the first case, it is called with "start" as its first
+argument, in the latter with "stop".
+
+If defined in a virtual server section then the global value is overridden.
+
 B<logfile = ">I</path/to/logfile>B<">|syslog_facility
 
 An alternative logfile might be specified with this directive. If the logfile
@@ -618,6 +627,7 @@ use vars qw(
 	    $CONFIG
 	    $DEBUG
 	    $FALLBACK
+	    $FALLBACKCOMMAND
 	    $SUPERVISED
 	    $IPVSADM
 	    $checksum
@@ -1303,6 +1313,9 @@ sub read_config
 					$vsrv{fallback} =
 						parse_fallback($line, $1,
 							       \%vsrv);
+				} elsif ($rcmd =~ /^fallbackcommand\s*=\s*(.*)/) {
+                                        $1 =~ /(.+)/ or &config_error($line, "invalid fallback command");
+                                        $vsrv{fallbackcommand} = $1;
                                 } elsif ($rcmd =~ /^quiescent\s*=\s*(.*)/) {
                                         ($1 eq "yes" || $1 eq "no")
                                                 or &config_error($line, "quiescent must be 'yes' or 'no'");
@@ -1381,6 +1394,9 @@ sub read_config
                         &_ld_read_config_fallback_resolve($line, "tcp", $tcp);
 			&_ld_read_config_fallback_resolve($line, "udp", $udp);
 			$FALLBACK = { "tcp" => $tcp, "udp" => $udp };
+		} elsif ($linedata =~ /^fallbackcommand\s*=\s*(.*)/) {
+			$1 =~ /(.+)/ or &config_error($line, "invalid fallback command");
+			$FALLBACKCOMMAND = $1;
 		} elsif ($linedata  =~ /^autoreload\s*=\s*(.*)/) {
 			($1 eq "yes" || $1 eq "no")
 			    or &config_error($line, 
@@ -3652,14 +3668,16 @@ sub fallback_on
 
 	my $fallback=&fallback_find($v);
 
-	if (! defined($fallback) or (! _status_up($v, $fallback, "fallback") 
-			and ! defined($force))) {
-		return;
+	if (defined($fallback) and (_status_up($v, $fallback, "fallback")
+			or defined($force))) {
+		&_restore_service($v, $fallback->{server} . ":" . $fallback->{port},
+				  get_forward_flag($fallback->{forward}), 
+				  "1", "fallback");
 	}
 
-	&_restore_service($v, $fallback->{server} . ":" . $fallback->{port},
-			get_forward_flag($fallback->{forward}), 
-				"1", "fallback");
+	if (!defined ($v->{real_status})) {
+		&do_fallback_command($v, "start");
+	}
 }
 
 
@@ -3675,14 +3693,16 @@ sub fallback_off
 
 	my $fallback=&fallback_find($v);
 
-	if (! defined($fallback) or (! _status_down($v, $fallback, "fallback") 
-			and ! defined($force))) {
-		return;
+	if (defined($fallback) and (_status_down($v, $fallback, "fallback")
+			or defined($force))) {
+		&_remove_service($v, $fallback->{server} . ":" .  $fallback->{port},
+				 get_forward_flag($fallback->{forward}),
+				 "fallback");
 	}
 
-	&_remove_service($v, $fallback->{server} . ":" .  $fallback->{port},
-			get_forward_flag($fallback->{forward}),
-				"fallback");
+	if (defined ($v->{real_status})) {
+		&do_fallback_command($v, "stop");
+	}
 }
 
 
@@ -3716,6 +3736,27 @@ sub fallback_find
 	return \%anon_fallback;
 }
 
+
+# fallback_command
+# Execute the fallback command with the given status if it wasn't executed
+# with this status already for the supplied virtual service.
+
+sub do_fallback_command()
+{
+	my ($v, $status) = (@_);
+
+	if (defined $v->{fallbackcommand_status} and $v->{fallbackcommand_status} eq $status) {
+		return;
+	}
+
+	$v->{fallbackcommand_status} = $status;
+
+	if (defined($v->{fallbackcommand})) {
+		&system_wrapper($v->{fallbackcommand} . " " . $status);
+	} elsif (defined($FALLBACKCOMMAND)) {
+		&system_wrapper($FALLBACKCOMMAND . " " . $status);
+	}
+}
 
 # Used during stop, start and reload to remove stale real servers from LVS
 sub purge_untracked_service
