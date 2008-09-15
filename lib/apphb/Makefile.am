@@ -38,4 +38,4 @@ else
 libapphb_la_CFLAGS	= -lpthread
 endif
 
-libapphb_la_LDFLAGS	= -version-info 0:0:0 
+libapphb_la_LDFLAGS	= -version-info 2:0:0 
