@@ -679,7 +679,7 @@ SetupFifoChild(void) {
 				break;
 
 		case 0:		/* Child */
-				close(watchdogfd);
+				hb_close_watchdog();
 				curproc = &procinfo->info[fifoproc];
 				cl_msg_setstats(&curproc->msgstats);
 				curproc->type = PROC_HBFIFO;
@@ -797,7 +797,7 @@ make_io_childpair(int medianum, int ourproc)
 				break;
 
 		case 0:		/* Child */
-				close(watchdogfd);
+				hb_close_watchdog();
 				curproc = &procinfo->info[ourproc];
 				cl_msg_setstats(&curproc->msgstats);
 				curproc->type = PROC_HBWRITE;
@@ -830,7 +830,7 @@ make_io_childpair(int medianum, int ourproc)
 				break;
 
 		case 0:		/* Child */
-				close(watchdogfd);
+				hb_close_watchdog();
 				curproc = &procinfo->info[ourproc];
 				cl_msg_setstats(&curproc->msgstats);
 				curproc->type = PROC_HBREAD;
