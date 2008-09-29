@@ -634,9 +634,27 @@ fi
 %config(noreplace) %{_sysconfdir}/logrotate.d/ldirectord
 
 %changelog heartbeat
-* Thu Aug 21 2008 Lars Marowsky-Bree <lmb@suse.de> and many others
+* Mon Sep 29 2008 Lars Marowsky-Bree <lmb@suse.de> and many others
 + 2.99.1 - beta release of 3.0.x series.
+- RA: vmware: New agent added.
+- RA: Filesystem: OCFS2 extensions removed, no longer needed for new
+  Pacemaker + OCFS2 code base.
+- RA: mysql: Fix typo.
+- RA: apache: envfiles attribute to source extra environment (e.g.
+  envars).
+- RA: LVM: stop correctly in case vol group does not exist.
+- RA: ldirectord: add option for executing command on fallback.
+- RA: ldirectord: Add web proxy health checking to ldirectord.
+- dopd: hostnames should be case insensitive.
+- STONITH: SBD for shared storage fencing merged (includes fix for
+  LF#1961).
+- STONITH: external/riloe: many fixes for HP iLO.
+- heartbeat: close watchdog files properly.
+- heartbeat: new IPv6 ping plugin (ping6).
+- Compile fixes for Debian and Ubuntu.
 - Remove cl_malloc.h; always use libc malloc() et al now.
+- Due to cl_malloc changes, update clplumbing so major.
+- Remove snmp_subagent.
 * Thu Aug 21 2008 Lars Marowsky-Bree <lmb@suse.de> and many others
 + 2.99.0 - beta release of 3.0.x series.
 - Restructured heartbeat package layout.
