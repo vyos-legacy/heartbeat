@@ -252,9 +252,12 @@ oc_ev_register(oc_ev_t **token)
 int 
 oc_ev_unregister(oc_ev_t *tok)
 {
-	__oc_ev_t *token = (__oc_ev_t *)g_hash_table_lookup(tokenhash, 
-			tok);
-	
+	__oc_ev_t *token = NULL;
+
+	if(tokenhash) {
+	    token = g_hash_table_lookup(tokenhash, tok);
+	}
+    
 	if(token == NULL || token_invalid(token)){
 		return EINVAL;
 	}
