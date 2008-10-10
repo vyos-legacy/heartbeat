@@ -83,6 +83,10 @@ ha_log() {
 
 ha_debug() {
 
+        if [ "x${HA_debug}" = "x0" ] ; then
+                return 0
+        fi
+
         if [ "x${HA_LOGD}" = "xyes" ] ; then  
 		ha_logger -t "${HA_LOGTAG}" -D "ha-debug" "$@"
                 if [ "$?" -eq "0" ] ; then
