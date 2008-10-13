@@ -180,7 +180,7 @@ logmarks() {
 	sev=$1 msg=$2
 	c="logger -p $HA_LOGFACILITY.$sev $msg"
 
-	for n in `getnodes`; do
+	for n in $NODES; do
 		if [ "$n" = "`uname -n`" ]; then
 			$c
 		else
@@ -253,7 +253,7 @@ dumpenv() {
 	cat<<EOF
 FROM_TIME=$FROM_TIME
 TO_TIME=$TO_TIME
-NODES="$NODES"
+USER_NODES="$USER_NODES"
 HA_LOG=$HA_LOG
 MASTER_IS_HOSTLOG=$MASTER_IS_HOSTLOG
 DESTDIR=$DESTDIR
@@ -264,7 +264,7 @@ REMOVE_DEST="$REMOVE_DEST"
 EOF
 }
 start_remote_collectors() {
-	for node in `getnodes`; do
+	for node in $NODES; do
 		[ "$node" = "$WE" ] && continue
 		dumpenv |
 		ssh $ssh_opts $node "mkdir -p $DESTDIR && cat > $DESTDIR/.env &&
@@ -287,7 +287,7 @@ testsshuser() {
 findsshuser() {
 	for u in "" $TRY_SSH; do
 		rc=0
-		for n in `getnodes`; do
+		for n in $NODES; do
 			[ "$node" = "$WE" ] && continue
 			testsshuser $n $u || {
 				rc=1
@@ -368,7 +368,7 @@ sanitize() {
 # remove duplicates if files are same, make links instead
 #
 consolidate() {
-	for n in `getnodes`; do
+	for n in $NODES; do
 		if [ -f $1/$2 ]; then
 			rm $1/$n/$2
 		else
@@ -382,7 +382,7 @@ consolidate() {
 # some basic analysis of the report
 #
 checkcrmvfy() {
-	for n in `getnodes`; do
+	for n in $NODES; do
 		if [ -s $1/$n/$CRM_VERIFY_F ]; then
 			echo "WARN: crm_verify reported warnings at $n:"
 			cat $1/$n/$CRM_VERIFY_F
@@ -390,7 +390,7 @@ checkcrmvfy() {
 	done
 }
 checkbacktraces() {
-	for n in `getnodes`; do
+	for n in $NODES; do
 		[ -s $1/$n/$BT_F ] && {
 			echo "WARN: coredumps found at $n:"
 			egrep 'Core was generated|Program terminated' \
@@ -411,7 +411,7 @@ checklogs() {
 	done > $pattfile
 	echo ""
 	echo "Log patterns:"
-	for n in `getnodes`; do
+	for n in $NODES; do
 		cat $logs | grep -f $pattfile
 	done
 	rmtempfile $pattfile
@@ -457,7 +457,7 @@ diffcheck() {
 analyze_one() {
 	rc=0
 	node0=""
-	for n in `getnodes`; do
+	for n in $NODES; do
 		if [ "$node0" ]; then
 			diffcheck $1/$node0/$2 $1/$n/$2
 			rc=$(($rc+$?))
@@ -518,7 +518,7 @@ EOF
 		echo "Common system info found:"
 		cat $DESTDIR/$SYSINFO_F
 	else
-		for n in `getnodes`; do
+		for n in $NODES; do
 			if [ -f $DESTDIR/$n/$SYSINFO_F ]; then
 				echo "System info $n:"
 				sed 's/^/	/' $DESTDIR/$n/$SYSINFO_F
@@ -554,13 +554,16 @@ EOF
 # find nodes for this cluster
 #
 getnodes() {
+	NODES_SOURCE=ha.cf
 	# 1. set by user?
-	if [ "$NODES" ]; then
-		echo $NODES
+	if [ "$USER_NODES" ]; then
+		NODES_SOURCE=user
+		echo $USER_NODES
 		return
 	fi
 	# 2. hostcache
 	if [ -f $HA_VARLIB/hostcache ]; then
+		NODES_SOURCE=hostcache
 		awk '{print $1}' $HA_VARLIB/hostcache
 		return
 	fi
@@ -580,12 +583,6 @@ if [ "$t" = "" ]; then
 	[ "$SLAVE" ] ||
 		fatal "please install the perl Date::Parse module"
 fi
-
-WE=`uname -n`  # who am i?
-THIS_IS_NODE=""
-getnodes | grep -wqs $WE && # are we a node?
-	THIS_IS_NODE=1
-getlogvars
 
 #
 # part 1: get and check options; and the destination
@@ -608,7 +605,7 @@ if [ "$SLAVE" = "" ]; then
 			t) TO_TIME=`str2time "$OPTARG"`
 			    chktime "$TO_TIME" "$OPTARG"
 			;;
-			n) NODES="$NODES $OPTARG";;
+			n) USER_NODES="$USER_NODES $OPTARG";;
 			u) SSH_USER="$OPTARG";;
 			l) HA_LOG="$OPTARG";;
 			e) EDITOR="$OPTARG";;
@@ -628,6 +625,17 @@ if [ "$SLAVE" = "" ]; then
 	chkdirname $DESTDIR
 	[ "$FROM_TIME" ] || usage short
 fi
+
+WE=`uname -n`  # who am i?
+THIS_IS_NODE=""
+NODES=`getnodes`
+NODECNT=`echo $NODES | wc -w`
+echo $NODES | grep -wqs $WE && # are we a node?
+	THIS_IS_NODE=1
+if [ -z "$THIS_IS_NODE" -a "$NODES_SOURCE" != user ]; then
+	warning "this is not a node and you didn't specify a list of nodes using -n"
+fi
+getlogvars
 
 # this only on master
 if [ "$SLAVE" = "" ]; then
@@ -651,7 +659,7 @@ if [ "$SLAVE" = "" ]; then
 # final check: don't run if the destination directory exists
 	[ -d $DESTDIR ] && msgcleanup "local node"
 	[ "$ssh_good" ] &&
-		for node in `getnodes`; do
+		for node in $NODES; do
 			[ "$node" = "$WE" ] && continue
 			ssh $ssh_opts $node "test -d $DESTDIR" &&
 				msgcleanup $node
@@ -700,10 +708,12 @@ if [ "$HA_LOG" = "" ]; then
 	[ "$HA_LOG" ] &&
 		cnt=`fgrep -c $UNIQUE_MSG < $HA_LOG`
 fi
-nodecnt=`getnodes | wc -w`
-if [ "$cnt" ] && [ $cnt -eq $nodecnt ]; then
+if [ "$cnt" ] && [ $cnt -eq $NODECNT ]; then
 	MASTER_IS_HOSTLOG=1
 	info "found the central log!"
+	if [ "$NODES_SOURCE" != user ]; then
+		warning "this is not a node and you didn't specify a list of nodes using -n"
+	fi
 fi
 
 if [ -f "$HA_LOG" ]; then
@@ -741,7 +751,7 @@ if [ ! "$SLAVE" ]; then
 	if [ "$ssh_good" ]; then
 		start_remote_collectors
 	else
-		if [ -z "$NO_SSH" -a `getnodes | wc -w` -gt 1 ]; then
+		if [ -z "$NO_SSH" -a $NODECNT -gt 1 ]; then
 			warning "ssh does not work to all nodes"
 			warning "please use the -u option if you want to supply a password"
 		fi
