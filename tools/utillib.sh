@@ -33,9 +33,6 @@ iscfvartrue() {
 	getcfvar "$1" |
 		egrep -qsi "^(true|y|yes|on|1)"
 }
-getnodes() {
-	getcfvar node
-}
 
 #
 # logging

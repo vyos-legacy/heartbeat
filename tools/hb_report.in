@@ -67,10 +67,14 @@ fi
 usage() {
 	cat<<EOF
 usage: hb_report -f {time|"cts:"testnum} [-t time] [-u user] [-l file]
-       [-E files] [-p patt] [-L patt] [-e prog] [-MSDC] dest
+       [-n nodes] [-E files] [-p patt] [-L patt] [-e prog] [-MSDC] dest
 
 	-f time: time to start from or a CTS test number
 	-t time: time to finish at (dflt: now)
+	-n nodes: node names for this cluster; this option is additive
+	         (use either -n "a b" or -n a -n b)
+	         if you run $PROG on the log host or use autojoin,
+	         it is highly recommended to set this option
 	-u user: ssh user to access other nodes (dflt: empty, hacluster, root)
 	-l file: log file
 	-E file: extra logs to collect; this option is additive
@@ -249,6 +253,7 @@ dumpenv() {
 	cat<<EOF
 FROM_TIME=$FROM_TIME
 TO_TIME=$TO_TIME
+NODES="$NODES"
 HA_LOG=$HA_LOG
 MASTER_IS_HOSTLOG=$MASTER_IS_HOSTLOG
 DESTDIR=$DESTDIR
@@ -545,6 +550,24 @@ Try reducing the period (use the -f and -t options).
 EOF
 }
 
+#
+# find nodes for this cluster
+#
+getnodes() {
+	# 1. set by user?
+	if [ "$NODES" ]; then
+		echo $NODES
+		return
+	fi
+	# 2. hostcache
+	if [ -f $HA_VARLIB/hostcache ]; then
+		awk '{print $1}' $HA_VARLIB/hostcache
+		return
+	fi
+	# 3. ha.cf
+	getcfvar node
+}
+
 [ $# -eq 0 ] && usage
 
 # check for the major prereq for a) parameter parsing and b)
@@ -585,6 +608,7 @@ if [ "$SLAVE" = "" ]; then
 			t) TO_TIME=`str2time "$OPTARG"`
 			    chktime "$TO_TIME" "$OPTARG"
 			;;
+			n) NODES="$NODES $OPTARG";;
 			u) SSH_USER="$OPTARG";;
 			l) HA_LOG="$OPTARG";;
 			e) EDITOR="$OPTARG";;
