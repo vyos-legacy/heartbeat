@@ -45,7 +45,6 @@ usr/lib/ocf/resource.d/heartbeat/eDir88
 usr/lib/ocf/resource.d/heartbeat/ids
 usr/lib/ocf/resource.d/heartbeat/iscsi
 usr/lib/ocf/resource.d/heartbeat/mysql
-usr/lib/ocf/resource.d/heartbeat/o2cb
 usr/lib/ocf/resource.d/heartbeat/oracle
 usr/lib/ocf/resource.d/heartbeat/oralsnr
 usr/lib/ocf/resource.d/heartbeat/pgsql
