@@ -85,12 +85,13 @@ install-stamp:
 	install -c -m 755 ldirectord/init.d/ldirectord.debian.default \
 		debian/ldirectord.default
 
-	# cleanup unrequired stuff
+	# cleanup unpackaged stuff
 	rm -rf $(DTMP)/etc/init.d
 	find $(DTMP)/usr/lib/heartbeat/ -name *.a -exec rm {} \;
 	find $(DTMP)/usr/lib/pils/ -name *.a -exec rm {} \;
 	find $(DTMP)/usr/lib/stonith/ -name *.a -exec rm {} \;
 	find $(DTMP)/usr/lib -name *.la -exec rm {} \;
+	find $(DTMP)/usr/share/heartbeat/cts -name *.py[co] -exec rm {} \;
 
 	# missing file...
 	-mkdir -p $(DTMP)/usr/share/doc/ldirectord/
@@ -142,6 +143,8 @@ binary-arch: build install
 	dh_builddeb -a
 
 binary: binary-indep binary-arch
+	-chmod u+x ./debian/check-uninstalled
+	-./debian/check-uninstalled
 
 checkbuild:
 	chmod u+x ./debian/dpkg-checkbuild
