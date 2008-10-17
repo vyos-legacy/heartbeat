@@ -3,9 +3,7 @@
 /etc/logrotate.d/heartbeat
 usr/bin/*
 usr/lib/heartbeat/*
-usr/lib/*.so.0*
-usr/lib/*.so.1*
-usr/lib/*.so.2*
+usr/lib/*.so.*
 usr/lib/ocf/resource.d/heartbeat/.ocf-binaries
 usr/lib/ocf/resource.d/heartbeat/.ocf-directories
 usr/lib/ocf/resource.d/heartbeat/.ocf-returncodes
