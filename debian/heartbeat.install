@@ -59,6 +59,7 @@ usr/sbin/hb_report
 usr/sbin/meatclient
 usr/sbin/ocf-tester
 usr/sbin/stonith
+usr/sbin/sbd
 usr/share/doc/heartbeat/*
 usr/share/heartbeat/*
 usr/share/man/man1/*
