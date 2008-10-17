@@ -1179,7 +1179,7 @@ sub read_config
 					} else {
 						&config_error($line, "checktype must be \"connect\", \"negotiate\", \"on\", \"off\", \"ping\", \"external\" or a positive number");
 					}
-				} elsif ($rcmd =~ /^checkcommand\s*=\s*(.*)/){
+				} elsif ($rcmd =~ /^checkcommand\s*=\s*\"(.*)\"/ or $rcmd =~ /^checkcommand\s*=\s*(.*)/){
                                         $1 =~ /(.+)/ or &config_error($line, "invalid external script");
                                         $vsrv{checkcommand} = $1;
 				} elsif ($rcmd =~ /^checktimeout\s*=\s*(.*)/){
@@ -1321,7 +1321,8 @@ sub read_config
 					$vsrv{fallback} =
 						parse_fallback($line, $1,
 							       \%vsrv);
-				} elsif ($rcmd =~ /^fallbackcommand\s*=\s*(.*)/) {
+				} elsif ($rcmd =~
+				/^fallbackcommand\s*=\s*\"(.*)\"/ or $rcmd =~ /^fallbackcommand\s*=\s*(.*)/) {
                                         $1 =~ /(.+)/ or &config_error($line, "invalid fallback command");
                                         $vsrv{fallbackcommand} = $1;
                                 } elsif ($rcmd =~ /^quiescent\s*=\s*(.*)/) {
