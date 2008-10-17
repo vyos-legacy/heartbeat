@@ -52,6 +52,7 @@ usr/lib/ocf/resource.d/heartbeat/pingd
 usr/lib/ocf/resource.d/heartbeat/portblock
 usr/lib/ocf/resource.d/heartbeat/rsyncd
 usr/lib/ocf/resource.d/heartbeat/tomcat
+usr/lib/ocf/resource.d/heartbeat/vmware
 usr/lib/pils/*
 usr/lib/stonith/*
 usr/sbin/ha_logger
