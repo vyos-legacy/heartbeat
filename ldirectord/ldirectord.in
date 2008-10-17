@@ -645,6 +645,7 @@ use vars qw(
 	    $DAEMON_STATUS_ALL
 	    $DAEMON_TERM
 	    $DAEMON_HUP
+	    $DAEMON_CHLD
 	    $opt_d
 	    $opt_h
 	    $stattime
@@ -799,6 +800,9 @@ sub ld_init
 
 	# HUP is actually used
 	$SIG{'HUP'} = \&ld_handler_hup;
+
+	# Reap Children
+	$SIG{'CHLD'} = \&ld_handler_chld;
 
 	if (defined $ENV{HOSTNAME}) {
 		$HOSTNAME = "$ENV{HOSTNAME}";
@@ -977,6 +981,21 @@ sub ld_process_hup
 	&reread_config();
 }
 
+sub ld_handler_chld
+{
+	$DAEMON_CHLD=1;
+}
+
+sub ld_process_chld
+{
+	my $i = 0;
+
+	undef $DAEMON_CHLD;
+	while (waitpid(-1, WNOHANG) > 0) {
+		print "child: $i\n";
+		$i++;
+	}
+}
 
 sub check_signal
 {
@@ -985,6 +1004,9 @@ sub check_signal
 	}
 	if (defined $DAEMON_HUP) {
 		ld_process_hup();
+	}
+	if (defined $DAEMON_CHLD) {
+		ld_process_chld();
 	}
 }
 
@@ -2288,7 +2310,6 @@ sub ld_main
                         check_signal();
                         
                 } else {
-			local $SIG{CHLD} = 'IGNORE';
                         my @real_checked;
                         foreach my $v (@VIRTUAL) {
                                 my $real = $$v{real};
@@ -2947,6 +2968,7 @@ sub check_external
 	my ($v, $r) = @_;
 	my $result;
 	my $v_server;
+	my $timed_out = 1;
 
 	eval {
 		local $SIG{'__DIE__'} = "DEFAULT";
@@ -2958,8 +2980,8 @@ sub check_external
 		} else {
 		    $v_server = $$v{fwm};
 		}
-		$result = system("$$v{checkcommand} $v_server $$v{port} " .
-				 "$$r{server} $$r{port}");
+		$result = system_wrapper($$v{checkcommand}, $v_server,
+					 $$v{port}, $$r{server}, $$r{port});
 		alarm 0;
 		$result >>= 8;
 	};
