@@ -4718,11 +4718,12 @@ heartbeat_monitor(struct ha_msg * msg, int msgtype, const char * iface)
 	api_heartbeat_monitor(msg, msgtype, iface);
 }
 
+extern const char *get_hg_version(void);
 
 static void
 printversion(void)
 {	
-	printf("%s\n", VERSION);
+	printf("%s (%s)\n", VERSION, get_hg_version());
 	return;
 }
 /*
@@ -5108,6 +5109,8 @@ StartHeartbeat:
 		if (ANYDEBUG) {
 			cl_log(LOG_DEBUG
 			,	"HA configuration OK.  Heartbeat starting.");
+			cl_log(LOG_INFO
+			,	"Heartbeat Hg Version: %s", get_hg_version());
 		}
 		if (verbose) {
 			dump_config();
