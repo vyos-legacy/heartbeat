@@ -18,6 +18,7 @@
 # NB: This is not going to work unless you source /etc/ha.d/shellfuncs!
 
 #
+# Stack specific part (heartbeat)
 # ha.cf/logd.cf parsing
 #
 getcfvar() {
@@ -27,7 +28,7 @@ getcfvar() {
 		sed 's/^[^[:space:]]*[[:space:]]*//'
 }
 iscfvarset() {
-	test "`getcfvar \"$1\"`"
+	test "`getcfvar $1`"
 }
 iscfvartrue() {
 	getcfvar "$1" |
@@ -36,21 +37,6 @@ iscfvartrue() {
 getnodes() {
 	getcfvar node
 }
-
-#
-# logging
-#
-syslogmsg() {
-	severity=$1
-	shift 1
-	logtag=""
-	[ "$HA_LOGTAG" ] && logtag="-t $HA_LOGTAG"
-	logger -p ${HA_LOGFACILITY:-$DEFAULT_HA_LOGFACILITY}.$severity $logtag $*
-}
-
-#
-# find log destination
-#
 uselogd() {
 	iscfvartrue use_logd &&
 		return 0  # if use_logd true
@@ -90,6 +76,24 @@ getlogvars() {
 	HA_DEBUGFILE=`getcfvar debugfile`
 	HA_CF=$savecf
 }
+cluster_info() {
+	echo "heartbeat version: `$HA_BIN/heartbeat -V`"
+}
+
+#
+# logging
+#
+syslogmsg() {
+	severity=$1
+	shift 1
+	logtag=""
+	[ "$HA_LOGTAG" ] && logtag="-t $HA_LOGTAG"
+	logger -p ${HA_LOGFACILITY:-$DEFAULT_HA_LOGFACILITY}.$severity $logtag $*
+}
+
+#
+# find log destination
+#
 findmsg() {
 	# this is tricky, we try a few directories
 	syslogdir="/var/log /var/logs /var/syslog /var/adm /var/log/ha /var/log/cluster"
@@ -290,7 +294,8 @@ iscrmrunning() {
 dumpstate() {
 	crm_mon -1 | grep -v '^Last upd' > $1/$CRM_MON_F
 	cibadmin -Ql > $1/$CIB_F
-	ccm_tool -p > $1/$CCMTOOL_F 2>&1
+	[ "$CLUSTER_TYPE" = heartbeat ] &&
+		ccm_tool -p > $1/$CCMTOOL_F 2>&1
 }
 getconfig() {
 	[ -f "$HA_CF" ] &&
@@ -407,35 +412,35 @@ distro() {
 			}
 		done
 	}
-	warning "no lsb_release no /etc/*-release no /etc/debian_version"
+	warning "no lsb_release, no /etc/*-release, no /etc/debian_version: no distro information"
 }
-hb_ver() {
+pkg_ver() {
 	# for Linux .deb based systems
-	which dpkg > /dev/null 2>&1 && {
-		for pkg in heartbeat heartbeat-2; do
-			dpkg-query -f '${Version}' -W $pkg 2>/dev/null && break
-		done
-		[ $? -eq 0 ] &&
-			debsums -s $pkg 2>/dev/null
-		return
-	}
-	# for Linux .rpm based systems
-	which rpm > /dev/null 2>&1 && {
-		rpm -q --qf '%{version}-%{release}' heartbeat &&
-		echo &&
-		rpm --verify heartbeat
-		return
-	}
-	# for OpenBSD
-	which pkg_info > /dev/null 2>&1 && {
-		pkg_info | grep heartbeat | cut -d "-" -f 2- | cut -d " " -f 1
-		return
-	}
-	# for Solaris
-	which pkginfo > /dev/null 2>&1 && {
-		pkginfo | awk '{print $3}'
-	}
-	# more packagers?
+	for pkg; do
+		which dpkg > /dev/null 2>&1 && {
+			dpkg-query -f '${Name} ${Version}' -W $pkg 2>/dev/null && break
+			[ $? -eq 0 ] &&
+				debsums -s $pkg 2>/dev/null
+			break
+		}
+		# for Linux .rpm based systems
+		which rpm > /dev/null 2>&1 && {
+			rpm -q --qf '%{name} %{version}-%{release}' $pkg &&
+			echo &&
+			rpm --verify $pkg
+			break
+		}
+		# for OpenBSD
+		which pkg_info > /dev/null 2>&1 && {
+			pkg_info | grep $pkg
+			break
+		}
+		# for Solaris
+		which pkginfo > /dev/null 2>&1 && {
+			pkginfo | awk '{print $3}'  # format?
+		}
+		# more packagers?
+	done
 }
 crm_info() {
 	$HA_BIN/crmd version 2>&1

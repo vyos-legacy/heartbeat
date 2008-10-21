@@ -42,20 +42,6 @@ export LOGD_CF
 LOG_PATTERNS="CRIT: ERROR:"
 # PEINPUTS_PATT="peng.*PEngine Input stored"
 
-# the goods
-ANALYSIS_F=analysis.txt
-DESCRIPTION_F=description.txt
-HALOG_F=ha-log.txt
-BT_F=backtraces.txt
-SYSINFO_F=sysinfo.txt
-SYSSTATS_F=sysstats.txt
-export ANALYSIS_F DESCRIPTION_F HALOG_F BT_F SYSINFO_F SYSSTATS_F
-CRM_MON_F=crm_mon.txt
-CCMTOOL_F=ccm_tool.txt
-CRM_VERIFY_F=crm_verify.txt
-CIB_F=cib.xml
-export CRM_MON_F CCMTOOL_F CRM_VERIFY_F CIB_F
-
 #
 # the instance where user runs hb_report is the master
 # the others are slaves
@@ -67,7 +53,7 @@ fi
 usage() {
 	cat<<EOF
 usage: hb_report -f {time|"cts:"testnum} [-t time] [-u user] [-l file]
-       [-n nodes] [-E files] [-p patt] [-L patt] [-e prog] [-MSDC] dest
+       [-n nodes] [-E files] [-p patt] [-L patt] [-e prog] [-MSDCA] dest
 
 	-f time: time to start from or a CTS test number
 	-t time: time to finish at (dflt: now)
@@ -87,6 +73,7 @@ usage: hb_report -f {time|"cts:"testnum} [-t time] [-u user] [-l file]
 	-M     : don't collect extra logs (/var/log/messages)
 	-D     : don't invoke editor to write description
 	-C     : remove the destination directory
+	-A     : this is an OpenAIS cluster
 	-S     : single node operation; don't try to start report
 	         collectors on other nodes
 	dest   : destination directory
@@ -141,6 +128,7 @@ setvarsanddefaults() {
 	UNIQUE_MSG="Mark:HB_REPORT:$now"
 	SANITIZE="passw.*"
 	REMOVE_DEST=""
+	CLUSTER_TYPE="${HA_cluster_type:-"heartbeat"}
 	# logs to collect in addition
 	# NB: they all have to be in syslog format
 	#
@@ -261,6 +249,9 @@ UNIQUE_MSG=$UNIQUE_MSG
 SANITIZE="$SANITIZE"
 EXTRA_LOGS="$EXTRA_LOGS"
 REMOVE_DEST="$REMOVE_DEST"
+CLUSTER_TYPE="$CLUSTER_TYPE"
+CONF="$CONF"
+PACKAGES="$PACKAGES"
 EOF
 }
 start_remote_collectors() {
@@ -328,8 +319,9 @@ touch_DC_if_dc() {
 # some basic system info and stats
 #
 sys_info() {
-	echo "Heartbeat version: `hb_ver`"
+	cluster_info
 	crm_info
+	pkg_ver $PACKAGES
 	echo "Platform: `uname`"
 	echo "Kernel release: `uname -r`"
 	echo "Architecture: `uname -m`"
@@ -359,7 +351,7 @@ sys_stats() {
 # replace sensitive info with '****'
 #
 sanitize() {
-	for f in $1/ha.cf $1/$CIB_F $1/pengine/*; do
+	for f in $1/$CONF $1/$CIB_F $1/pengine/*; do
 		[ -f "$f" ] && sanitize_one $f
 	done
 }
@@ -444,13 +436,11 @@ diffcheck() {
 		return 1
 	}
 	case `basename $1` in
-	$CCMTOOL_F)
-		txtdiff $1 $2;; # worddiff?
 	$CIB_F)
 		cibdiff $1 $2;;
-	ha.cf)
+	$CONF)
 		txtdiff $1 $2;; # confdiff?
-	$CRM_MON_F|$SYSINFO_F)
+	*)
 		txtdiff $1 $2;;
 	esac
 }
@@ -468,7 +458,7 @@ analyze_one() {
 	return $rc
 }
 analyze() {
-	flist="hostcache $CCMTOOL_F $CIB_F $CRM_MON_F ha.cf logd.cf $SYSINFO_F"
+	flist="hostcache $CCMTOOL_F $CIB_F $CRM_MON_F $CONF logd.cf $SYSINFO_F"
 	for f in $flist; do
 		perl -e "printf \"Diff $f... \""
 		ls $1/*/$f >/dev/null 2>&1 || continue
@@ -505,7 +495,7 @@ Date: `date`
 By: $PROG $userargs
 Subject: [short problem description]
 Severity: [choose one] enhancement minor normal major critical blocking
-Component: [choose one] CRM LRM CCM RA fencing heartbeat comm GUI tools other
+Component: [choose one] CRM LRM CCM RA fencing $CLUSTER_TYPE comm GUI tools other
 
 Detailed description:
 ---
@@ -590,7 +580,7 @@ fi
 if [ "$SLAVE" = "" ]; then
 	setvarsanddefaults
 	userargs="$@"
-	while getopts f:t:l:u:p:L:e:E:MSDCh o; do
+	while getopts f:t:l:u:p:L:e:E:MSDCAh o; do
 		case "$o" in
 			h) usage;;
 			f)
@@ -616,6 +606,7 @@ if [ "$SLAVE" = "" ]; then
 			C) REMOVE_DEST=1;;
 			M) EXTRA_LOGS="";;
 			E) EXTRA_LOGS="$EXTRA_LOGS $OPTARG";;
+			A) CLUSTER_TYPE="openais";;
 			[?]) usage short;;
 		esac
 	done
@@ -630,11 +621,41 @@ WE=`uname -n`  # who am i?
 THIS_IS_NODE=""
 NODES=`getnodes`
 NODECNT=`echo $NODES | wc -w`
+if [ "$NODECNT" = 0 ]; then
+	fatal "could not figure out a list of nodes; is this a cluster node?"
+fi
 echo $NODES | grep -wqs $WE && # are we a node?
 	THIS_IS_NODE=1
 if [ -z "$THIS_IS_NODE" -a "$NODES_SOURCE" != user ]; then
 	warning "this is not a node and you didn't specify a list of nodes using -n"
 fi
+
+# the goods
+ANALYSIS_F=analysis.txt
+DESCRIPTION_F=description.txt
+HALOG_F=ha-log.txt
+BT_F=backtraces.txt
+SYSINFO_F=sysinfo.txt
+SYSSTATS_F=sysstats.txt
+export ANALYSIS_F DESCRIPTION_F HALOG_F BT_F SYSINFO_F SYSSTATS_F
+CRM_MON_F=crm_mon.txt
+CCMTOOL_F=ccm_tool.txt
+CRM_VERIFY_F=crm_verify.txt
+CIB_F=cib.xml
+export CRM_MON_F CCMTOOL_F CRM_VERIFY_F CIB_F
+
+case "$CLUSTER_TYPE" in
+openais)
+	CONF=openais.conf
+	PACKAGES="openais pacemaker"
+	unset CCMTOOL_F
+	;;
+heartbeat)
+	CONF=ha.cf
+	PACKAGES="heartbeat pacemaker"
+	;;
+esac
+
 getlogvars
 
 # this only on master
