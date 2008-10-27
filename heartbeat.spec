@@ -517,11 +517,9 @@ fi
 %dir %{_datadir}/doc/packages/heartbeat
 %{_sysconfdir}/ha.d/shellfuncs
 %{_sbindir}/stonith
-%{_sbindir}/sbd
 %{_sbindir}/meatclient
 %{_sbindir}/ha_logger
 %{_sbindir}/hb_report
-%{_sbindir}/ocf-tester
 %{_libdir}/libstonith.so.*
 %{_libdir}/stonith
 %{_libdir}/pils
@@ -530,16 +528,11 @@ fi
 %{_libdir}/liblrm.so.*
 %{_libdir}/libplumb.so.*
 %{_libdir}/libplumbgpl.so.*
-%{_libdir}/heartbeat/findif
 %{_libdir}/heartbeat/ha_logd
 %{_libdir}/heartbeat/ha_logger
 %{_libdir}/heartbeat/lrmadmin
 %{_libdir}/heartbeat/lrmd
-%{_libdir}/heartbeat/ocf-returncodes
-%{_libdir}/heartbeat/ocf-shellfuncs
 %{_libdir}/heartbeat/plugins/RAExec
-%{_libdir}/heartbeat/send_arp
-%{_libdir}/heartbeat/utillib.sh
 %doc %{_mandir}/man8/apphbd.8*
 %doc %{_mandir}/man8/stonith.8*
 %doc %{_mandir}/man8/meatclient.8*
@@ -611,6 +604,15 @@ fi
 %dir /usr/lib/ocf/resource.d
 %dir /usr/lib/ocf/resource.d/heartbeat
 /usr/lib/ocf/resource.d/heartbeat
+%{_sbindir}/ocf-tester
+%{_sbindir}/sbd
+%{_sbindir}/sfex_init
+%{_libdir}/heartbeat/sfex_daemon
+%{_libdir}/heartbeat/findif
+%{_libdir}/heartbeat/ocf-returncodes
+%{_libdir}/heartbeat/ocf-shellfuncs
+%{_libdir}/heartbeat/send_arp
+%{_libdir}/heartbeat/utillib.sh
 
 %exclude %{_libdir}/heartbeat/ra-api-1.dtd
 %{_datadir}/heartbeat/ra-api-1.dtd
