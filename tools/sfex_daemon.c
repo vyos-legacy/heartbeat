@@ -11,7 +11,6 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <syslog.h>
-
 #include "sfex.h"
 #include "sfex_lib.h"
 
@@ -286,7 +285,8 @@ int main(int argc, char *argv[])
 					free(nodename);
 					if (strlen(optarg) > SFEX_MAX_NODENAME) {
 						SFEX_LOG_ERR("%s: ERROR: nodename %s is too long. must be less than %d byte.\n",
-								progname, optarg, SFEX_MAX_NODENAME);
+								progname, optarg,
+								(unsigned int)SFEX_MAX_NODENAME);
 						exit(EXIT_FAILURE);
 					}
 					nodename = strdup(optarg);
@@ -351,22 +351,19 @@ int main(int argc, char *argv[])
 	}
 
 	SFEX_LOG_INFO("Starting SFeX Daemon...\n");
-	acquire_lock();
 
-	cl_make_realtime(-1, -1, 128, 128);
-	daemon(0, 1); 
-	{
-		int pidfd = open(rscpidfile, O_WRONLY|O_CREAT);
-		char pids[16];
-		memset(pids, 0, 16);
-		snprintf(pids, 16, "%d", getpid());
-		if (write(pidfd, pids, strlen(pids)) == -1) {
-			SFEX_LOG_ERR("Failed to save the pid\n");
-			exit(EXIT_FAILURE);
-		}
-		close(pidfd);
+	if (daemon(0, 1) != 0) {
+		cl_perror("%s::%d: daemon() failed.", __FUNCTION__, __LINE__);
+		exit(EXIT_FAILURE);
+	}
+	if (cl_lock_pidfile(rscpidfile) < 0) {
+		SFEX_LOG_ERR("Creating pidfile failed.");
+		exit(EXIT_FAILURE);
 	}
 
+	cl_make_realtime(-1, -1, 128, 128);
+	
+	acquire_lock();
 	SFEX_LOG_INFO("SFeX Daemon started.\n");
 	while (1) {
 		sleep (monitor_interval);

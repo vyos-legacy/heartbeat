@@ -31,6 +31,7 @@
 #include <clplumbing/cl_log.h>
 #include <clplumbing/coredumps.h>
 #include <clplumbing/realtime.h>
+#include <clplumbing/cl_pidfile.h>
 
 #include <stdint.h>
 
