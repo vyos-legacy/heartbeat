@@ -517,11 +517,9 @@ fi
 %dir %{_datadir}/doc/packages/heartbeat
 %{_sysconfdir}/ha.d/shellfuncs
 %{_sbindir}/stonith
-%{_sbindir}/sbd
 %{_sbindir}/meatclient
 %{_sbindir}/ha_logger
 %{_sbindir}/hb_report
-%{_sbindir}/ocf-tester
 %{_libdir}/libstonith.so.*
 %{_libdir}/stonith
 %{_libdir}/pils
@@ -530,16 +528,11 @@ fi
 %{_libdir}/liblrm.so.*
 %{_libdir}/libplumb.so.*
 %{_libdir}/libplumbgpl.so.*
-%{_libdir}/heartbeat/findif
 %{_libdir}/heartbeat/ha_logd
 %{_libdir}/heartbeat/ha_logger
 %{_libdir}/heartbeat/lrmadmin
 %{_libdir}/heartbeat/lrmd
-%{_libdir}/heartbeat/ocf-returncodes
-%{_libdir}/heartbeat/ocf-shellfuncs
 %{_libdir}/heartbeat/plugins/RAExec
-%{_libdir}/heartbeat/send_arp
-%{_libdir}/heartbeat/utillib.sh
 %doc %{_mandir}/man8/apphbd.8*
 %doc %{_mandir}/man8/stonith.8*
 %doc %{_mandir}/man8/meatclient.8*
@@ -611,6 +604,15 @@ fi
 %dir /usr/lib/ocf/resource.d
 %dir /usr/lib/ocf/resource.d/heartbeat
 /usr/lib/ocf/resource.d/heartbeat
+%{_sbindir}/ocf-tester
+%{_sbindir}/sbd
+%{_sbindir}/sfex_init
+%{_libdir}/heartbeat/sfex_daemon
+%{_libdir}/heartbeat/findif
+%{_libdir}/heartbeat/ocf-returncodes
+%{_libdir}/heartbeat/ocf-shellfuncs
+%{_libdir}/heartbeat/send_arp
+%{_libdir}/heartbeat/utillib.sh
 
 %exclude %{_libdir}/heartbeat/ra-api-1.dtd
 %{_datadir}/heartbeat/ra-api-1.dtd
@@ -634,12 +636,31 @@ fi
 %config(noreplace) %{_sysconfdir}/logrotate.d/ldirectord
 
 %changelog heartbeat
-* Mon Oct 13 2008 Lars Marowsky-Bree <lmb@suse.de> and many others
+* Mon Oct 27 2008 Lars Marowsky-Bree <lmb@suse.de> and many others
 + 2.99.2 - beta release of 3.0.x series.
 - RA: Filesystem: For OCFS2, work on both SLES10 in compatibility mode
   and newer openAIS/Pacemaker cluster stacks.
 - RA: o2cb (ocf): Remove, as it confused users and never worked.
-- stonith: external/drac5: new plugin (thanks to Jun Wang and Xinwei Hu)
+- stonith: external/drac5: new plugin (thanks to Jun Wang and Xinwei
+  Hu)
+- stonith: external/riloe: Bugfixes for HP iLO fencing device.
+- stonith: drac3: initialize curl properly (LF#1730).
+- RA: LVM: stop correctly in case vol group does not exist.
+- RA: apache: envfiles attribute to source extra environment.
+- RA: Filesystem: Correct exit code used when trying to cluster-mount a
+  non-clustered fs.
+- RA: Filesystem: OCFS2 compatibility handling for SLE10 SP2.
+- RA: sfex: Exclusive access to disks.
+- IPaddr2: support IPoIB gratuitous arps.
+- RA: nfsserver: Allow NFS server fail-over.
+- RA: scsi2reservation: support scsi2 reservations.
+- stonith: external/drac5: new plugin (thanks to Jun Wang and Xinwei
+  Hu)
+- lrmd: drop finished repeating ops for non-existing clients
+- heartbeat: close watchdog files properly.
+- hb_report: allow user to specify nodes on the command line.
+- ldirectord: Support IPv6.
+- Debian build fixes.
 * Mon Sep 29 2008 Lars Marowsky-Bree <lmb@suse.de> and many others
 + 2.99.1 - beta release of 3.0.x series.
 - RA: vmware: New agent added.

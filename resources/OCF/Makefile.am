@@ -66,6 +66,7 @@ ocf_SCRIPTS	     =  ClusterMon 	\
 			ManageRAID	\
 			ManageVE	\
 			mysql		\
+			nfsserver	\
 			oracle		\
 			oralsnr		\
 			pingd		\
@@ -82,6 +83,8 @@ ocf_SCRIPTS	     =  ClusterMon 	\
 			SphinxSearchDaemon	\
 			Stateful	\
 			SysInfo		\
+			scsi2reservation	\
+			sfex		\
 			tomcat		\
 			VIPArip		\
 			vmware		\

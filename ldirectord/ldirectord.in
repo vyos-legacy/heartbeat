@@ -305,8 +305,8 @@ B<real => I<ip_address|hostname[-E<gt>ip_address|hostname][:portnumber|servicena
 Defines a real service by IP-address (or hostname) and port (or
 servicename). If the port is omitted then a 0 will be used, this is
 intended primarily for fwmark services where the port for real servers is
-ignored. Optionally a range of IP addresses (or two hostnames) may be
-given, in which case each IP address in the range will be treated as a real
+ignored. Optionally a range of IPv4 addresses (or two hostnames) may be
+given, in which case each IPv4 address in the range will be treated as a real
 server using the given port. The second argument defines the forwarding
 method, must be B<gate>, B<ipip> or B<masq>.  The thrid argument is
 optional and defines the weight for that real server. If omitted then a
@@ -583,6 +583,11 @@ The log format is:
 
 Default: no separate logging of service checks.
 
+=head1 IPv6
+
+IPv6 addresses specified for virtual and real servers should be enclosed by
+brackets ([3ff3:ffff::abcd]:80).
+
 =head1 FILES
 
 B<@sysconfdir@/ha.d/ldirectord.cf>
@@ -706,6 +711,7 @@ use Pod::Usage;
 #use English;
 #use Time::HiRes qw( gettimeofday tv_interval );
 use Socket;
+use Socket6;
 use Sys::Hostname;
 use POSIX qw(setsid :sys_wait_h);
 use Sys::Syslog qw(:DEFAULT setlogsock);
@@ -1134,6 +1140,13 @@ sub read_config
 				$virtual_id = $ip_port = "$1:$2";
 			} elsif ($vattr =~ /^(\d+)/){
 				$virtual_id = $fwm = $1;
+			} elsif ($vattr =~ /^\[([0-9A-Fa-f:]+)\]:(\d+)/) {
+				my $v6addr = $1;
+				my $v6port = $2;
+				if (!inet_pton(AF_INET6,$v6addr)) {
+					&config_error($line,"invalid ipv6 address for virtual server");
+				}
+				$virtual_id = $ip_port = "[$v6addr]:$v6port";
 			} else {
 				&config_error($line, 
 					"invalid address for virtual server");
@@ -1518,7 +1531,10 @@ sub _ld_read_config_virtual_resolve
 
 	if($ip_port){
 		$ip_port=&ld_gethostservbyname($ip_port, $vsrv->{protocol});
-		if($ip_port){
+		if ($ip_port =~ /(\[[0-9A-Fa-f:]+\]):(\d+)/) {
+			$vsrv->{server} = $1;
+			$vsrv->{port} = $2;
+		} elsif($ip_port){
 			($vsrv->{server}, $vsrv->{port}) = split /:/, $ip_port;
 		}
 		else {
@@ -1688,7 +1704,7 @@ sub _ld_read_config_real_resolve
 
 	for $i (@$rsrv_todo) {
 		($str, $line)=@$i;
-		$str =~	 /(\d+\.\d+\.\d+\.\d+|[A-Za-z0-9.-]+)(->(\d+\.\d+\.\d+\.\d+|[A-Za-z0-9.-]+))?(:(\d+|[A-Za-z0-9-]+))?\s+(.*)/
+		$str =~	 /(\d+\.\d+\.\d+\.\d+|[A-Za-z0-9.-]+|\[[0-9A-fa-f:]+\])(->(\d+\.\d+\.\d+\.\d+|[A-Za-z0-9.-]+|\[[0-9A-fa-f:]+\]))?(:(\d+|[A-Za-z0-9-]+))?\s+(.*)/
 			or &config_error($line, 
 				"invalid address for real server" .
                                 " (wrong format)");
@@ -1799,6 +1815,7 @@ sub add_real_server
 	my $new_rsrv;
 	my $rsrv;
 
+	if ($ip =~ /:/) { $ip = "[" . $ip . "]"; }
 	$new_rsrv = {"server"=>$ip, "port"=>$port};
 
 	$flags =~ /(\w+)(.*)/ && ($1 eq "gate" || $1 eq "masq" || $1 eq "ipip")
@@ -2131,16 +2148,16 @@ sub ld_read_ipvsadm
 		if (not defined $line) {
 			last;
 		}
-		if ($line =~ /^(\w+)\s+(\d+\.\d+\.\d+\.\d+\:\d+|\d+)\s+(\w+)\s+persistent\s+(\d+)\s+mask\s+(.*)/) {
+		if ($line =~ /^(\w+)\s+(\d+\.\d+\.\d+\.\d+\:\d+|\[[0-9A-Fa-f:]+\]:\d+|\d+)\s+(\w+)\s+persistent\s+(\d+)\s+mask\s+(.*)/) {
 			$real_service = "$2 ".lc($1);
 			$oldsrv{"$real_service"} = {"real"=>{}, "scheduler"=>$3, "persistent"=>$4, "netmask"=>$5};
-		} elsif ($line =~ /^(\w+)\s+(\d+\.\d+\.\d+\.\d+\:\d+|\d+)\s+(\w+)\s+persistent\s+(\d+)/) {
+		} elsif ($line =~ /^(\w+)\s+(\d+\.\d+\.\d+\.\d+\:\d+|\[[0-9A-Fa-f:]+\]:\d+|\d+)\s+(\w+)\s+persistent\s+(\d+)/) {
 			$real_service = "$2 ".lc($1);
 			$oldsrv{"$real_service"} = {"real"=>{}, "scheduler"=>$3, "persistent"=>$4};
-		} elsif ($line =~ /^(\w+)\s+(\d+\.\d+\.\d+\.\d+\:\d+|\d+)\s+(\w+)/) {
+		} elsif ($line =~ /^(\w+)\s+(\d+\.\d+\.\d+\.\d+\:\d+|\[[0-9A-Fa-f:]+\]:\d+|\d+)\s+(\w+)/) {
 			$real_service = "$2 ".lc($1);
 			$oldsrv{"$real_service"} = {"real"=>{}, "scheduler"=>$3};
-		} elsif ($line =~ /^  ->\s+(\d+\.\d+\.\d+\.\d+\:\d+)\s+(\w+)\s+(\d+)/) {
+		} elsif ($line =~ /^  ->\s+(\d+\.\d+\.\d+\.\d+\:\d+|\[[0-9A-Fa-f:]+\]:\d+)\s+(\w+)\s+(\d+)/) {
 			if (not defined( $real_service)) {
 				&ld_debug(2, "Real server read from ipvsadm " .
 					  "doesn't seem to be inside a " .
@@ -4180,6 +4197,11 @@ sub is_ip
 {
 	  my ($alleged_ip)=(@_);
 
+	  if ($alleged_ip =~ /:/) {
+		unless(inet_pton(AF_INET6,$alleged_ip)){ return 0; }
+	  	return(1);
+	  }
+
 	  #If we don't have four, . delimited numbers then we have no hope
 	  unless($alleged_ip=~m/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/) { return 0; }
 
@@ -4393,17 +4415,24 @@ sub ld_exit
 sub ld_open_socket
 {
 	my ($remote, $port, $protocol) = @_;
-	my ($iaddr, $paddr, $pro, $result);
+	my ($iaddr, $paddr, $pro, $result, $pf);
 	local *SOCK;
 
-	$iaddr = inet_aton($remote) || die "no host: $remote";
-	$paddr = sockaddr_in($port, $iaddr);
+	if (inet_pton(AF_INET6,$remote)) {
+	    $iaddr = inet_pton(AF_INET6,$remote);
+	    $paddr = pack_sockaddr_in6($port, $iaddr);
+	    $pf = PF_INET6;
+	} else {
+	    $iaddr = inet_aton($remote) || die "no host: $remote";
+	    $paddr = sockaddr_in($port, $iaddr);
+	    $pf = PF_INET;
+	}
 	$pro = getprotobyname($protocol);
 	if ($protocol eq "udp") {
-		socket(SOCK, PF_INET, SOCK_DGRAM, $pro) || die "socket: $!";
+	    socket(SOCK, $pf, SOCK_DGRAM, $pro) || die "socket: $!";
 	}
 	else {
-		socket(SOCK, PF_INET, SOCK_STREAM, $pro) || die "socket: $!";
+		socket(SOCK, $pf, SOCK_STREAM, $pro) || die "socket: $!";
 	}
 	$result = connect(SOCK, $paddr);
 	unless ($result) {
@@ -4534,9 +4563,15 @@ sub ld_gethostbyname
 {
 	my ($name)=(@_);
 
-	my @host=gethostbyname($name);
-
-	return((@host and defined($host[4]))?inet_ntoa($host[4]):undef);
+	if ($name =~ /\[(.*)\]/) {
+		$name = $1;
+	}
+	my @host = getaddrinfo($name,0);
+	if (!defined($host[3])) {
+		return undef;
+	}
+	my @ret = getnameinfo($host[3], NI_NUMERICHOST | NI_NUMERICSERV);
+	return $ret[0];
 }
 
 
@@ -4580,13 +4615,18 @@ sub ld_gethostservbyname{
 	my $ip;
 	my $port;
 
-	$hostserv =~ 
+	if ($hostserv =~ /(\[[0-9A-Fa-f:]+\])(:(\d+|[A-Za-z0-9-]+))?/) {
+		$ip=$1;
+		$port=$3;
+	} else {
+		$hostserv =~ 
 		/(\d+\.\d+\.\d+\.\d+|[A-Za-z0-9.-]+)(:(\d+|[A-Za-z0-9-]+))?/ 
 		or return(undef);
-	$ip=$1;
-	$port=$3;
+		$ip=$1;
+		$port=$3;
 
-	$ip=&ld_gethostbyname($ip)  or return(undef);
+		$ip=&ld_gethostbyname($ip)  or return(undef);
+	}
 
 	if(defined($port)){
 	    $port=&ld_getservbyname($port, $protocol);
