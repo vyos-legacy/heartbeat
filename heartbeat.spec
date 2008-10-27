@@ -659,6 +659,7 @@ fi
 - lrmd: drop finished repeating ops for non-existing clients
 - heartbeat: close watchdog files properly.
 - hb_report: allow user to specify nodes on the command line.
+- hb_report: Fixes to work with openAIS.
 - ldirectord: Support IPv6.
 - Debian build fixes.
 * Mon Sep 29 2008 Lars Marowsky-Bree <lmb@suse.de> and many others
