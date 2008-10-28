@@ -128,7 +128,7 @@ setvarsanddefaults() {
 	UNIQUE_MSG="Mark:HB_REPORT:$now"
 	SANITIZE="passw.*"
 	REMOVE_DEST=""
-	CLUSTER_TYPE="${HA_cluster_type:-"heartbeat"}
+	CLUSTER_TYPE="${HA_cluster_type:-heartbeat}"
 	# logs to collect in addition
 	# NB: they all have to be in syslog format
 	#
