@@ -636,7 +636,7 @@ fi
 %config(noreplace) %{_sysconfdir}/logrotate.d/ldirectord
 
 %changelog heartbeat
-* Mon Oct 27 2008 Lars Marowsky-Bree <lmb@suse.de> and many others
+* Tue Oct 28 2008 Lars Marowsky-Bree <lmb@suse.de> and many others
 + 2.99.2 - beta release of 3.0.x series.
 - RA: Filesystem: For OCFS2, work on both SLES10 in compatibility mode
   and newer openAIS/Pacemaker cluster stacks.
