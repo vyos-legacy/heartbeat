@@ -523,6 +523,19 @@ edittemplate() {
 		warning "could not find a text editor"
 	fi
 }
+pickcompress() {
+	if COMPRESS=`pickfirst bzip2 gzip`; then
+		if [ "$COMPRESS" = bzip2 ]; then
+			COMPRESS_EXT=.bz2
+		else
+			COMPRESS_EXT=.gz
+		fi
+	else
+		warning "could not find a compression program; the resulting tarball may be huge"
+		COMPRESS=cat
+		COMPRESS_EXT=
+	fi
+}
 finalword() {
 	cat<<EOF
 The report is saved in $DESTDIR.tar.gz.
@@ -823,7 +836,8 @@ else
 		edittemplate $DESTDIR/$DESCRIPTION_F
 	}
 	cd $DESTDIR/..
-	tar czf $DESTDIR.tar.gz `basename $DESTDIR`
+	pickcompress
+	tar cf - `basename $DESTDIR` | $COMPRESS > $DESTDIR.tar$COMPRESS_EXT
 	finalword
 	checksize
 fi
