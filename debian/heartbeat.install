@@ -30,6 +30,7 @@ usr/lib/ocf/resource.d/heartbeat/SAPInstance
 usr/lib/ocf/resource.d/heartbeat/SendArp
 usr/lib/ocf/resource.d/heartbeat/ServeRAID
 usr/lib/ocf/resource.d/heartbeat/SphinxSearchDaemon
+usr/lib/ocf/resource.d/heartbeat/Squid
 usr/lib/ocf/resource.d/heartbeat/Stateful
 usr/lib/ocf/resource.d/heartbeat/SysInfo
 usr/lib/ocf/resource.d/heartbeat/VIPArip
