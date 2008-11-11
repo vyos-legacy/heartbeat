@@ -298,9 +298,18 @@ case $cmd in
 	source ./heartbeat/lib/ha_config && \
 	Run $MAKE_CMD DESTDIR="$PWD/heartbeat-$VERSION/=inst" distcheck
 	;;
-  pkg|package|rpm|deb|dpkg)	
+  pkg|package|rpm)	
   	do_configure $FLAGS $@ && \
 	PackageItUp
+	;;
+  deb|dpkg)	
+  	do_configure $FLAGS $@ &&
+    if which fakeroot > /dev/null; then
+		PackageItUp
+	else
+		echo ""
+		echo "Please install fakeroot if you want to build a deb."
+	fi
 	;;
   *)	
   	Usage
