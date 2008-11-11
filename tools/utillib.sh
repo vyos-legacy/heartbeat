@@ -17,6 +17,19 @@
 
 # NB: This is not going to work unless you source /etc/ha.d/shellfuncs!
 
+findlogdcf() {
+	for f in \
+		`which strings > /dev/null 2>&1 &&
+			strings $HA_BIN/ha_logd | grep 'logd\.cf'` \
+		`for d; do echo $d/logd.cf $d/ha_logd.cf; done`
+	do
+		if [ -f "$f" ]; then
+			echo $f
+			return 0
+		fi
+	done
+	return 1
+}
 #
 # logging
 #

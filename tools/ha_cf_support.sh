@@ -46,19 +46,6 @@ uselogd() {
 		return 0  # or none of the log options set
 	false
 }
-findlogdcf() {
-	for f in \
-		`which strings > /dev/null 2>&1 &&
-			strings $HA_BIN/ha_logd | grep 'logd\.cf'` \
-		`for d; do echo $d/logd.cf $d/ha_logd.cf; done`
-	do
-		if [ -f "$f" ]; then
-			echo $f
-			return 0
-		fi
-	done
-	return 1
-}
 getlogvars() {
 	HA_LOGFACILITY=${HA_LOGFACILITY:-$DEFAULT_HA_LOGFACILITY}
 	HA_LOGLEVEL="info"
