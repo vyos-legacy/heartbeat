@@ -256,7 +256,14 @@ fi
 
 rm -rf libltdl libltdl.tar
 echo $libtoolize --ltdl --force --copy
-$libtoolize --ltdl --force --copy
+$libtoolize --ltdl --force --copy || {
+	if test -f /etc/debian_version; then
+		echo ""
+		echo "Running Debian? You probably need to install libltdl3-dev."
+	fi
+	exit 1
+}
+	
 
 echo $aclocal $ACLOCAL_FLAGS
 $aclocal $ACLOCAL_FLAGS
