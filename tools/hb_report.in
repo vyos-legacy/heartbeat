@@ -716,12 +716,7 @@ if [ "$SLAVE" = "" ]; then
 #         important to do this now on _all_ nodes
 # 
 	if [ "$HA_LOGFACILITY" ]; then
-		sev="info"
-		cfdebug=`getcfvar debug` # prefer debuglog if set
-		isnumber $cfdebug || cfdebug=""
-		[ "$cfdebug" ] && [ $cfdebug -gt 0 ] &&
-			sev="debug"
-		logmarks $sev $UNIQUE_MSG
+		logmarks $HA_LOGLEVEL $UNIQUE_MSG
 	fi
 fi
 

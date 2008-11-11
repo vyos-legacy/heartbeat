@@ -61,6 +61,11 @@ findlogdcf() {
 }
 getlogvars() {
 	HA_LOGFACILITY=${HA_LOGFACILITY:-$DEFAULT_HA_LOGFACILITY}
+	HA_LOGLEVEL="info"
+	cfdebug=`getcfvar debug` # prefer debug level if set
+	isnumber $cfdebug || cfdebug=""
+	[ "$cfdebug" ] && [ $cfdebug -gt 0 ] &&
+		HA_LOGLEVEL="debug"
 	if uselogd; then
 		[ -f "$LOGD_CF" ] ||
 			return  # no configuration: use defaults
