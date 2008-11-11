@@ -657,15 +657,16 @@ CRM_VERIFY_F=crm_verify.txt
 CIB_F=cib.xml
 export CRM_MON_F CCMTOOL_F CRM_VERIFY_F CIB_F
 
+COMMON_PACKAGES="pacemaker heartbeat-common heartbeat-resources"
 case "$CLUSTER_TYPE" in
 openais)
 	CONF=openais.conf
-	PACKAGES="openais pacemaker"
+	PACKAGES="openais $COMMON_PACKAGES"
 	unset CCMTOOL_F
 	;;
 heartbeat)
 	CONF=ha.cf
-	PACKAGES="heartbeat pacemaker"
+	PACKAGES="heartbeat $COMMON_PACKAGES"
 	;;
 esac
 
