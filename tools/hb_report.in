@@ -465,7 +465,7 @@ analyze_one() {
 	return $rc
 }
 analyze() {
-	flist="hostcache $CCMTOOL_F $CIB_F $CRM_MON_F $CONF logd.cf $SYSINFO_F"
+	flist="$HOSTCACHE $CCMTOOL_F $CIB_F $CRM_MON_F $CONF logd.cf $SYSINFO_F"
 	for f in $flist; do
 		perl -e "printf \"Diff $f... \""
 		ls $1/*/$f >/dev/null 2>&1 || continue
@@ -651,7 +651,7 @@ openais)
 	CONF=openais.conf
 	PACKAGES="openais $COMMON_PACKAGES"
 	CF_SUPPORT=$HA_BIN/openais_conf_support.sh
-	unset CCMTOOL_F
+	unset CCMTOOL_F HOSTCACHE
 	;;
 heartbeat)
 	CONF=ha.cf
@@ -686,6 +686,7 @@ SYSSTATS_F=sysstats.txt
 export ANALYSIS_F DESCRIPTION_F HALOG_F BT_F SYSINFO_F SYSSTATS_F
 CRM_MON_F=crm_mon.txt
 CCMTOOL_F=ccm_tool.txt
+HOSTCACHE=hostcache
 CRM_VERIFY_F=crm_verify.txt
 CIB_F=cib.xml
 export CRM_MON_F CCMTOOL_F CRM_VERIFY_F CIB_F
