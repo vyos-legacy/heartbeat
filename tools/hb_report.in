@@ -117,6 +117,13 @@ EOF
 #
 # these are "global" variables
 #
+get_cluster_type() {
+	if ps -ef | grep -qs '[a]isexec'; then
+		echo "openais"
+	else
+		echo "heartbeat"
+	fi
+}
 setvarsanddefaults() {
 	now=`perl -e 'print time()'`
 	# used by all
@@ -128,7 +135,7 @@ setvarsanddefaults() {
 	UNIQUE_MSG="Mark:HB_REPORT:$now"
 	SANITIZE="passw.*"
 	REMOVE_DEST=""
-	CLUSTER_TYPE="${HA_cluster_type:-heartbeat}"
+	CLUSTER_TYPE=`get_cluster_type`
 	# logs to collect in addition
 	# NB: they all have to be in syslog format
 	#
