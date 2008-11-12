@@ -262,8 +262,8 @@ dumpstate() {
 		ccm_tool -p > $1/$CCMTOOL_F 2>&1
 }
 getconfig() {
-	[ -f "$HA_CF" ] &&
-		cp -p $HA_CF $1/
+	[ -f "$CONF" ] &&
+		cp -p $CONF $1/
 	[ -f "$LOGD_CF" ] &&
 		cp -p $LOGD_CF $1/
 	if iscrmrunning; then

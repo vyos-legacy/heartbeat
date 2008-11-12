@@ -22,8 +22,8 @@
 # ha.cf/logd.cf parsing
 #
 getcfvar() {
-	[ -f "$HA_CF" ] || return
-	sed 's/#.*//' < $HA_CF |
+	[ -f "$CONF" ] || return
+	sed 's/#.*//' < $CONF |
 		grep -w "^$1" |
 		sed 's/^[^[:space:]]*[[:space:]]*//'
 }
