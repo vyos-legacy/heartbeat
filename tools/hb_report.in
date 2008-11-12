@@ -636,6 +636,11 @@ if [ "$SLAVE" = "" ]; then
 	DESTDIR=`echo $1 | sed 's,/*$,,'`
 	chkdirname $DESTDIR
 	[ "$FROM_TIME" ] || usage short
+else
+	# slave gets the environment from .env
+	DESTDIR=$2
+	[ -d $DESTDIR ] || nodistdirectory
+	. $DESTDIR/.env
 fi
 
 # the very first thing we must figure out is which cluster
@@ -654,7 +659,8 @@ heartbeat)
 	CF_SUPPORT=$HA_NOARCHBIN/ha_cf_support.sh
 	;;
 esac
-if test -f $CF_SUPPORT; then
+
+if test -f "$CF_SUPPORT"; then
 	. $CF_SUPPORT
 else
 	fatal "no stack specific support: $CF_SUPPORT"
@@ -669,9 +675,6 @@ if [ "$NODECNT" = 0 ]; then
 fi
 echo $NODES | grep -wqs $WE && # are we a node?
 	THIS_IS_NODE=1
-if [ -z "$THIS_IS_NODE" -a "$NODES_SOURCE" != user ]; then
-	warning "this is not a node and you didn't specify a list of nodes using -n"
-fi
 
 # the goods
 ANALYSIS_F=analysis.txt
@@ -691,6 +694,12 @@ getlogvars
 
 # this only on master
 if [ "$SLAVE" = "" ]; then
+
+	# if this is not a node, then some things afterwards might
+	# make no sense (not work)
+	if [ -z "$THIS_IS_NODE" -a "$NODES_SOURCE" != user ]; then
+		warning "this is not a node and you didn't specify a list of nodes using -n"
+	fi
 #
 # part 2: ssh business
 #
@@ -710,21 +719,14 @@ if [ "$SLAVE" = "" ]; then
 	fi
 # final check: don't run if the destination directory exists
 	[ -d $DESTDIR ] && msgcleanup "local node"
+	mkdir -p $DESTDIR
+	[ -d $DESTDIR ] || nodistdirectory
 	[ "$ssh_good" ] &&
 		for node in $NODES; do
 			[ "$node" = "$WE" ] && continue
 			ssh $ssh_opts $node "test -d $DESTDIR" &&
 				msgcleanup $node
 		done
-fi
-
-if [ "$SLAVE" ]; then
-	DESTDIR=$2
-	[ -d $DESTDIR ] || nodistdirectory
-	. $DESTDIR/.env
-else
-	mkdir -p $DESTDIR
-	[ -d $DESTDIR ] || nodistdirectory
 fi
 
 if [ "$SLAVE" = "" ]; then
