@@ -569,16 +569,17 @@ getnodes() {
 	if [ "$USER_NODES" ]; then
 		NODES_SOURCE=user
 		echo $USER_NODES
-		return
-	fi
-	# 2. hostcache
-	if [ -f $HA_VARLIB/hostcache ]; then
+	# 2. running crm
+	elif iscrmrunning; then
+		get_crm_nodes
+	# 3. hostcache
+	elif [ -f $HA_VARLIB/hostcache ]; then
 		NODES_SOURCE=hostcache
 		awk '{print $1}' $HA_VARLIB/hostcache
-		return
+	# 4. ha.cf
+	elif [ "$CLUSTER_TYPE" = heartbeat ]; then
+		getcfvar node
 	fi
-	# 3. ha.cf
-	getcfvar node
 }
 
 [ $# -eq 0 ] && usage

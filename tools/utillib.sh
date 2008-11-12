@@ -277,6 +277,20 @@ getconfig() {
 	[ -f "$1/$CIB_F" ] &&
 		crm_verify -V -x $1/$CIB_F >$1/$CRM_VERIFY_F 2>&1
 }
+get_crm_nodes() {
+	cibadmin -Ql -o nodes |
+	awk '
+	/type="normal"/ {
+		for( i=1; i<=NF; i++ )
+			if( $i~/^uname=/ ) {
+				sub("uname=.","",$i);
+				sub(".$","",$i);
+				print $i;
+				next;
+			}
+	}
+	'
+}
 
 #
 # remove values of sensitive attributes

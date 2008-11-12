@@ -34,9 +34,6 @@ iscfvartrue() {
 	getcfvar "$1" |
 		egrep -qsi "^(true|y|yes|on|1)"
 }
-getnodes() {
-	getcfvar node
-}
 uselogd() {
 	iscfvartrue use_logd &&
 		return 0  # if use_logd true
