@@ -17,6 +17,20 @@
 
 # NB: This is not going to work unless you source /etc/ha.d/shellfuncs!
 
+logd_getcfvar() {
+	sed 's/#.*//' < $LOGD_CF |
+		grep -w "^$1" |
+		sed 's/^[^[:space:]]*[[:space:]]*//'
+}
+get_logd_logvars() {
+	# unless logfacility is set to none, heartbeat/ha_logd are
+	# going to log through syslog
+	HA_LOGFACILITY=`logd_getcfvar logfacility`
+	[ "" = "$HA_LOGFACILITY" ] && HA_LOGFACILITY=$DEFAULT_HA_LOGFACILITY
+	[ none = "$HA_LOGFACILITY" ] && HA_LOGFACILITY=""
+	HA_LOGFILE=`logd_getcfvar logfile`
+	HA_DEBUGFILE=`logd_getcfvar debugfile`
+}
 findlogdcf() {
 	for f in \
 		`which strings > /dev/null 2>&1 &&

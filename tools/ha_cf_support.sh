@@ -46,6 +46,15 @@ uselogd() {
 		return 0  # or none of the log options set
 	false
 }
+get_hb_logvars() {
+	# unless logfacility is set to none, heartbeat/ha_logd are
+	# going to log through syslog
+	HA_LOGFACILITY=`getcfvar logfacility`
+	[ "" = "$HA_LOGFACILITY" ] && HA_LOGFACILITY=$DEFAULT_HA_LOGFACILITY
+	[ none = "$HA_LOGFACILITY" ] && HA_LOGFACILITY=""
+	HA_LOGFILE=`getcfvar logfile`
+	HA_DEBUGFILE=`getcfvar debugfile`
+}
 getlogvars() {
 	HA_LOGFACILITY=${HA_LOGFACILITY:-$DEFAULT_HA_LOGFACILITY}
 	HA_LOGLEVEL="info"
@@ -56,17 +65,10 @@ getlogvars() {
 	if uselogd; then
 		[ -f "$LOGD_CF" ] ||
 			return  # no configuration: use defaults
+		get_logd_logvars
+	else
+		get_hb_logvars
 	fi
-	savecf=$HA_CF
-	HA_CF=$LOGD_CF
-	# unless logfacility is set to none, heartbeat/ha_logd are
-	# going to log through syslog
-	HA_LOGFACILITY=`getcfvar logfacility`
-	[ "" = "$HA_LOGFACILITY" ] && HA_LOGFACILITY=$DEFAULT_HA_LOGFACILITY
-	[ none = "$HA_LOGFACILITY" ] && HA_LOGFACILITY=""
-	HA_LOGFILE=`getcfvar logfile`
-	HA_DEBUGFILE=`getcfvar debugfile`
-	HA_CF=$savecf
 }
 cluster_info() {
 	echo "heartbeat version: `$HA_BIN/heartbeat -V`"
