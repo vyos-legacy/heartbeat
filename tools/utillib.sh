@@ -33,19 +33,15 @@ get_cluster_type() {
 getnodes() {
 	# 1. set by user?
 	if [ "$USER_NODES" ]; then
-		NODES_SOURCE=user
 		echo $USER_NODES
 	# 2. running crm
 	elif iscrmrunning; then
-		NODES_SOURCE=cib
 		get_crm_nodes
 	# 3. hostcache
 	elif [ -f $HA_VARLIB/hostcache ]; then
-		NODES_SOURCE=hostcache
 		awk '{print $1}' $HA_VARLIB/hostcache
 	# 4. ha.cf
 	elif [ "$CLUSTER_TYPE" = heartbeat ]; then
-		NODES_SOURCE=ha.cf
 		getcfvar node
 	fi
 }

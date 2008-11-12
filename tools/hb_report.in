@@ -593,7 +593,9 @@ if [ "$SLAVE" = "" ]; then
 			t) TO_TIME=`str2time "$OPTARG"`
 			    chktime "$TO_TIME" "$OPTARG"
 			;;
-			n) USER_NODES="$USER_NODES $OPTARG";;
+			n) NODES_SOURCE=user
+				USER_NODES="$USER_NODES $OPTARG"
+			;;
 			u) SSH_USER="$OPTARG";;
 			l) HA_LOG="$OPTARG";;
 			e) EDITOR="$OPTARG";;
