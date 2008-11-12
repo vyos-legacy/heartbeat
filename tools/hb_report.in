@@ -600,7 +600,7 @@ fi
 if [ "$SLAVE" = "" ]; then
 	setvarsanddefaults
 	userargs="$@"
-	while getopts f:t:l:u:p:L:e:E:MSDCAh o; do
+	while getopts f:t:l:u:p:L:e:E:n:MSDCAh o; do
 		case "$o" in
 			h) usage;;
 			f)
