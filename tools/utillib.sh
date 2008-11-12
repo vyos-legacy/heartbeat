@@ -270,6 +270,7 @@ getbt() {
 # heartbeat configuration/status
 #
 iscrmrunning() {
+	ps -ef | grep -qs [c]rmd || return 1
 	crmadmin -D >/dev/null 2>&1 &
 	pid=$!
 	maxwait=10
