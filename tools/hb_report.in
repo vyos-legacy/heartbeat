@@ -117,13 +117,6 @@ EOF
 #
 # these are "global" variables
 #
-get_cluster_type() {
-	if ps -ef | grep -qs '[a]isexec'; then
-		echo "openais"
-	else
-		echo "heartbeat"
-	fi
-}
 setvarsanddefaults() {
 	now=`perl -e 'print time()'`
 	# used by all
@@ -564,28 +557,6 @@ NB: size of the tarball exceeds 100kb and if posted to the
 mailing list will have to be first approved by the moderator.
 Try reducing the period (use the -f and -t options).
 EOF
-}
-
-#
-# find nodes for this cluster
-#
-getnodes() {
-	NODES_SOURCE=ha.cf
-	# 1. set by user?
-	if [ "$USER_NODES" ]; then
-		NODES_SOURCE=user
-		echo $USER_NODES
-	# 2. running crm
-	elif iscrmrunning; then
-		get_crm_nodes
-	# 3. hostcache
-	elif [ -f $HA_VARLIB/hostcache ]; then
-		NODES_SOURCE=hostcache
-		awk '{print $1}' $HA_VARLIB/hostcache
-	# 4. ha.cf
-	elif [ "$CLUSTER_TYPE" = heartbeat ]; then
-		getcfvar node
-	fi
 }
 
 [ $# -eq 0 ] && usage

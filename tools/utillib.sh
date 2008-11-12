@@ -17,6 +17,39 @@
 
 # NB: This is not going to work unless you source /etc/ha.d/shellfuncs!
 
+#
+# figure out the cluster type, depending on the process list
+#
+get_cluster_type() {
+	if ps -ef | grep -qs '[a]isexec'; then
+		echo "openais"
+	else
+		echo "heartbeat"
+	fi
+}
+#
+# find nodes for this cluster
+#
+getnodes() {
+	# 1. set by user?
+	if [ "$USER_NODES" ]; then
+		NODES_SOURCE=user
+		echo $USER_NODES
+	# 2. running crm
+	elif iscrmrunning; then
+		NODES_SOURCE=cib
+		get_crm_nodes
+	# 3. hostcache
+	elif [ -f $HA_VARLIB/hostcache ]; then
+		NODES_SOURCE=hostcache
+		awk '{print $1}' $HA_VARLIB/hostcache
+	# 4. ha.cf
+	elif [ "$CLUSTER_TYPE" = heartbeat ]; then
+		NODES_SOURCE=ha.cf
+		getcfvar node
+	fi
+}
+
 logd_getcfvar() {
 	sed 's/#.*//' < $LOGD_CF |
 		grep -w "^$1" |
