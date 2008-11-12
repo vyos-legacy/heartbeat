@@ -178,7 +178,7 @@ find_files_clean() {
 	from_stamp=""
 }
 find_files() {
-	dir=$1
+	dirs=$1
 	from_time=$2
 	to_time=$3
 	isnumber "$from_time" && [ "$from_time" -gt 0 ] || {
@@ -200,7 +200,7 @@ find_files() {
 		fi
 		findexp="$findexp ! -newer $to_stamp"
 	fi
-	find $dir -type f $findexp
+	find $dirs -type f $findexp
 	find_files_clean
 	trap "" 0
 }

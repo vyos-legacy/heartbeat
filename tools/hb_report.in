@@ -259,6 +259,7 @@ REMOVE_DEST="$REMOVE_DEST"
 CLUSTER_TYPE="$CLUSTER_TYPE"
 CONF="$CONF"
 PACKAGES="$PACKAGES"
+CORES_DIRS=$CORES_DIRS
 EOF
 }
 start_remote_collectors() {
@@ -304,7 +305,12 @@ findsshuser() {
 # the usual stuff
 #
 getbacktraces() {
-	flist=`find_files $HA_VARLIB/cores $1 $2`
+	flist=$(
+		for f in `find_files "$CORES_DIRS" $1 $2`; do
+			bf=`basename $f`
+			test `expr match $bf core` -gt 0 &&
+				echo $f
+		done)
 	[ "$flist" ] &&
 		getbt $flist > $3
 }
@@ -645,12 +651,14 @@ fi
 
 # the very first thing we must figure out is which cluster
 # stack is used
+CORES_DIRS=$HA_VARLIB/cores
 COMMON_PACKAGES="pacemaker heartbeat-common heartbeat-resources"
 case "$CLUSTER_TYPE" in
 openais)
 	CONF=openais.conf
 	PACKAGES="openais $COMMON_PACKAGES"
 	CF_SUPPORT=$HA_BIN/openais_conf_support.sh
+	CORES_DIRS="$CORES_DIRS /var/lib/openais"
 	unset CCMTOOL_F HOSTCACHE
 	;;
 heartbeat)
