@@ -761,9 +761,6 @@ fi
 if [ "$cnt" ] && [ $cnt -eq $NODECNT ]; then
 	MASTER_IS_HOSTLOG=1
 	info "found the central log!"
-	if [ "$NODES_SOURCE" != user ]; then
-		warning "this is not a node and you didn't specify a list of nodes using -n"
-	fi
 fi
 
 if [ -f "$HA_LOG" ]; then
