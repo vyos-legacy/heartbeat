@@ -342,13 +342,15 @@ sys_stats() {
 	ps axf
 	ps auxw
 	top -b -n 1
-	ifconfig
+	ifconfig -a
+	ip addr list
 	netstat -i
 	arp -an
 	test -d /proc && {
 		cat /proc/cpuinfo
-		test -f /proc/scsi/scsi && cat /proc/scsi/scsi
 	}
+	lsscsi
+	lspci
 	mount
 	df
 	set +x
