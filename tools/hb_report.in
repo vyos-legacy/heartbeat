@@ -251,6 +251,7 @@ EXTRA_LOGS="$EXTRA_LOGS"
 REMOVE_DEST="$REMOVE_DEST"
 CLUSTER_TYPE="$CLUSTER_TYPE"
 CONF="$CONF"
+B_CONF="$B_CONF"
 PACKAGES="$PACKAGES"
 CORES_DIRS="$CORES_DIRS"
 EOF
@@ -357,7 +358,7 @@ sys_stats() {
 # replace sensitive info with '****'
 #
 sanitize() {
-	for f in $1/$CONF $1/$CIB_F $1/pengine/*; do
+	for f in $1/$B_CONF $1/$CIB_F $1/pengine/*; do
 		[ -f "$f" ] && sanitize_one $f
 	done
 }
@@ -444,7 +445,7 @@ diffcheck() {
 	case `basename $1` in
 	$CIB_F)
 		cibdiff $1 $2;;
-	$CONF)
+	$B_CONF)
 		txtdiff $1 $2;; # confdiff?
 	*)
 		txtdiff $1 $2;;
@@ -464,7 +465,7 @@ analyze_one() {
 	return $rc
 }
 analyze() {
-	flist="$HOSTCACHE $CCMTOOL_F $CIB_F $CRM_MON_F $CONF logd.cf $SYSINFO_F"
+	flist="$HOSTCACHE $CCMTOOL_F $CIB_F $CRM_MON_F $B_CONF logd.cf $SYSINFO_F"
 	for f in $flist; do
 		perl -e "printf \"Diff $f... \""
 		ls $1/*/$f >/dev/null 2>&1 || continue
@@ -628,18 +629,19 @@ CORES_DIRS=$HA_VARLIB/cores
 COMMON_PACKAGES="pacemaker heartbeat-common heartbeat-resources"
 case "$CLUSTER_TYPE" in
 openais)
-	CONF=openais.conf
+	CONF=/etc/ais/openais.conf
 	PACKAGES="openais $COMMON_PACKAGES"
 	CF_SUPPORT=$HA_BIN/openais_conf_support.sh
 	CORES_DIRS="$CORES_DIRS /var/lib/openais"
 	unset CCMTOOL_F HOSTCACHE
 	;;
 heartbeat)
-	CONF=ha.cf
+	CONF=$HA_CF
 	PACKAGES="heartbeat $COMMON_PACKAGES"
 	CF_SUPPORT=$HA_NOARCHBIN/ha_cf_support.sh
 	;;
 esac
+B_CONF=`basename $CONF`
 
 if test -f "$CF_SUPPORT"; then
 	. $CF_SUPPORT
