@@ -57,5 +57,5 @@ ChangeLog: $(SPECSRC)
 hb_report.txt: hb_report.html
     @true : in this case .txt is the master source
 
-%.txt: %.html
+.html.txt:
 	if [ "X$(HTML2TXT)" = "X" ]; then echo "Lynx or w3m or user-defined HTML2TXT required to convert $< to $@" >$@ ; else $(HTML2TXT) -dump $< >$@ ; fi

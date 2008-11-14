@@ -31,8 +31,9 @@ halibdir		= $(libdir)/@HB_PKG@
 hanoarchdir		= @HA_NOARCHDATAHBDIR@
 gliblib			= @GLIBLIB@
 
-habin_PROGRAMS		= cl_status cl_respawn 
-hanoarch_DATA		= utillib.sh
+habin_PROGRAMS		= cl_status cl_respawn
+
+hanoarch_DATA		= utillib.sh ha_cf_support.sh
 sbin_SCRIPTS		= hb_report ocf-tester
 
 cl_status_SOURCES	= cl_status.c
@@ -47,8 +48,11 @@ cl_respawn_LDADD	= $(top_builddir)/lib/clplumbing/libplumb.la	\
 			  $(gliblib)					\
 			  $(top_builddir)/replace/libreplace.la
 
+halib_PROGRAMS		= sfex_daemon 					
+sbin_PROGRAMS		= sfex_init
+
 if USE_LIBNET
-halib_PROGRAMS		= send_arp
+halib_PROGRAMS		+= send_arp
 send_arp_SOURCES	= send_arp.libnet.c
 send_arp_CFLAGS		= @LIBNETDEFINES@
 send_arp_LDADD	 	= $(top_builddir)/lib/clplumbing/libplumb.la	\
@@ -56,11 +60,23 @@ send_arp_LDADD	 	= $(top_builddir)/lib/clplumbing/libplumb.la	\
 else
 
 if SENDARP_LINUX
-halib_PROGRAMS		= send_arp
+halib_PROGRAMS		+= send_arp
 send_arp_SOURCES	= send_arp.linux.c
 endif
 
 endif
+
+sfex_daemon_SOURCES	= sfex_daemon.c sfex.h sfex_lib.c sfex_lib.h
+sfex_daemon_CFLAGS	= -D_GNU_SOURCE
+sfex_daemon_LDADD	= $(GLIBLIB)                    			\
+					  $(top_builddir)/lib/clplumbing/libplumb.la  \
+					  $(top_builddir)/lib/clplumbing/libplumbgpl.la
+
+sfex_init_SOURCES	= sfex_init.c sfex.h sfex_lib.c sfex_lib.h
+sfex_init_CFLAGS	= -D_GNU_SOURCE
+sfex_init_LDADD		= $(GLIBLIB)                    \
+					  $(top_builddir)/lib/clplumbing/libplumb.la  \
+					  $(top_builddir)/lib/clplumbing/libplumbgpl.la
 
 install-data-hook:    # install-exec-hook doesn't work (!)
 	-chgrp $(apigid) $(DESTDIR)/$(habindir)/cl_status

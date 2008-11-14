@@ -42,20 +42,6 @@ export LOGD_CF
 LOG_PATTERNS="CRIT: ERROR:"
 # PEINPUTS_PATT="peng.*PEngine Input stored"
 
-# the goods
-ANALYSIS_F=analysis.txt
-DESCRIPTION_F=description.txt
-HALOG_F=ha-log.txt
-BT_F=backtraces.txt
-SYSINFO_F=sysinfo.txt
-SYSSTATS_F=sysstats.txt
-export ANALYSIS_F DESCRIPTION_F HALOG_F BT_F SYSINFO_F SYSSTATS_F
-CRM_MON_F=crm_mon.txt
-CCMTOOL_F=ccm_tool.txt
-CRM_VERIFY_F=crm_verify.txt
-CIB_F=cib.xml
-export CRM_MON_F CCMTOOL_F CRM_VERIFY_F CIB_F
-
 #
 # the instance where user runs hb_report is the master
 # the others are slaves
@@ -67,10 +53,14 @@ fi
 usage() {
 	cat<<EOF
 usage: hb_report -f {time|"cts:"testnum} [-t time] [-u user] [-l file]
-       [-E files] [-p patt] [-L patt] [-e prog] [-MSDC] dest
+       [-n nodes] [-E files] [-p patt] [-L patt] [-e prog] [-MSDCA] dest
 
 	-f time: time to start from or a CTS test number
 	-t time: time to finish at (dflt: now)
+	-n nodes: node names for this cluster; this option is additive
+	         (use either -n "a b" or -n a -n b)
+	         if you run $PROG on the log host or use autojoin,
+	         it is highly recommended to set this option
 	-u user: ssh user to access other nodes (dflt: empty, hacluster, root)
 	-l file: log file
 	-E file: extra logs to collect; this option is additive
@@ -83,6 +73,7 @@ usage: hb_report -f {time|"cts:"testnum} [-t time] [-u user] [-l file]
 	-M     : don't collect extra logs (/var/log/messages)
 	-D     : don't invoke editor to write description
 	-C     : remove the destination directory
+	-A     : this is an OpenAIS cluster
 	-S     : single node operation; don't try to start report
 	         collectors on other nodes
 	dest   : destination directory
@@ -92,7 +83,7 @@ EOF
 	cat<<EOF
 
 	. the multifile output is first stored in a directory {dest}
-	  of which a tarball {dest}.tar.gz is created
+	  of which a tarball {dest}.tar.bz2 (or .gz) is created
 	. the time specification is as in either Date::Parse or
 	  Date::Manip, whatever you have installed; Date::Parse is
 	  preferred
@@ -137,6 +128,7 @@ setvarsanddefaults() {
 	UNIQUE_MSG="Mark:HB_REPORT:$now"
 	SANITIZE="passw.*"
 	REMOVE_DEST=""
+	CLUSTER_TYPE=`get_cluster_type`
 	# logs to collect in addition
 	# NB: they all have to be in syslog format
 	#
@@ -176,7 +168,7 @@ logmarks() {
 	sev=$1 msg=$2
 	c="logger -p $HA_LOGFACILITY.$sev $msg"
 
-	for n in `getnodes`; do
+	for n in $NODES; do
 		if [ "$n" = "`uname -n`" ]; then
 			$c
 		else
@@ -249,6 +241,7 @@ dumpenv() {
 	cat<<EOF
 FROM_TIME=$FROM_TIME
 TO_TIME=$TO_TIME
+USER_NODES="$USER_NODES"
 HA_LOG=$HA_LOG
 MASTER_IS_HOSTLOG=$MASTER_IS_HOSTLOG
 DESTDIR=$DESTDIR
@@ -256,10 +249,15 @@ UNIQUE_MSG=$UNIQUE_MSG
 SANITIZE="$SANITIZE"
 EXTRA_LOGS="$EXTRA_LOGS"
 REMOVE_DEST="$REMOVE_DEST"
+CLUSTER_TYPE="$CLUSTER_TYPE"
+CONF="$CONF"
+B_CONF="$B_CONF"
+PACKAGES="$PACKAGES"
+CORES_DIRS="$CORES_DIRS"
 EOF
 }
 start_remote_collectors() {
-	for node in `getnodes`; do
+	for node in $NODES; do
 		[ "$node" = "$WE" ] && continue
 		dumpenv |
 		ssh $ssh_opts $node "mkdir -p $DESTDIR && cat > $DESTDIR/.env &&
@@ -282,7 +280,7 @@ testsshuser() {
 findsshuser() {
 	for u in "" $TRY_SSH; do
 		rc=0
-		for n in `getnodes`; do
+		for n in $NODES; do
 			[ "$node" = "$WE" ] && continue
 			testsshuser $n $u || {
 				rc=1
@@ -301,7 +299,12 @@ findsshuser() {
 # the usual stuff
 #
 getbacktraces() {
-	flist=`find_files $HA_VARLIB/cores $1 $2`
+	flist=$(
+		for f in `find_files "$CORES_DIRS" $1 $2`; do
+			bf=`basename $f`
+			test `expr match $bf core` -gt 0 &&
+				echo $f
+		done)
 	[ "$flist" ] &&
 		getbt $flist > $3
 }
@@ -323,8 +326,9 @@ touch_DC_if_dc() {
 # some basic system info and stats
 #
 sys_info() {
-	echo "Heartbeat version: `hb_ver`"
+	cluster_info
 	crm_info
+	pkg_ver $PACKAGES
 	echo "Platform: `uname`"
 	echo "Kernel release: `uname -r`"
 	echo "Architecture: `uname -m`"
@@ -338,13 +342,15 @@ sys_stats() {
 	ps axf
 	ps auxw
 	top -b -n 1
-	ifconfig
+	ifconfig -a
+	ip addr list
 	netstat -i
 	arp -an
 	test -d /proc && {
 		cat /proc/cpuinfo
-		test -f /proc/scsi/scsi && cat /proc/scsi/scsi
 	}
+	lsscsi
+	lspci
 	mount
 	df
 	set +x
@@ -354,7 +360,7 @@ sys_stats() {
 # replace sensitive info with '****'
 #
 sanitize() {
-	for f in $1/ha.cf $1/$CIB_F $1/pengine/*; do
+	for f in $1/$B_CONF $1/$CIB_F $1/pengine/*; do
 		[ -f "$f" ] && sanitize_one $f
 	done
 }
@@ -363,7 +369,7 @@ sanitize() {
 # remove duplicates if files are same, make links instead
 #
 consolidate() {
-	for n in `getnodes`; do
+	for n in $NODES; do
 		if [ -f $1/$2 ]; then
 			rm $1/$n/$2
 		else
@@ -377,7 +383,7 @@ consolidate() {
 # some basic analysis of the report
 #
 checkcrmvfy() {
-	for n in `getnodes`; do
+	for n in $NODES; do
 		if [ -s $1/$n/$CRM_VERIFY_F ]; then
 			echo "WARN: crm_verify reported warnings at $n:"
 			cat $1/$n/$CRM_VERIFY_F
@@ -385,7 +391,7 @@ checkcrmvfy() {
 	done
 }
 checkbacktraces() {
-	for n in `getnodes`; do
+	for n in $NODES; do
 		[ -s $1/$n/$BT_F ] && {
 			echo "WARN: coredumps found at $n:"
 			egrep 'Core was generated|Program terminated' \
@@ -406,7 +412,7 @@ checklogs() {
 	done > $pattfile
 	echo ""
 	echo "Log patterns:"
-	for n in `getnodes`; do
+	for n in $NODES; do
 		cat $logs | grep -f $pattfile
 	done
 	rmtempfile $pattfile
@@ -439,20 +445,18 @@ diffcheck() {
 		return 1
 	}
 	case `basename $1` in
-	$CCMTOOL_F)
-		txtdiff $1 $2;; # worddiff?
 	$CIB_F)
 		cibdiff $1 $2;;
-	ha.cf)
+	$B_CONF)
 		txtdiff $1 $2;; # confdiff?
-	$CRM_MON_F|$SYSINFO_F)
+	*)
 		txtdiff $1 $2;;
 	esac
 }
 analyze_one() {
 	rc=0
 	node0=""
-	for n in `getnodes`; do
+	for n in $NODES; do
 		if [ "$node0" ]; then
 			diffcheck $1/$node0/$2 $1/$n/$2
 			rc=$(($rc+$?))
@@ -463,7 +467,7 @@ analyze_one() {
 	return $rc
 }
 analyze() {
-	flist="hostcache $CCMTOOL_F $CIB_F $CRM_MON_F ha.cf logd.cf $SYSINFO_F"
+	flist="$HOSTCACHE $CCMTOOL_F $CIB_F $CRM_MON_F $B_CONF logd.cf $SYSINFO_F"
 	for f in $flist; do
 		perl -e "printf \"Diff $f... \""
 		ls $1/*/$f >/dev/null 2>&1 || continue
@@ -500,7 +504,7 @@ Date: `date`
 By: $PROG $userargs
 Subject: [short problem description]
 Severity: [choose one] enhancement minor normal major critical blocking
-Component: [choose one] CRM LRM CCM RA fencing heartbeat comm GUI tools other
+Component: [choose one] CRM LRM CCM RA fencing $CLUSTER_TYPE comm GUI tools other
 
 Detailed description:
 ---
@@ -513,7 +517,7 @@ EOF
 		echo "Common system info found:"
 		cat $DESTDIR/$SYSINFO_F
 	else
-		for n in `getnodes`; do
+		for n in $NODES; do
 			if [ -f $DESTDIR/$n/$SYSINFO_F ]; then
 				echo "System info $n:"
 				sed 's/^/	/' $DESTDIR/$n/$SYSINFO_F
@@ -528,15 +532,28 @@ edittemplate() {
 		warning "could not find a text editor"
 	fi
 }
+pickcompress() {
+	if COMPRESS=`pickfirst bzip2 gzip`; then
+		if [ "$COMPRESS" = bzip2 ]; then
+			COMPRESS_EXT=.bz2
+		else
+			COMPRESS_EXT=.gz
+		fi
+	else
+		warning "could not find a compression program; the resulting tarball may be huge"
+		COMPRESS=cat
+		COMPRESS_EXT=
+	fi
+}
 finalword() {
 	cat<<EOF
-The report is saved in $DESTDIR.tar.gz.
+The report is saved in $DESTDIR.tar$COMPRESS_EXT.
 
 Thank you for taking time to create this report.
 EOF
 }
 checksize() {
-	ls -s $DESTDIR.tar.gz | awk '$1>=100{exit 1}' ||
+	ls -s $DESTDIR.tar.* | awk '$1>=100{exit 1}' ||
 		cat <<EOF
 
 NB: size of the tarball exceeds 100kb and if posted to the
@@ -558,19 +575,13 @@ if [ "$t" = "" ]; then
 		fatal "please install the perl Date::Parse module"
 fi
 
-WE=`uname -n`  # who am i?
-THIS_IS_NODE=""
-getnodes | grep -wqs $WE && # are we a node?
-	THIS_IS_NODE=1
-getlogvars
-
 #
 # part 1: get and check options; and the destination
 #
 if [ "$SLAVE" = "" ]; then
 	setvarsanddefaults
 	userargs="$@"
-	while getopts f:t:l:u:p:L:e:E:MSDCh o; do
+	while getopts f:t:l:u:p:L:e:E:n:MSDCAh o; do
 		case "$o" in
 			h) usage;;
 			f)
@@ -585,6 +596,9 @@ if [ "$SLAVE" = "" ]; then
 			t) TO_TIME=`str2time "$OPTARG"`
 			    chktime "$TO_TIME" "$OPTARG"
 			;;
+			n) NODES_SOURCE=user
+				USER_NODES="$USER_NODES $OPTARG"
+			;;
 			u) SSH_USER="$OPTARG";;
 			l) HA_LOG="$OPTARG";;
 			e) EDITOR="$OPTARG";;
@@ -595,6 +609,7 @@ if [ "$SLAVE" = "" ]; then
 			C) REMOVE_DEST=1;;
 			M) EXTRA_LOGS="";;
 			E) EXTRA_LOGS="$EXTRA_LOGS $OPTARG";;
+			A) CLUSTER_TYPE="openais";;
 			[?]) usage short;;
 		esac
 	done
@@ -603,10 +618,74 @@ if [ "$SLAVE" = "" ]; then
 	DESTDIR=`echo $1 | sed 's,/*$,,'`
 	chkdirname $DESTDIR
 	[ "$FROM_TIME" ] || usage short
+else
+	# slave gets the environment from .env
+	DESTDIR=$2
+	[ -d $DESTDIR ] || nodistdirectory
+	. $DESTDIR/.env
 fi
+
+# the very first thing we must figure out is which cluster
+# stack is used
+CORES_DIRS=$HA_VARLIB/cores
+COMMON_PACKAGES="pacemaker heartbeat-common heartbeat-resources"
+case "$CLUSTER_TYPE" in
+openais)
+	CONF=/etc/ais/openais.conf
+	PACKAGES="openais $COMMON_PACKAGES"
+	CF_SUPPORT=$HA_BIN/openais_conf_support.sh
+	CORES_DIRS="$CORES_DIRS /var/lib/openais"
+	unset CCMTOOL_F HOSTCACHE
+	;;
+heartbeat)
+	CONF=$HA_CF
+	PACKAGES="heartbeat $COMMON_PACKAGES"
+	CF_SUPPORT=$HA_NOARCHBIN/ha_cf_support.sh
+	;;
+esac
+B_CONF=`basename $CONF`
+
+if test -f "$CF_SUPPORT"; then
+	. $CF_SUPPORT
+else
+	fatal "no stack specific support: $CF_SUPPORT"
+fi
+
+WE=`uname -n`  # who am i?
+THIS_IS_NODE=""
+NODES=`getnodes`
+NODECNT=`echo $NODES | wc -w`
+if [ "$NODECNT" = 0 ]; then
+	fatal "could not figure out a list of nodes; is this a cluster node?"
+fi
+echo $NODES | grep -wqs $WE && # are we a node?
+	THIS_IS_NODE=1
+
+# the goods
+ANALYSIS_F=analysis.txt
+DESCRIPTION_F=description.txt
+HALOG_F=ha-log.txt
+BT_F=backtraces.txt
+SYSINFO_F=sysinfo.txt
+SYSSTATS_F=sysstats.txt
+export ANALYSIS_F DESCRIPTION_F HALOG_F BT_F SYSINFO_F SYSSTATS_F
+CRM_MON_F=crm_mon.txt
+CCMTOOL_F=ccm_tool.txt
+HOSTCACHE=hostcache
+CRM_VERIFY_F=crm_verify.txt
+CIB_F=cib.xml
+export CRM_MON_F CCMTOOL_F CRM_VERIFY_F CIB_F
+
+getlogvars
 
 # this only on master
 if [ "$SLAVE" = "" ]; then
+
+	# if this is not a node, then some things afterwards might
+	# make no sense (not work)
+	if [ -z "$THIS_IS_NODE" -a "$NODES_SOURCE" != user ]; then
+		warning "this is not a node and you didn't specify a list of nodes using -n"
+	fi
 #
 # part 2: ssh business
 #
@@ -626,21 +705,14 @@ if [ "$SLAVE" = "" ]; then
 	fi
 # final check: don't run if the destination directory exists
 	[ -d $DESTDIR ] && msgcleanup "local node"
+	mkdir -p $DESTDIR
+	[ -d $DESTDIR ] || nodistdirectory
 	[ "$ssh_good" ] &&
-		for node in `getnodes`; do
+		for node in $NODES; do
 			[ "$node" = "$WE" ] && continue
 			ssh $ssh_opts $node "test -d $DESTDIR" &&
 				msgcleanup $node
 		done
-fi
-
-if [ "$SLAVE" ]; then
-	DESTDIR=$2
-	[ -d $DESTDIR ] || nodistdirectory
-	. $DESTDIR/.env
-else
-	mkdir -p $DESTDIR
-	[ -d $DESTDIR ] || nodistdirectory
 fi
 
 if [ "$SLAVE" = "" ]; then
@@ -649,12 +721,7 @@ if [ "$SLAVE" = "" ]; then
 #         important to do this now on _all_ nodes
 # 
 	if [ "$HA_LOGFACILITY" ]; then
-		sev="info"
-		cfdebug=`getcfvar debug` # prefer debuglog if set
-		isnumber $cfdebug || cfdebug=""
-		[ "$cfdebug" ] && [ $cfdebug -gt 0 ] &&
-			sev="debug"
-		logmarks $sev $UNIQUE_MSG
+		logmarks $HA_LOGLEVEL $UNIQUE_MSG
 	fi
 fi
 
@@ -676,8 +743,7 @@ if [ "$HA_LOG" = "" ]; then
 	[ "$HA_LOG" ] &&
 		cnt=`fgrep -c $UNIQUE_MSG < $HA_LOG`
 fi
-nodecnt=`getnodes | wc -w`
-if [ "$cnt" ] && [ $cnt -eq $nodecnt ]; then
+if [ "$cnt" ] && [ $cnt -eq $NODECNT ]; then
 	MASTER_IS_HOSTLOG=1
 	info "found the central log!"
 fi
@@ -717,7 +783,7 @@ if [ ! "$SLAVE" ]; then
 	if [ "$ssh_good" ]; then
 		start_remote_collectors
 	else
-		if [ -z "$NO_SSH" -a `getnodes | wc -w` -gt 1 ]; then
+		if [ -z "$NO_SSH" -a $NODECNT -gt 1 ]; then
 			warning "ssh does not work to all nodes"
 			warning "please use the -u option if you want to supply a password"
 		fi
@@ -768,7 +834,8 @@ else
 		edittemplate $DESTDIR/$DESCRIPTION_F
 	}
 	cd $DESTDIR/..
-	tar czf $DESTDIR.tar.gz `basename $DESTDIR`
+	pickcompress
+	tar cf - `basename $DESTDIR` | $COMPRESS > $DESTDIR.tar$COMPRESS_EXT
 	finalword
 	checksize
 fi

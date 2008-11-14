@@ -18,47 +18,47 @@
 # NB: This is not going to work unless you source /etc/ha.d/shellfuncs!
 
 #
-# ha.cf/logd.cf parsing
+# figure out the cluster type, depending on the process list
 #
-getcfvar() {
-	[ -f "$HA_CF" ] || return
-	sed 's/#.*//' < $HA_CF |
+get_cluster_type() {
+	if ps -ef | grep -qs '[a]isexec'; then
+		echo "openais"
+	else
+		echo "heartbeat"
+	fi
+}
+#
+# find nodes for this cluster
+#
+getnodes() {
+	# 1. set by user?
+	if [ "$USER_NODES" ]; then
+		echo $USER_NODES
+	# 2. running crm
+	elif iscrmrunning; then
+		get_crm_nodes
+	# 3. hostcache
+	elif [ -f $HA_VARLIB/hostcache ]; then
+		awk '{print $1}' $HA_VARLIB/hostcache
+	# 4. ha.cf
+	elif [ "$CLUSTER_TYPE" = heartbeat ]; then
+		getcfvar node
+	fi
+}
+
+logd_getcfvar() {
+	sed 's/#.*//' < $LOGD_CF |
 		grep -w "^$1" |
 		sed 's/^[^[:space:]]*[[:space:]]*//'
 }
-iscfvarset() {
-	test "`getcfvar \"$1\"`"
-}
-iscfvartrue() {
-	getcfvar "$1" |
-		egrep -qsi "^(true|y|yes|on|1)"
-}
-getnodes() {
-	getcfvar node
-}
-
-#
-# logging
-#
-syslogmsg() {
-	severity=$1
-	shift 1
-	logtag=""
-	[ "$HA_LOGTAG" ] && logtag="-t $HA_LOGTAG"
-	logger -p ${HA_LOGFACILITY:-$DEFAULT_HA_LOGFACILITY}.$severity $logtag $*
-}
-
-#
-# find log destination
-#
-uselogd() {
-	iscfvartrue use_logd &&
-		return 0  # if use_logd true
-	iscfvarset logfacility ||
-	iscfvarset logfile ||
-	iscfvarset debugfile ||
-		return 0  # or none of the log options set
-	false
+get_logd_logvars() {
+	# unless logfacility is set to none, heartbeat/ha_logd are
+	# going to log through syslog
+	HA_LOGFACILITY=`logd_getcfvar logfacility`
+	[ "" = "$HA_LOGFACILITY" ] && HA_LOGFACILITY=$DEFAULT_HA_LOGFACILITY
+	[ none = "$HA_LOGFACILITY" ] && HA_LOGFACILITY=""
+	HA_LOGFILE=`logd_getcfvar logfile`
+	HA_DEBUGFILE=`logd_getcfvar debugfile`
 }
 findlogdcf() {
 	for f in \
@@ -73,23 +73,20 @@ findlogdcf() {
 	done
 	return 1
 }
-getlogvars() {
-	HA_LOGFACILITY=${HA_LOGFACILITY:-$DEFAULT_HA_LOGFACILITY}
-	if uselogd; then
-		[ -f "$LOGD_CF" ] ||
-			return  # no configuration: use defaults
-	fi
-	savecf=$HA_CF
-	HA_CF=$LOGD_CF
-	# unless logfacility is set to none, heartbeat/ha_logd are
-	# going to log through syslog
-	HA_LOGFACILITY=`getcfvar logfacility`
-	[ "" = "$HA_LOGFACILITY" ] && HA_LOGFACILITY=$DEFAULT_HA_LOGFACILITY
-	[ none = "$HA_LOGFACILITY" ] && HA_LOGFACILITY=""
-	HA_LOGFILE=`getcfvar logfile`
-	HA_DEBUGFILE=`getcfvar debugfile`
-	HA_CF=$savecf
+#
+# logging
+#
+syslogmsg() {
+	severity=$1
+	shift 1
+	logtag=""
+	[ "$HA_LOGTAG" ] && logtag="-t $HA_LOGTAG"
+	logger -p ${HA_LOGFACILITY:-$DEFAULT_HA_LOGFACILITY}.$severity $logtag $*
 }
+
+#
+# find log destination
+#
 findmsg() {
 	# this is tricky, we try a few directories
 	syslogdir="/var/log /var/logs /var/syslog /var/adm /var/log/ha /var/log/cluster"
@@ -210,7 +207,7 @@ find_files_clean() {
 	from_stamp=""
 }
 find_files() {
-	dir=$1
+	dirs=$1
 	from_time=$2
 	to_time=$3
 	isnumber "$from_time" && [ "$from_time" -gt 0 ] || {
@@ -232,7 +229,7 @@ find_files() {
 		fi
 		findexp="$findexp ! -newer $to_stamp"
 	fi
-	find $dir -type f $findexp
+	find $dirs -type f $findexp
 	find_files_clean
 	trap "" 0
 }
@@ -273,6 +270,7 @@ getbt() {
 # heartbeat configuration/status
 #
 iscrmrunning() {
+	ps -ef | grep -qs [c]rmd || return 1
 	crmadmin -D >/dev/null 2>&1 &
 	pid=$!
 	maxwait=10
@@ -290,11 +288,12 @@ iscrmrunning() {
 dumpstate() {
 	crm_mon -1 | grep -v '^Last upd' > $1/$CRM_MON_F
 	cibadmin -Ql > $1/$CIB_F
-	ccm_tool -p > $1/$CCMTOOL_F 2>&1
+	[ "$CLUSTER_TYPE" = heartbeat ] &&
+		ccm_tool -p > $1/$CCMTOOL_F 2>&1
 }
 getconfig() {
-	[ -f "$HA_CF" ] &&
-		cp -p $HA_CF $1/
+	[ -f "$CONF" ] &&
+		cp -p $CONF $1/
 	[ -f "$LOGD_CF" ] &&
 		cp -p $LOGD_CF $1/
 	if iscrmrunning; then
@@ -307,6 +306,20 @@ getconfig() {
 	cp -p $HA_VARLIB/hostcache $1/ 2>/dev/null
 	[ -f "$1/$CIB_F" ] &&
 		crm_verify -V -x $1/$CIB_F >$1/$CRM_VERIFY_F 2>&1
+}
+get_crm_nodes() {
+	cibadmin -Ql -o nodes |
+	awk '
+	/type="normal"/ {
+		for( i=1; i<=NF; i++ )
+			if( $i~/^uname=/ ) {
+				sub("uname=.","",$i);
+				sub(".$","",$i);
+				print $i;
+				next;
+			}
+	}
+	'
 }
 
 #
@@ -407,35 +420,35 @@ distro() {
 			}
 		done
 	}
-	warning "no lsb_release no /etc/*-release no /etc/debian_version"
+	warning "no lsb_release, no /etc/*-release, no /etc/debian_version: no distro information"
 }
-hb_ver() {
+pkg_ver() {
 	# for Linux .deb based systems
-	which dpkg > /dev/null 2>&1 && {
-		for pkg in heartbeat heartbeat-2; do
-			dpkg-query -f '${Version}' -W $pkg 2>/dev/null && break
-		done
-		[ $? -eq 0 ] &&
-			debsums -s $pkg 2>/dev/null
-		return
-	}
-	# for Linux .rpm based systems
-	which rpm > /dev/null 2>&1 && {
-		rpm -q --qf '%{version}-%{release}' heartbeat &&
-		echo &&
-		rpm --verify heartbeat
-		return
-	}
-	# for OpenBSD
-	which pkg_info > /dev/null 2>&1 && {
-		pkg_info | grep heartbeat | cut -d "-" -f 2- | cut -d " " -f 1
-		return
-	}
-	# for Solaris
-	which pkginfo > /dev/null 2>&1 && {
-		pkginfo | awk '{print $3}'
-	}
-	# more packagers?
+	for pkg; do
+		which dpkg > /dev/null 2>&1 && {
+			dpkg-query -f '${Name} ${Version}' -W $pkg 2>/dev/null && break
+			[ $? -eq 0 ] &&
+				debsums -s $pkg 2>/dev/null
+			break
+		}
+		# for Linux .rpm based systems
+		which rpm > /dev/null 2>&1 && {
+			rpm -q --qf '%{name} %{version}-%{release}' $pkg &&
+			echo &&
+			rpm --verify $pkg
+			break
+		}
+		# for OpenBSD
+		which pkg_info > /dev/null 2>&1 && {
+			pkg_info | grep $pkg
+			break
+		}
+		# for Solaris
+		which pkginfo > /dev/null 2>&1 && {
+			pkginfo | awk '{print $3}'  # format?
+		}
+		# more packagers?
+	done
 }
 crm_info() {
 	$HA_BIN/crmd version 2>&1

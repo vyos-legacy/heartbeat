@@ -31,7 +31,7 @@
 
 Name:           heartbeat
 Summary:        The Heartbeat Subsystem for High-Availability Linux
-Version:        2.99.1
+Version:        2.99.2
 Release:        1
 License:        GPL/LGPL
 URL:            http://www.linux-ha.org/v2
@@ -517,11 +517,9 @@ fi
 %dir %{_datadir}/doc/packages/heartbeat
 %{_sysconfdir}/ha.d/shellfuncs
 %{_sbindir}/stonith
-%{_sbindir}/sbd
 %{_sbindir}/meatclient
 %{_sbindir}/ha_logger
 %{_sbindir}/hb_report
-%{_sbindir}/ocf-tester
 %{_libdir}/libstonith.so.*
 %{_libdir}/stonith
 %{_libdir}/pils
@@ -530,16 +528,11 @@ fi
 %{_libdir}/liblrm.so.*
 %{_libdir}/libplumb.so.*
 %{_libdir}/libplumbgpl.so.*
-%{_libdir}/heartbeat/findif
 %{_libdir}/heartbeat/ha_logd
 %{_libdir}/heartbeat/ha_logger
 %{_libdir}/heartbeat/lrmadmin
 %{_libdir}/heartbeat/lrmd
-%{_libdir}/heartbeat/ocf-returncodes
-%{_libdir}/heartbeat/ocf-shellfuncs
 %{_libdir}/heartbeat/plugins/RAExec
-%{_libdir}/heartbeat/send_arp
-%{_libdir}/heartbeat/utillib.sh
 %doc %{_mandir}/man8/apphbd.8*
 %doc %{_mandir}/man8/stonith.8*
 %doc %{_mandir}/man8/meatclient.8*
@@ -550,6 +543,7 @@ fi
 %{_datadir}/doc/packages/heartbeat/ChangeLog
 %{_datadir}/doc/packages/heartbeat/logd.cf
 %{_datadir}/heartbeat/utillib.sh
+%{_datadir}/heartbeat/ha_cf_support.sh
 %{_datadir}/doc/packages/heartbeat/apphbd.cf
 %{_var}/run/heartbeat
 %dir %attr (0700, root, root)           %{_var}/lib/heartbeat/cores/root
@@ -611,6 +605,16 @@ fi
 %dir /usr/lib/ocf/resource.d
 %dir /usr/lib/ocf/resource.d/heartbeat
 /usr/lib/ocf/resource.d/heartbeat
+%{_sbindir}/ocf-tester
+%{_sbindir}/sbd
+%{_sbindir}/sfex_init
+%{_libdir}/heartbeat/sfex_daemon
+%{_libdir}/heartbeat/findif
+%{_libdir}/heartbeat/ocf-returncodes
+%{_libdir}/heartbeat/ocf-shellfuncs
+%{_libdir}/heartbeat/send_arp
+%{_libdir}/heartbeat/utillib.sh
+%{_libdir}/heartbeat/ha_cf_support.sh
 
 %exclude %{_libdir}/heartbeat/ra-api-1.dtd
 %{_datadir}/heartbeat/ra-api-1.dtd
@@ -634,9 +638,53 @@ fi
 %config(noreplace) %{_sysconfdir}/logrotate.d/ldirectord
 
 %changelog heartbeat
-* Thu Aug 21 2008 Lars Marowsky-Bree <lmb@suse.de> and many others
+* Tue Oct 28 2008 Lars Marowsky-Bree <lmb@suse.de> and many others
++ 2.99.2 - beta release of 3.0.x series.
+- RA: Filesystem: For OCFS2, work on both SLES10 in compatibility mode
+  and newer openAIS/Pacemaker cluster stacks.
+- RA: o2cb (ocf): Remove, as it confused users and never worked.
+- stonith: external/drac5: new plugin (thanks to Jun Wang and Xinwei
+  Hu)
+- stonith: external/riloe: Bugfixes for HP iLO fencing device.
+- stonith: drac3: initialize curl properly (LF#1730).
+- RA: LVM: stop correctly in case vol group does not exist.
+- RA: apache: envfiles attribute to source extra environment.
+- RA: Filesystem: Correct exit code used when trying to cluster-mount a
+  non-clustered fs.
+- RA: Filesystem: OCFS2 compatibility handling for SLE10 SP2.
+- RA: sfex: Exclusive access to disks.
+- IPaddr2: support IPoIB gratuitous arps.
+- RA: nfsserver: Allow NFS server fail-over.
+- RA: scsi2reservation: support scsi2 reservations.
+- stonith: external/drac5: new plugin (thanks to Jun Wang and Xinwei
+  Hu)
+- lrmd: drop finished repeating ops for non-existing clients
+- heartbeat: close watchdog files properly.
+- hb_report: allow user to specify nodes on the command line.
+- hb_report: Fixes to work with openAIS.
+- ldirectord: Support IPv6.
+- Debian build fixes.
+* Mon Sep 29 2008 Lars Marowsky-Bree <lmb@suse.de> and many others
 + 2.99.1 - beta release of 3.0.x series.
+- RA: vmware: New agent added.
+- RA: Filesystem: OCFS2 extensions removed, no longer needed for new
+  Pacemaker + OCFS2 code base.
+- RA: mysql: Fix typo.
+- RA: apache: envfiles attribute to source extra environment (e.g.
+  envars).
+- RA: LVM: stop correctly in case vol group does not exist.
+- RA: ldirectord: add option for executing command on fallback.
+- RA: ldirectord: Add web proxy health checking to ldirectord.
+- dopd: hostnames should be case insensitive.
+- STONITH: SBD for shared storage fencing merged (includes fix for
+  LF#1961).
+- STONITH: external/riloe: many fixes for HP iLO.
+- heartbeat: close watchdog files properly.
+- heartbeat: new IPv6 ping plugin (ping6).
+- Compile fixes for Debian and Ubuntu.
 - Remove cl_malloc.h; always use libc malloc() et al now.
+- Due to cl_malloc changes, update clplumbing so major.
+- Remove snmp_subagent.
 * Thu Aug 21 2008 Lars Marowsky-Bree <lmb@suse.de> and many others
 + 2.99.0 - beta release of 3.0.x series.
 - Restructured heartbeat package layout.

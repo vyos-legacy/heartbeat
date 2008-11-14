@@ -305,8 +305,8 @@ B<real => I<ip_address|hostname[-E<gt>ip_address|hostname][:portnumber|servicena
 Defines a real service by IP-address (or hostname) and port (or
 servicename). If the port is omitted then a 0 will be used, this is
 intended primarily for fwmark services where the port for real servers is
-ignored. Optionally a range of IP addresses (or two hostnames) may be
-given, in which case each IP address in the range will be treated as a real
+ignored. Optionally a range of IPv4 addresses (or two hostnames) may be
+given, in which case each IPv4 address in the range will be treated as a real
 server using the given port. The second argument defines the forwarding
 method, must be B<gate>, B<ipip> or B<masq>.  The thrid argument is
 optional and defines the weight for that real server. If omitted then a
@@ -347,7 +347,7 @@ checking will take place and no real or fallback servers will be activated.
 On means no checking will take place and real servers will always be
 activated. Default is I<negotiate>.
 
-B<service = >B<dns>|B<ftp>|B<http>|B<https>|B<imap>|B<imaps>|B<ldap>|B<mysql>|B<nntp>|B<none>|B<oracle>|B<pgsql>|B<pop>|B<pops>|B<radius>|B<simpletcp>|B<sip>|B<smtp>
+B<service = >B<dns>|B<ftp>|B<http>|B<https>|B<http_proxy>|B<imap>|B<imaps>|B<ldap>|B<mysql>|B<nntp>|B<none>|B<oracle>|B<pgsql>|B<pop>|B<pops>|B<radius>|B<simpletcp>|B<sip>|B<smtp>
 
 The type of service to monitor when using checktype=negotiate. None denotes
 a service that will not be monitored. 
@@ -386,6 +386,8 @@ Default:
 =item * Virtual server port is 1521: oracle
 
 =item * Virtual server port is 1812: radius
+
+=item * Virtual server port is 3128: http_proxy
 
 =item * Virtual server port is 3306: mysql
 
@@ -431,6 +433,10 @@ B<request = ">I<uri to requested object>B<">
 This object will be requested each checkinterval seconds on each real
 server.  The string must be inside quotes. Note that this string may be
 overridden by an optional per real-server based request-string.
+
+For an HTTP/HTTPS check, this should be a relative URI, while it has to
+be absolute for the 'http_proxy' check type. In the latter case, this
+URI will be requested through the proxy backend that is being checked.
 
 For a DNS check this should the name of an A record, or the address
 of a PTR record to look up.
@@ -577,6 +583,11 @@ The log format is:
 
 Default: no separate logging of service checks.
 
+=head1 IPv6
+
+IPv6 addresses specified for virtual and real servers should be enclosed by
+brackets ([3ff3:ffff::abcd]:80).
+
 =head1 FILES
 
 B<@sysconfdir@/ha.d/ldirectord.cf>
@@ -639,6 +650,7 @@ use vars qw(
 	    $DAEMON_STATUS_ALL
 	    $DAEMON_TERM
 	    $DAEMON_HUP
+	    $DAEMON_CHLD
 	    $opt_d
 	    $opt_h
 	    $stattime
@@ -699,6 +711,7 @@ use Pod::Usage;
 #use English;
 #use Time::HiRes qw( gettimeofday tv_interval );
 use Socket;
+use Socket6;
 use Sys::Hostname;
 use POSIX qw(setsid :sys_wait_h);
 use Sys::Syslog qw(:DEFAULT setlogsock);
@@ -793,6 +806,9 @@ sub ld_init
 
 	# HUP is actually used
 	$SIG{'HUP'} = \&ld_handler_hup;
+
+	# Reap Children
+	$SIG{'CHLD'} = \&ld_handler_chld;
 
 	if (defined $ENV{HOSTNAME}) {
 		$HOSTNAME = "$ENV{HOSTNAME}";
@@ -971,6 +987,21 @@ sub ld_process_hup
 	&reread_config();
 }
 
+sub ld_handler_chld
+{
+	$DAEMON_CHLD=1;
+}
+
+sub ld_process_chld
+{
+	my $i = 0;
+
+	undef $DAEMON_CHLD;
+	while (waitpid(-1, WNOHANG) > 0) {
+		print "child: $i\n";
+		$i++;
+	}
+}
 
 sub check_signal
 {
@@ -979,6 +1010,9 @@ sub check_signal
 	}
 	if (defined $DAEMON_HUP) {
 		ld_process_hup();
+	}
+	if (defined $DAEMON_CHLD) {
+		ld_process_chld();
 	}
 }
 
@@ -1106,6 +1140,13 @@ sub read_config
 				$virtual_id = $ip_port = "$1:$2";
 			} elsif ($vattr =~ /^(\d+)/){
 				$virtual_id = $fwm = $1;
+			} elsif ($vattr =~ /^\[([0-9A-Fa-f:]+)\]:(\d+)/) {
+				my $v6addr = $1;
+				my $v6port = $2;
+				if (!inet_pton(AF_INET6,$v6addr)) {
+					&config_error($line,"invalid ipv6 address for virtual server");
+				}
+				$virtual_id = $ip_port = "[$v6addr]:$v6port";
 			} else {
 				&config_error($line, 
 					"invalid address for virtual server");
@@ -1173,7 +1214,7 @@ sub read_config
 					} else {
 						&config_error($line, "checktype must be \"connect\", \"negotiate\", \"on\", \"off\", \"ping\", \"external\" or a positive number");
 					}
-				} elsif ($rcmd =~ /^checkcommand\s*=\s*(.*)/){
+				} elsif ($rcmd =~ /^checkcommand\s*=\s*\"(.*)\"/ or $rcmd =~ /^checkcommand\s*=\s*(.*)/){
                                         $1 =~ /(.+)/ or &config_error($line, "invalid external script");
                                         $vsrv{checkcommand} = $1;
 				} elsif ($rcmd =~ /^checktimeout\s*=\s*(.*)/){
@@ -1260,6 +1301,7 @@ sub read_config
 							  $1 eq "ftp"	||
 							  $1 eq "http"	||
 							  $1 eq "https"	||
+							  $1 eq "http_proxy"	||
 							  $1 eq "imap"	||
 							  $1 eq "imaps"	||
 							  $1 eq "ldap"	||
@@ -1278,6 +1320,7 @@ sub read_config
 							     "service must " .
 							     "be dns, ftp, " .
 							     "http, https, " .
+							     "http_proxy, " .
 							     "imap, imaps, " .
 							     "ldap, nntp, "  .
 							     "mysql, none, " .
@@ -1313,7 +1356,8 @@ sub read_config
 					$vsrv{fallback} =
 						parse_fallback($line, $1,
 							       \%vsrv);
-				} elsif ($rcmd =~ /^fallbackcommand\s*=\s*(.*)/) {
+				} elsif ($rcmd =~
+				/^fallbackcommand\s*=\s*\"(.*)\"/ or $rcmd =~ /^fallbackcommand\s*=\s*(.*)/) {
                                         $1 =~ /(.+)/ or &config_error($line, "invalid fallback command");
                                         $vsrv{fallbackcommand} = $1;
                                 } elsif ($rcmd =~ /^quiescent\s*=\s*(.*)/) {
@@ -1487,7 +1531,10 @@ sub _ld_read_config_virtual_resolve
 
 	if($ip_port){
 		$ip_port=&ld_gethostservbyname($ip_port, $vsrv->{protocol});
-		if($ip_port){
+		if ($ip_port =~ /(\[[0-9A-Fa-f:]+\]):(\d+)/) {
+			$vsrv->{server} = $1;
+			$vsrv->{port} = $2;
+		} elsif($ip_port){
 			($vsrv->{server}, $vsrv->{port}) = split /:/, $ip_port;
 		}
 		else {
@@ -1525,6 +1572,7 @@ sub ld_port_to_service
 	if ($port eq 995)	{ return "imaps"; }
 	if ($port eq 1521)	{ return "oracle"; }
 	if ($port eq 1812)	{ return "radius"; }
+	if ($port eq 3128)	{ return "http_proxy"; }
 	if ($port eq 3306)	{ return "mysql"; }
 	if ($port eq 5060)	{ return "sip"; }
 	if ($port eq 5432)	{ return "pgsql"; }
@@ -1556,6 +1604,7 @@ sub ld_service_to_port
 	if ($service eq "pops")		{ return 995; }
 	if ($service eq "oracle")	{ return 1521; }
 	if ($service eq "radius")	{ return 1812; }
+	if ($service eq "http_proxy")	{ return 3128; }
 	if ($service eq "mysql")	{ return 3306; }
 	if ($service eq "sip")		{ return 5060; }
 	if ($service eq "pgsql")	{ return 5432; }
@@ -1655,7 +1704,7 @@ sub _ld_read_config_real_resolve
 
 	for $i (@$rsrv_todo) {
 		($str, $line)=@$i;
-		$str =~	 /(\d+\.\d+\.\d+\.\d+|[A-Za-z0-9.-]+)(->(\d+\.\d+\.\d+\.\d+|[A-Za-z0-9.-]+))?(:(\d+|[A-Za-z0-9-]+))?\s+(.*)/
+		$str =~	 /(\d+\.\d+\.\d+\.\d+|[A-Za-z0-9.-]+|\[[0-9A-fa-f:]+\])(->(\d+\.\d+\.\d+\.\d+|[A-Za-z0-9.-]+|\[[0-9A-fa-f:]+\]))?(:(\d+|[A-Za-z0-9-]+))?\s+(.*)/
 			or &config_error($line, 
 				"invalid address for real server" .
                                 " (wrong format)");
@@ -1766,6 +1815,7 @@ sub add_real_server
 	my $new_rsrv;
 	my $rsrv;
 
+	if ($ip =~ /:/) { $ip = "[" . $ip . "]"; }
 	$new_rsrv = {"server"=>$ip, "port"=>$port};
 
 	$flags =~ /(\w+)(.*)/ && ($1 eq "gate" || $1 eq "masq" || $1 eq "ipip")
@@ -1923,18 +1973,29 @@ sub ld_setup
 		for my $r (@$real) {
                         $$r{forw} = get_forward_flag($$r{forward});
 			my $port=ld_checkport($v, $r);
+
+			my $schema = $$v{service};
+			if ($$v{service} eq 'http_proxy') {
+				$schema = 'http';
+			}
+
         		if (defined $$r{request} && defined $$r{receive}) {
 				my $uri = $$r{request};
 				$uri =~ s/^\///g;
-				if ($$r{request} =~ /$$v{service}:\/\//) {
+				if ($$r{request} =~ /$schema:\/\//) {
 					$$r{url} = "$uri";
 				} else {
-					$$r{url} = "$$v{service}:\/\/$$r{server}:$port\/$uri";
+					$$r{url} = "$schema:\/\/$$r{server}:$port\/$uri";
 				}
 			} else {
 				my $uri = $$v{request};
 				$uri =~ s/^\///g;
-				$$r{url} = "$$v{service}:\/\/$$r{server}:$port\/$uri";
+
+				if ($$v{service} eq 'http_proxy') {
+					$$r{url} = "$uri";
+				} else {
+					$$r{url} = "$schema:\/\/$$r{server}:$port\/$uri";
+				}
 
                 		$$r{request} = $$v{request} unless defined $$r{request};
                 		$$r{receive} = $$v{receive};
@@ -2087,16 +2148,16 @@ sub ld_read_ipvsadm
 		if (not defined $line) {
 			last;
 		}
-		if ($line =~ /^(\w+)\s+(\d+\.\d+\.\d+\.\d+\:\d+|\d+)\s+(\w+)\s+persistent\s+(\d+)\s+mask\s+(.*)/) {
+		if ($line =~ /^(\w+)\s+(\d+\.\d+\.\d+\.\d+\:\d+|\[[0-9A-Fa-f:]+\]:\d+|\d+)\s+(\w+)\s+persistent\s+(\d+)\s+mask\s+(.*)/) {
 			$real_service = "$2 ".lc($1);
 			$oldsrv{"$real_service"} = {"real"=>{}, "scheduler"=>$3, "persistent"=>$4, "netmask"=>$5};
-		} elsif ($line =~ /^(\w+)\s+(\d+\.\d+\.\d+\.\d+\:\d+|\d+)\s+(\w+)\s+persistent\s+(\d+)/) {
+		} elsif ($line =~ /^(\w+)\s+(\d+\.\d+\.\d+\.\d+\:\d+|\[[0-9A-Fa-f:]+\]:\d+|\d+)\s+(\w+)\s+persistent\s+(\d+)/) {
 			$real_service = "$2 ".lc($1);
 			$oldsrv{"$real_service"} = {"real"=>{}, "scheduler"=>$3, "persistent"=>$4};
-		} elsif ($line =~ /^(\w+)\s+(\d+\.\d+\.\d+\.\d+\:\d+|\d+)\s+(\w+)/) {
+		} elsif ($line =~ /^(\w+)\s+(\d+\.\d+\.\d+\.\d+\:\d+|\[[0-9A-Fa-f:]+\]:\d+|\d+)\s+(\w+)/) {
 			$real_service = "$2 ".lc($1);
 			$oldsrv{"$real_service"} = {"real"=>{}, "scheduler"=>$3};
-		} elsif ($line =~ /^  ->\s+(\d+\.\d+\.\d+\.\d+\:\d+)\s+(\w+)\s+(\d+)/) {
+		} elsif ($line =~ /^  ->\s+(\d+\.\d+\.\d+\.\d+\:\d+|\[[0-9A-Fa-f:]+\]:\d+)\s+(\w+)\s+(\d+)/) {
 			if (not defined( $real_service)) {
 				&ld_debug(2, "Real server read from ipvsadm " .
 					  "doesn't seem to be inside a " .
@@ -2266,7 +2327,6 @@ sub ld_main
                         check_signal();
                         
                 } else {
-			local $SIG{CHLD} = 'IGNORE';
                         my @real_checked;
                         foreach my $v (@VIRTUAL) {
                                 my $real = $$v{real};
@@ -2347,7 +2407,7 @@ sub _check_real
 
         if ($$v{checktype} eq "negotiate" || $$r{num_connects}>=$$v{num_connects}) {
                 &ld_debug(2, "Checking negotiate: real server=$real_id (virtual=$virtual_id)");
-                if ($$v{service} eq "http" || $$v{service} eq "https") {
+                if (grep $$v{service} eq $_, ("http", "https", "http_proxy")) {
                         $$r{num_connects} = 0 if (check_http($v, $r) == $SERVICE_UP);
                 } elsif ($$v{service} eq "pop") {
                         $$r{num_connects} = 0 if (check_pop($v, $r) == $SERVICE_UP);
@@ -2421,7 +2481,7 @@ sub check_http
 	}
 	my ($v, $r) = @_;
 
-	$$r{url} =~ /$$v{service}:\/\/([^:\/]+)(:([^\/]+))?(\/.*)/;
+	$$r{url} =~ /(http|https):\/\/([^:\/]+)(:([^\/]+))?(\/.*)/;
 	my $host = $1;
 	#my $port = $3;
 	my $uri = $4;
@@ -2431,7 +2491,15 @@ sub check_http
 		. "virtualhost=\"$virtualhost\"");
 	
 	my $ua = new LWP::UserAgent();
-	my $h = new  HTTP::Headers("Host" => $virtualhost);
+
+	my $h = undef;
+	if ($$v{service} eq "http_proxy") {
+		my $port = ld_checkport($v, $r);
+		$ua->proxy("http", "http://$$r{server}:$port/");
+	} else {
+		$h = new HTTP::Headers("Host" => $virtualhost);
+	}
+
 	my $req = new HTTP::Request("$$v{httpmethod}", "$$r{url}", $h);
 	my $res;
 
@@ -2917,6 +2985,7 @@ sub check_external
 	my ($v, $r) = @_;
 	my $result;
 	my $v_server;
+	my $timed_out = 1;
 
 	eval {
 		local $SIG{'__DIE__'} = "DEFAULT";
@@ -2928,8 +2997,8 @@ sub check_external
 		} else {
 		    $v_server = $$v{fwm};
 		}
-		$result = system("$$v{checkcommand} $v_server $$v{port} " .
-				 "$$r{server} $$r{port}");
+		$result = system_wrapper($$v{checkcommand}, $v_server,
+					 $$v{port}, $$r{server}, $$r{port});
 		alarm 0;
 		$result >>= 8;
 	};
@@ -4128,6 +4197,11 @@ sub is_ip
 {
 	  my ($alleged_ip)=(@_);
 
+	  if ($alleged_ip =~ /:/) {
+		unless(inet_pton(AF_INET6,$alleged_ip)){ return 0; }
+	  	return(1);
+	  }
+
 	  #If we don't have four, . delimited numbers then we have no hope
 	  unless($alleged_ip=~m/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/) { return 0; }
 
@@ -4341,17 +4415,24 @@ sub ld_exit
 sub ld_open_socket
 {
 	my ($remote, $port, $protocol) = @_;
-	my ($iaddr, $paddr, $pro, $result);
+	my ($iaddr, $paddr, $pro, $result, $pf);
 	local *SOCK;
 
-	$iaddr = inet_aton($remote) || die "no host: $remote";
-	$paddr = sockaddr_in($port, $iaddr);
+	if (inet_pton(AF_INET6,$remote)) {
+	    $iaddr = inet_pton(AF_INET6,$remote);
+	    $paddr = pack_sockaddr_in6($port, $iaddr);
+	    $pf = PF_INET6;
+	} else {
+	    $iaddr = inet_aton($remote) || die "no host: $remote";
+	    $paddr = sockaddr_in($port, $iaddr);
+	    $pf = PF_INET;
+	}
 	$pro = getprotobyname($protocol);
 	if ($protocol eq "udp") {
-		socket(SOCK, PF_INET, SOCK_DGRAM, $pro) || die "socket: $!";
+	    socket(SOCK, $pf, SOCK_DGRAM, $pro) || die "socket: $!";
 	}
 	else {
-		socket(SOCK, PF_INET, SOCK_STREAM, $pro) || die "socket: $!";
+		socket(SOCK, $pf, SOCK_STREAM, $pro) || die "socket: $!";
 	}
 	$result = connect(SOCK, $paddr);
 	unless ($result) {
@@ -4482,9 +4563,15 @@ sub ld_gethostbyname
 {
 	my ($name)=(@_);
 
-	my @host=gethostbyname($name);
-
-	return((@host and defined($host[4]))?inet_ntoa($host[4]):undef);
+	if ($name =~ /\[(.*)\]/) {
+		$name = $1;
+	}
+	my @host = getaddrinfo($name,0);
+	if (!defined($host[3])) {
+		return undef;
+	}
+	my @ret = getnameinfo($host[3], NI_NUMERICHOST | NI_NUMERICSERV);
+	return $ret[0];
 }
 
 
@@ -4528,13 +4615,18 @@ sub ld_gethostservbyname{
 	my $ip;
 	my $port;
 
-	$hostserv =~ 
+	if ($hostserv =~ /(\[[0-9A-Fa-f:]+\])(:(\d+|[A-Za-z0-9-]+))?/) {
+		$ip=$1;
+		$port=$3;
+	} else {
+		$hostserv =~ 
 		/(\d+\.\d+\.\d+\.\d+|[A-Za-z0-9.-]+)(:(\d+|[A-Za-z0-9-]+))?/ 
 		or return(undef);
-	$ip=$1;
-	$port=$3;
+		$ip=$1;
+		$port=$3;
 
-	$ip=&ld_gethostbyname($ip)  or return(undef);
+		$ip=&ld_gethostbyname($ip)  or return(undef);
+	}
 
 	if(defined($port)){
 	    $port=&ld_getservbyname($port, $protocol);

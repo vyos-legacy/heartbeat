@@ -60,11 +60,13 @@
 #include <hb_api_core.h>
 #include <clplumbing/cl_syslog.h>
 #include <clplumbing/cl_misc.h>
+#include <ha_version.h>
 
 #define	DIRTYALIASKLUDGE
 
 void dellist_destroy(void);
 int dellist_add(const char* nodename);
+const char *get_hg_version(void);
 
 static int set_cluster_name(const char * value);
 static int add_normal_node(const char *);
@@ -229,6 +231,14 @@ struct hb_media_fns**	hbmedia_types;
 	void setenv(const char *name, const char * value, int);
 #endif
 
+
+const char
+*get_hg_version(void) 
+{               
+    /* limit this #define's use to a single file to avoid
+	 * rebuilding more than necessary */
+	return HA_HG_VERSION;
+}
 
 static void
 check_logd_usage(int* errcount)

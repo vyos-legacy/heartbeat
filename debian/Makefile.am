@@ -21,7 +21,7 @@
 MAINTAINERCLEANFILES    = Makefile.in
 
 EXTRA_DIST		= changelog compat control copyright \
-			  dpkg-checkbuild rules \
+			  dpkg-checkbuild check-uninstalled rules \
 			  heartbeat-2.prerm \
 			  heartbeat-dev.dirs \
 			  heartbeat-dev.install \

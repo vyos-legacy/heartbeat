@@ -679,7 +679,7 @@ SetupFifoChild(void) {
 				break;
 
 		case 0:		/* Child */
-				close(watchdogfd);
+				hb_close_watchdog();
 				curproc = &procinfo->info[fifoproc];
 				cl_msg_setstats(&curproc->msgstats);
 				curproc->type = PROC_HBFIFO;
@@ -797,7 +797,7 @@ make_io_childpair(int medianum, int ourproc)
 				break;
 
 		case 0:		/* Child */
-				close(watchdogfd);
+				hb_close_watchdog();
 				curproc = &procinfo->info[ourproc];
 				cl_msg_setstats(&curproc->msgstats);
 				curproc->type = PROC_HBWRITE;
@@ -830,7 +830,7 @@ make_io_childpair(int medianum, int ourproc)
 				break;
 
 		case 0:		/* Child */
-				close(watchdogfd);
+				hb_close_watchdog();
 				curproc = &procinfo->info[ourproc];
 				cl_msg_setstats(&curproc->msgstats);
 				curproc->type = PROC_HBREAD;
@@ -4718,11 +4718,12 @@ heartbeat_monitor(struct ha_msg * msg, int msgtype, const char * iface)
 	api_heartbeat_monitor(msg, msgtype, iface);
 }
 
+extern const char *get_hg_version(void);
 
 static void
 printversion(void)
 {	
-	printf("%s\n", VERSION);
+	printf("%s (%s)\n", VERSION, get_hg_version());
 	return;
 }
 /*
@@ -5108,6 +5109,8 @@ StartHeartbeat:
 		if (ANYDEBUG) {
 			cl_log(LOG_DEBUG
 			,	"HA configuration OK.  Heartbeat starting.");
+			cl_log(LOG_INFO
+			,	"Heartbeat Hg Version: %s", get_hg_version());
 		}
 		if (verbose) {
 			dump_config();

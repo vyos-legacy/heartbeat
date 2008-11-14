@@ -92,6 +92,7 @@ ipres() {
     1)  pat=$1			;;
     2)  grepflags=$1; pat=$2	;;
   esac
+  if [ -f $HA_DIR/haresources ]; then
   cat $HA_DIR/haresources |
 	#
 	#	Explanation of Sed -e expressions below:
@@ -114,6 +115,7 @@ ipres() {
 		-e  's%^ %%' 				|
 	awk '/.*/ {$1 = tolower($1); print $0, ""}'	|
   	egrep $grepflags "$pat"
+	fi
 }
 
 ipresline() {
