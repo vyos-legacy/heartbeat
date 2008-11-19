@@ -544,6 +544,7 @@ fi
 %{_datadir}/doc/packages/heartbeat/logd.cf
 %{_datadir}/heartbeat/utillib.sh
 %{_datadir}/heartbeat/ha_cf_support.sh
+%{_datadir}/heartbeat/openais_conf_support.sh
 %{_datadir}/doc/packages/heartbeat/apphbd.cf
 %{_var}/run/heartbeat
 %dir %attr (0700, root, root)           %{_var}/lib/heartbeat/cores/root
@@ -615,6 +616,7 @@ fi
 %{_libdir}/heartbeat/send_arp
 %{_libdir}/heartbeat/utillib.sh
 %{_libdir}/heartbeat/ha_cf_support.sh
+%{_libdir}/heartbeat/openais_conf_support.sh
 
 %exclude %{_libdir}/heartbeat/ra-api-1.dtd
 %{_datadir}/heartbeat/ra-api-1.dtd
