@@ -633,7 +633,7 @@ case "$CLUSTER_TYPE" in
 openais)
 	CONF=/etc/ais/openais.conf
 	PACKAGES="openais $COMMON_PACKAGES"
-	CF_SUPPORT=$HA_BIN/openais_conf_support.sh
+	CF_SUPPORT=$HA_NOARCHBIN/openais_conf_support.sh
 	CORES_DIRS="$CORES_DIRS /var/lib/openais"
 	unset CCMTOOL_F HOSTCACHE
 	;;
