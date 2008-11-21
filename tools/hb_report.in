@@ -164,13 +164,16 @@ time2str() {
 #
 # find log files
 #
+logmark() {
+	logger -p $*
+}
 logmarks() {
-	sev=$1 msg=$2
-	c="logger -p $HA_LOGFACILITY.$sev $msg"
+	msg=$1
+	c="$PROGDIR/hb_report __slave $DESTDIR logmark $msg"
 
 	for n in $NODES; do
 		if [ "$n" = "`uname -n`" ]; then
-			$c
+			[ "$THIS_IS_NODE" ] && logmark $HA_LOGFACILITY.$HA_LOGLEVEL $msg
 		else
 			[ "$ssh_good" ] &&
 				echo $c | ssh $ssh_opts $n
@@ -259,9 +262,7 @@ EOF
 start_remote_collectors() {
 	for node in $NODES; do
 		[ "$node" = "$WE" ] && continue
-		dumpenv |
-		ssh $ssh_opts $node "mkdir -p $DESTDIR && cat > $DESTDIR/.env &&
-			$PROGDIR/hb_report __slave $DESTDIR" |
+		ssh $ssh_opts $node "$PROGDIR/hb_report __slave $DESTDIR" |
 			(cd $DESTDIR && tar xf -) &
 		SLAVEPIDS="$SLAVEPIDS $!"
 	done
@@ -651,6 +652,14 @@ else
 	fatal "no stack specific support: $CF_SUPPORT"
 fi
 
+getlogvars
+
+if [ "$SLAVE" -a "$3" = logmark ]; then
+	msg="$4"
+	logmark $HA_LOGFACILITY.$HA_LOGLEVEL $msg
+	exit
+fi
+
 WE=`uname -n`  # who am i?
 THIS_IS_NODE=""
 NODES=`getnodes`
@@ -675,8 +684,6 @@ HOSTCACHE=hostcache
 CRM_VERIFY_F=crm_verify.txt
 CIB_F=cib.xml
 export CRM_MON_F CCMTOOL_F CRM_VERIFY_F CIB_F
-
-getlogvars
 
 # this only on master
 if [ "$SLAVE" = "" ]; then
@@ -712,6 +719,8 @@ if [ "$SLAVE" = "" ]; then
 			[ "$node" = "$WE" ] && continue
 			ssh $ssh_opts $node "test -d $DESTDIR" &&
 				msgcleanup $node
+			dumpenv |
+			ssh $ssh_opts $node "mkdir -p $DESTDIR && cat > $DESTDIR/.env"
 		done
 fi
 
@@ -721,7 +730,7 @@ if [ "$SLAVE" = "" ]; then
 #         important to do this now on _all_ nodes
 # 
 	if [ "$HA_LOGFACILITY" ]; then
-		logmarks $HA_LOGLEVEL $UNIQUE_MSG
+		logmarks $UNIQUE_MSG
 	fi
 fi
 
