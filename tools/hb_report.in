@@ -262,8 +262,10 @@ EOF
 start_remote_collectors() {
 	for node in $NODES; do
 		[ "$node" = "$WE" ] && continue
-		ssh $ssh_opts $node "$PROGDIR/hb_report __slave $DESTDIR" |
+		dumpenv | ssh $ssh_opts $node \
+			"cat > $DESTDIR/.env; $PROGDIR/hb_report __slave $DESTDIR" |
 			(cd $DESTDIR && tar xf -) &
+		done
 		SLAVEPIDS="$SLAVEPIDS $!"
 	done
 }
