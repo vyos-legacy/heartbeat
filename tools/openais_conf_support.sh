@@ -68,7 +68,7 @@ get_ais_logvars() {
 getlogvars() {
 	HA_LOGFACILITY=${HA_LOGFACILITY:-$DEFAULT_HA_LOGFACILITY}
 	HA_LOGLEVEL="info"
-	iscfvartue debug && # prefer debug level if set
+	iscfvartrue debug && # prefer debug level if set
 		HA_LOGLEVEL="debug"
 	if uselogd; then
 		[ -f "$LOGD_CF" ] ||
