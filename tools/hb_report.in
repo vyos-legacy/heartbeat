@@ -224,7 +224,7 @@ cts_findlogseg() {
 	logf=$1
 	testnum=$2
 
-	FROM_LINE=`grep -n "Running test.*\[$testnum\]" $logf | tail -1 | sed 's/:.*//'`
+	FROM_LINE=`grep -n "Running test.*\[ *$testnum\]" $logf | tail -1 | sed 's/:.*//'`
 	if [ -z "$FROM_LINE" ]; then
 		warning "couldn't find line for CTS test $testnum; corrupt log file?"
 		return
