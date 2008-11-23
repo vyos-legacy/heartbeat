@@ -216,13 +216,13 @@ find_files() {
 	}
 	trap find_files_clean 0
 	if ! from_stamp=`touchfile $from_time`; then
-		warning "sorry, can't create temoary file for find_files"
+		warning "sorry, can't create temporary file for find_files"
 		return
 	fi
 	findexp="-newer $from_stamp"
 	if isnumber "$to_time" && [ "$to_time" -gt 0 ]; then
 		if ! to_stamp=`touchfile $to_time`; then
-			warning "sorry, can't create temoary file for" \
+			warning "sorry, can't create temporary file for" \
 				"find_files"
 			find_files_clean
 			return
