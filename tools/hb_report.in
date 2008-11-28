@@ -718,8 +718,10 @@ if [ "$SLAVE" = "" ]; then
 	[ "$ssh_good" ] &&
 		for node in $NODES; do
 			[ "$node" = "$WE" ] && continue
-			ssh $ssh_opts $node "test -d $DESTDIR" &&
+			ssh $ssh_opts $node "test -d $DESTDIR" && {
+				test -d $DESTDIR && rmdir $DESTDIR
 				msgcleanup $node
+			}
 			dumpenv |
 			ssh $ssh_opts $node "mkdir -p $DESTDIR && cat > $DESTDIR/.env"
 		done
