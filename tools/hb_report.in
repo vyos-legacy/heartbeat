@@ -265,7 +265,6 @@ start_remote_collectors() {
 		dumpenv | ssh $ssh_opts $node \
 			"cat > $DESTDIR/.env; $PROGDIR/hb_report __slave $DESTDIR" |
 			(cd $DESTDIR && tar xf -) &
-		done
 		SLAVEPIDS="$SLAVEPIDS $!"
 	done
 }
