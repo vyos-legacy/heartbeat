@@ -34,6 +34,7 @@ usr/lib/ocf/resource.d/heartbeat/Squid
 usr/lib/ocf/resource.d/heartbeat/Stateful
 usr/lib/ocf/resource.d/heartbeat/SysInfo
 usr/lib/ocf/resource.d/heartbeat/VIPArip
+usr/lib/ocf/resource.d/heartbeat/VirtualDomain
 usr/lib/ocf/resource.d/heartbeat/WAS
 usr/lib/ocf/resource.d/heartbeat/WAS6
 usr/lib/ocf/resource.d/heartbeat/WinPopup
