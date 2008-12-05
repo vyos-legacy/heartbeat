@@ -50,6 +50,7 @@ Requires:       %{name}-common = %{version}-%{release}
 Requires:       %{name}-resources = %{version}-%{release}
 Requires:       /bin/ping perl-TimeDate
 BuildRequires:  curl-devel e2fsprogs-devel glib2-devel iputils libxml2-devel lynx python
+BuildRequires:  automake autoconf mailx
 AutoReqProv:    on
 %if 0%{?fedora_version}
 Requires(post): /sbin/chkconfig
