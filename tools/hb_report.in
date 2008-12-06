@@ -555,10 +555,10 @@ Thank you for taking time to create this report.
 EOF
 }
 checksize() {
-	ls -s $DESTDIR.tar.* | awk '$1>=100{exit 1}' ||
+	ls -s $DESTDIR.tar.* | awk '$1>=250{exit 1}' ||
 		cat <<EOF
 
-NB: size of the tarball exceeds 100kb and if posted to the
+NB: size of the tarball exceeds 250kb and if posted to the
 mailing list will have to be first approved by the moderator.
 Try reducing the period (use the -f and -t options).
 EOF
