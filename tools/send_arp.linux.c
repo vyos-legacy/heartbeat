@@ -35,7 +35,7 @@
 static void usage(void) __attribute__((noreturn));
 
 int quit_on_reply=0;
-char *device="eth0";
+char *device = NULL;
 int ifindex;
 char *source;
 struct in_addr src, dst;
@@ -308,7 +308,10 @@ main(int argc, char **argv)
 	int socket_errno;
 	int ch;
 	uid_t uid = getuid();
+	int hb_mode = 0;
 
+	device = strdup("eth0");
+	
 	s = socket(PF_PACKET, SOCK_DGRAM, 0);
 	socket_errno = errno;
 
@@ -336,8 +339,9 @@ main(int argc, char **argv)
 		case 'q':
 			quiet++;
 			break;
-		case 'c':
 		case 'r': /* send_arp compatability option */
+			hb_mode = 1;
+		case 'c':
 			count = atoi(optarg);
 			break;
 		case 'w':
@@ -357,20 +361,19 @@ main(int argc, char **argv)
 			exit(0);
 		case 'p':
 		case 'i':
-			/* send_arp compatability option, ignore */
-			break;
+		    hb_mode = 1;
+		    /* send_arp compatability options, ignore */
+		    break;
 		case 'h':
 		case '?':
 		default:
 			usage();
 		}
 	}
-	argc -= optind;
-	argv += optind;
 
-	if(device == NULL) {
+	if(hb_mode) {
 	    /* send_arp compatability mode */
-	    if (argc-optind != 5) {
+	    if (argc - optind != 5) {
 		usage();
 		return 1;
 	    }
@@ -382,15 +385,18 @@ main(int argc, char **argv)
 	     *	argv[optind+5] NETMASK		ffffffffffff
 	     */
 	    
-	    device    = argv[optind];
-	    target    = argv[optind+1];
-	}
-	
-	if (argc != 1)
+	    device = argv[optind];
+	    target = argv[optind+1];
+
+	} else {
+	    argc -= optind;
+	    argv += optind;
+	    if (argc != 1)
 		usage();
 
-	target = *argv;
-
+	    target = *argv;
+	}
+	
 	if (device == NULL) {
 		fprintf(stderr, "arping: device (option -I) is required\n");
 		usage();
