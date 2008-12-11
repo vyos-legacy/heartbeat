@@ -20,6 +20,9 @@
 . @sysconfdir@/ha.d/shellfuncs
 . $HA_NOARCHBIN/utillib.sh
 
+unset LANG
+export LC_ALL=POSIX
+
 PROG=`basename $0`
 # FIXME: once this is part of the package!
 PROGDIR=`dirname $0`
