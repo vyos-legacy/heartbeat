@@ -19,9 +19,12 @@
 
 #
 # figure out the cluster type, depending on the process list
+# and existence of configuration files
 #
 get_cluster_type() {
-	if ps -ef | grep -qs '[a]isexec'; then
+	if ps -ef | grep -qs '[a]isexec' ||
+			[ -f /etc/ais/openais.conf -a ! -f "$HA_CF" ]
+	then
 		echo "openais"
 	else
 		echo "heartbeat"
