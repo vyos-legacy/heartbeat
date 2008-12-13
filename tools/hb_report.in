@@ -131,7 +131,6 @@ setvarsanddefaults() {
 	UNIQUE_MSG="Mark:HB_REPORT:$now"
 	SANITIZE="passw.*"
 	REMOVE_DEST=""
-	CLUSTER_TYPE=`get_cluster_type`
 	# logs to collect in addition
 	# NB: they all have to be in syslog format
 	#
@@ -255,7 +254,7 @@ UNIQUE_MSG=$UNIQUE_MSG
 SANITIZE="$SANITIZE"
 EXTRA_LOGS="$EXTRA_LOGS"
 REMOVE_DEST="$REMOVE_DEST"
-CLUSTER_TYPE="$CLUSTER_TYPE"
+USER_CLUSTER_TYPE="$USER_CLUSTER_TYPE"
 CONF="$CONF"
 B_CONF="$B_CONF"
 PACKAGES="$PACKAGES"
@@ -614,7 +613,7 @@ if [ "$SLAVE" = "" ]; then
 			C) REMOVE_DEST=1;;
 			M) EXTRA_LOGS="";;
 			E) EXTRA_LOGS="$EXTRA_LOGS $OPTARG";;
-			A) CLUSTER_TYPE="openais";;
+			A) USER_CLUSTER_TYPE="openais";;
 			[?]) usage short;;
 		esac
 	done
@@ -628,6 +627,14 @@ else
 	DESTDIR=$2
 	[ -d $DESTDIR ] || nodistdirectory
 	. $DESTDIR/.env
+fi
+
+# allow user to enforce the cluster type
+# if not, then it is found out on _all_ nodes
+if [ -z "$USER_CLUSTER_TYPE" ]; then
+	CLUSTER_TYPE=`get_cluster_type`
+else
+	CLUSTER_TYPE=$USER_CLUSTER_TYPE
 fi
 
 # the very first thing we must figure out is which cluster
