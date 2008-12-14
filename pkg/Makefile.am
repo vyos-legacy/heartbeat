@@ -98,6 +98,10 @@ $(INFOFILES)/prototype:	stamp-tmpinst
 	echo "s none etc/rc0.d/K@HB_INITSTOPPRI@heartbeat=@INITDIR@/heartbeat@INIT_EXT@" >> $@
 	echo "s none etc/rc1.d/K@HB_INITSTOPPRI@heartbeat=@INITDIR@/heartbeat@INIT_EXT@" >> $@
 	echo "s none etc/rcS.d/K@HB_INITSTOPPRI@heartbeat=@INITDIR@/heartbeat@INIT_EXT@" >> $@
+	echo "s none etc/rc2.d/S@LOGD_INITSTARTPRI@logd=@INITDIR@/logd@INIT_EXT@" >> $@
+	echo "s none etc/rc0.d/K@LOGD_INITSTOPPRI@logd=@INITDIR@/logd@INIT_EXT@" >> $@
+	echo "s none etc/rc1.d/K@LOGD_INITSTOPPRI@logd=@INITDIR@/logd@INIT_EXT@" >> $@
+	echo "s none etc/rcS.d/K@LOGD_INITSTOPPRI@logd=@INITDIR@/logd@INIT_EXT@" >> $@
 	echo "i pkginfo" >> $@
 	echo "i preinstall" >> $@
 	echo "i postinstall" >> $@

@@ -452,6 +452,7 @@ test -d $RPM_BUILD_ROOT/sbin || mkdir $RPM_BUILD_ROOT/sbin
 (
   cd $RPM_BUILD_ROOT/sbin
   ln -s /etc/init.d/heartbeat   rcheartbeat
+  ln -s /etc/init.d/logd   rclogd
   ln -sf /etc/init.d/ldirectord rcldirectord 
 )
 # Cleanup
@@ -630,11 +631,13 @@ fi
 %{_sysconfdir}/ha.d
 %exclude %{_sysconfdir}/ha.d/resource.d
 %exclude %{_sysconfdir}/ha.d/shellfuncs
+%{_sysconfdir}/init.d/logd
 %{_sysconfdir}/init.d/heartbeat
 %config(noreplace) %{_sysconfdir}/logrotate.d/heartbeat
 %{_libdir}/libclm.so.*
 %{_libdir}/libhbclient.so.*
 %{_libdir}/libccmclient.so.*
+/sbin/rclogd
 /sbin/rcheartbeat
 %{_libdir}/heartbeat/apphbd
 %{_bindir}/cl_respawn

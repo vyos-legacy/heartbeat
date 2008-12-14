@@ -36,6 +36,12 @@ HB_INITSTARTPRI="@HB_INITSTARTPRI@"
 # Init stop priority
 HB_INITSTOPPRI="@HB_INITSTOPPRI@" 
 
+# Init start priority
+LOGD_INITSTARTPRI="@LOGD_INITSTARTPRI@" 
+
+# Init stop priority
+LOGD_INITSTOPPRI="@LOGD_INITSTOPPRI@" 
+
 # heartbeat rc script directory
 # HB_RC_DIR is the old name
 HB_RC_DIR="@HA_RC_DIR@" 

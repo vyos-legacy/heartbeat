@@ -49,7 +49,7 @@ clean: configure
 	dh_testroot
 	dh_clean
 	rm -f build-stamp install-stamp
-	rm -f debian/heartbeat.init debian/ldirectord.init \
+	rm -f debian/heartbeat.init debian/heartbeat.logd.init debian/ldirectord.init \
 		debian/ldirectord.default
 
 	# Add here commands to clean up after the build process.
@@ -80,6 +80,8 @@ install-stamp:
 	# install debian inits & defaults
 	install -c -m 755 heartbeat/init.d/heartbeat \
                 debian/heartbeat.init
+	install -c -m 755 heartbeat/init.d/logd \
+                debian/heartbeat.logd.init
 	install -c -m 755 ldirectord/init.d/ldirectord.debian \
 		debian/ldirectord.init
 	install -c -m 755 ldirectord/init.d/ldirectord.debian.default \
@@ -109,6 +111,7 @@ install-stamp:
 binary-indep: build install
 	dh_testdir -i
 	dh_testroot -i
+	dh_installinit --name logd -i -u"start 11 2 3 4 5 ."
 	dh_installinit -i -u 'defaults 20 32'
 	dh_installchangelogs -i
 	dh_strip -i
@@ -127,6 +130,7 @@ binary-indep: build install
 binary-arch: build install
 	dh_testdir -a
 	dh_testroot -a
+	dh_installinit --name logd -a -u"start 11 2 3 4 5 ."
 	dh_installinit -a -u 'defaults 20 32'
 	dh_installchangelogs -a `pwd`/doc/ChangeLog
 	dh_strip -a

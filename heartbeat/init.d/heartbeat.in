@@ -46,10 +46,6 @@
 
 [ -f @INITDEFDIR@/heartbeat ] && . @INITDEFDIR@/heartbeat
 
-: ${USE_LOGD=yes}
-LOGD_OPT=""
-[ -n "$LOGD_CFG" ] && LOGD_OPT="$LOGD_OPT -c $LOGD_CFG"
-
 HA_DIR=@sysconfdir@/ha.d; export HA_DIR
 CONFIG=$HA_DIR/ha.cf
 . $HA_DIR/shellfuncs
@@ -153,52 +149,6 @@ CrmEnabled() {
     y|yes|enable|on|true|1|manual)	true;;
     *)				false;;
   esac
-}
-StartLogd() {
-
-    if [ "$USE_LOGD" != "yes" ]; then
-	return 0
-    fi
-
-    $HA_BIN/ha_logd -s >/dev/null 2>&1
-
-    if 
-	[ $? -eq 0 ]
-    then
-	Echo "logd is already running" 
-	return 0
-    fi
-    
-
-    $HA_BIN/ha_logd -d $LOGD_OPT >/dev/null 2>&1
-    if 
-	[ $? -ne 0 ]
-    then
-	Echo "starting logd failed"
-    fi
-    
-}
-
-StopLogd() {
-    if [ "$USE_LOGD" != "yes" ]; then
-	return 0
-    fi
-
-    $HA_BIN/ha_logd -s >/dev/null 2>&1
-    
-    if 
-	[ $? -ne 0 ] 
-    then
-	   Echo "logd is already stopped" 
-	   return 0
-    fi
-
-    $HA_BIN/ha_logd -k >/dev/null 2>&1
-    if 
-	[ $? -ne 0 ]	
-    then
-	Echo "stopping logd failed"
-    fi    
 }
 
 init_watchdog() {
@@ -429,7 +379,6 @@ RC=0
 
 case "$1" in
   start)
-	StartLogd
 	RunStartStop pre-start
 	StartHA
 	RC=$?
@@ -462,7 +411,6 @@ case "$1" in
           rm -f $LOCKDIR/$SUBSYS
         fi
         RunStartStop post-stop $RC
-	StopLogd
 	;;
 
   restart)
