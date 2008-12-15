@@ -47,12 +47,15 @@ usr/lib/ocf/resource.d/heartbeat/eDir88
 usr/lib/ocf/resource.d/heartbeat/ids
 usr/lib/ocf/resource.d/heartbeat/iscsi
 usr/lib/ocf/resource.d/heartbeat/mysql
+usr/lib/ocf/resource.d/heartbeat/nfsserver
 usr/lib/ocf/resource.d/heartbeat/oracle
 usr/lib/ocf/resource.d/heartbeat/oralsnr
 usr/lib/ocf/resource.d/heartbeat/pgsql
 usr/lib/ocf/resource.d/heartbeat/pingd
 usr/lib/ocf/resource.d/heartbeat/portblock
 usr/lib/ocf/resource.d/heartbeat/rsyncd
+usr/lib/ocf/resource.d/heartbeat/scsi2reservation
+usr/lib/ocf/resource.d/heartbeat/sfex
 usr/lib/ocf/resource.d/heartbeat/tomcat
 usr/lib/ocf/resource.d/heartbeat/vmware
 usr/lib/pils/*
@@ -63,6 +66,7 @@ usr/sbin/meatclient
 usr/sbin/ocf-tester
 usr/sbin/stonith
 usr/sbin/sbd
+usr/sbin/sfex_init
 usr/share/doc/heartbeat/*
 usr/share/heartbeat/*
 usr/share/man/man1/*
