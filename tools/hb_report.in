@@ -473,14 +473,17 @@ analyze_one() {
 analyze() {
 	flist="$HOSTCACHE $CCMTOOL_F $CIB_F $CRM_MON_F $B_CONF logd.cf $SYSINFO_F"
 	for f in $flist; do
-		perl -e "printf \"Diff $f... \""
-		ls $1/*/$f >/dev/null 2>&1 || continue
+		printf "Diff $f... "
+		ls $1/*/$f >/dev/null 2>&1 || {
+			echo "no $1/*/$f :/"
+			continue
+		}
 		if analyze_one $1 $f; then
 			echo "OK"
 			[ "$f" != $CIB_F ] &&
 				consolidate $1 $f
 		else
-			echo "varies"
+			echo ""
 		fi
 	done
 	checkcrmvfy $1
