@@ -631,13 +631,11 @@ fi
 %{_sysconfdir}/ha.d
 %exclude %{_sysconfdir}/ha.d/resource.d
 %exclude %{_sysconfdir}/ha.d/shellfuncs
-%{_sysconfdir}/init.d/logd
 %{_sysconfdir}/init.d/heartbeat
 %config(noreplace) %{_sysconfdir}/logrotate.d/heartbeat
 %{_libdir}/libclm.so.*
 %{_libdir}/libhbclient.so.*
 %{_libdir}/libccmclient.so.*
-/sbin/rclogd
 /sbin/rcheartbeat
 %{_libdir}/heartbeat/apphbd
 %{_bindir}/cl_respawn
@@ -674,6 +672,8 @@ fi
 %dir %{_datadir}/heartbeat
 %dir %{_datadir}/doc/packages/heartbeat
 %dir %{_sysconfdir}/ha.d
+%{_sysconfdir}/init.d/logd
+/sbin/rclogd
 %{_sysconfdir}/ha.d/shellfuncs
 %{_sbindir}/stonith
 %{_sbindir}/meatclient
