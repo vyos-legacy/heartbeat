@@ -647,12 +647,14 @@ openais)
 	PACKAGES="openais $COMMON_PACKAGES"
 	CF_SUPPORT=$HA_NOARCHBIN/openais_conf_support.sh
 	CORES_DIRS="$CORES_DIRS /var/lib/openais"
-	unset CCMTOOL_F HOSTCACHE
+	CCM_TOOL_OPTS="-A"
+	unset HOSTCACHE
 	;;
 heartbeat)
 	CONF=$HA_CF
 	PACKAGES="heartbeat $COMMON_PACKAGES"
 	CF_SUPPORT=$HA_NOARCHBIN/ha_cf_support.sh
+	CCM_TOOL_OPTS="-H"
 	;;
 esac
 B_CONF=`basename $CONF`

@@ -291,8 +291,7 @@ iscrmrunning() {
 dumpstate() {
 	crm_mon -1 | grep -v '^Last upd' > $1/$CRM_MON_F
 	cibadmin -Ql > $1/$CIB_F
-	[ "$CLUSTER_TYPE" = heartbeat ] &&
-		ccm_tool -p > $1/$CCMTOOL_F 2>&1
+	ccm_tool $CCM_TOOL_OPTS -p > $1/$CCMTOOL_F 2>&1
 }
 getconfig() {
 	[ -f "$CONF" ] &&
