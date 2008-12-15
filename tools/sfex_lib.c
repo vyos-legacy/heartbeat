@@ -120,8 +120,8 @@ get_nodename (void)
   }
   if (strlen (u.nodename) > SFEX_MAX_NODENAME) {
     SFEX_LOG_ERR
-      ("%s: ERROR: nodename %s is too long. must be less than %d byte.\n",
-       progname, u.nodename, SFEX_MAX_NODENAME);
+      ("%s: ERROR: nodename %s is too long. must be less than %lu byte.\n",
+       progname, u.nodename, (unsigned long)SFEX_MAX_NODENAME);
     exit (3);
   }
   n = strdup (&u.nodename[0]);
@@ -190,8 +190,8 @@ write_controldata (const sfex_controldata * cdata)
 	    cdata->version);
   snprintf ((char *) (block->revision), sizeof (block->revision), "%d",
 	    cdata->revision);
-  snprintf ((char *) (block->blocksize), sizeof (block->blocksize), "%d",
-	    cdata->blocksize);
+  snprintf ((char *) (block->blocksize), sizeof (block->blocksize), "%u",
+	    (unsigned)cdata->blocksize);
   snprintf ((char *) (block->numlocks), sizeof (block->numlocks), "%d",
 	    cdata->numlocks);
 
