@@ -831,7 +831,11 @@ if [ "$THIS_IS_NODE" ]; then
 
 	for l in $EXTRA_LOGS; do
 		[ "$NO_str2time" ] && break
-		[ "$l" = "$HA_LOG" -o ! -f "$l" ] && continue
+		[ ! -f "$l" ] && continue
+		if [ "$l" = "$HA_LOG" -a "$l" != "$HALOG_F" ]; then
+			ln -s $HALOG_F $DESTDIR/$WE/`basename $l`
+			continue
+		fi
 		getstampproc=`find_getstampproc < $l`
 		if [ "$getstampproc" ]; then
 			export getstampproc # used by linetime
