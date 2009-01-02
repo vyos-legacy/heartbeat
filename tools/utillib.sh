@@ -238,6 +238,49 @@ find_files() {
 }
 
 #
+# check permissions of files/dirs
+#
+pl_checkperms() {
+perl -e '
+# check permissions and ownership
+# uid and gid are numeric
+# everything must match exactly
+# no error checking! (file should exist, etc)
+($filename, $perms, $in_uid, $in_gid) = @ARGV;
+($mode,$uid,$gid) = (stat($filename))[2,4,5];
+$p=sprintf("%04o", $mode & 07777);
+$p ne $perms and exit(1);
+$uid ne $in_uid and exit(1);
+$gid ne $in_gid and exit(1);
+' $*
+}
+num_id() {
+	getent $1 $2 | awk -F: '{print $3}'
+}
+chk_id() {
+	[ "$2" ] && return 0
+	echo "$1: id not found"
+	return 1
+}
+check_perms() {
+	essential_files |
+	while read type f p uid gid; do
+		[ -$type $f ] || {
+			echo "$f wrong type or doesn't exist"
+			continue
+		}
+		n_uid=`num_id passwd $uid`
+		chk_id "$uid" "$n_uid" || continue
+		n_gid=`num_id group $gid`
+		chk_id "$gid" "$n_gid" || continue
+		pl_checkperms $f $p $n_uid $n_gid || {
+			echo "wrong permissions or ownership for $f:"
+			ls -ld $f
+		}
+	done
+}
+
+#
 # coredumps
 #
 findbinary() {

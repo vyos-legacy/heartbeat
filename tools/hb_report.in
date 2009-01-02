@@ -404,6 +404,14 @@ checkbacktraces() {
 		}
 	done
 }
+checkpermissions() {
+	for n in $NODES; do
+		if [ -s $1/$n/$PERMISSIONS_F ]; then
+			echo "WARN: problem with permissions/ownership at $n:"
+			cat $1/$n/$PERMISSIONS_F
+		fi
+	done
+}
 checklogs() {
 	logs=$(find $1 -name $HALOG_F;
 		for l in $EXTRA_LOGS; do find $1/* -name `basename $l`; done)
@@ -488,6 +496,7 @@ analyze() {
 	done
 	checkcrmvfy $1
 	checkbacktraces $1
+	checkpermissions $1
 	checklogs $1
 }
 
@@ -699,8 +708,9 @@ CCMTOOL_F=ccm_tool.txt
 HB_UUID_F=hb_uuid.txt
 HOSTCACHE=hostcache
 CRM_VERIFY_F=crm_verify.txt
+PERMISSIONS_F=permissions.txt
 CIB_F=cib.xml
-export CRM_MON_F CCMTOOL_F CRM_VERIFY_F CIB_F HB_UUID_F
+export CRM_MON_F CCMTOOL_F CRM_VERIFY_F CIB_F HB_UUID_F PERMISSIONS_F
 
 # this only on master
 if [ "$SLAVE" = "" ]; then
@@ -827,6 +837,7 @@ if [ "$THIS_IS_NODE" ]; then
 	getbacktraces $FROM_TIME $TO_TIME $DESTDIR/$WE/$BT_F
 	touch_DC_if_dc $DESTDIR/$WE
 	sanitize $DESTDIR/$WE
+	check_perms > $DESTDIR/$WE/$PERMISSIONS_F 2>&1
 	sys_info > $DESTDIR/$WE/$SYSINFO_F
 	sys_stats > $DESTDIR/$WE/$SYSSTATS_F 2>&1
 
