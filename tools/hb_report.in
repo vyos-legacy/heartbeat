@@ -651,7 +651,7 @@ openais)
 	CF_SUPPORT=$HA_NOARCHBIN/openais_conf_support.sh
 	CORES_DIRS="$CORES_DIRS /var/lib/openais"
 	CCM_TOOL_OPTS="-A"
-	unset HOSTCACHE
+	unset HOSTCACHE HB_UUID_F
 	;;
 heartbeat)
 	CONF=$HA_CF
@@ -696,10 +696,11 @@ SYSSTATS_F=sysstats.txt
 export ANALYSIS_F DESCRIPTION_F HALOG_F BT_F SYSINFO_F SYSSTATS_F
 CRM_MON_F=crm_mon.txt
 CCMTOOL_F=ccm_tool.txt
+HB_UUID_F=hb_uuid.txt
 HOSTCACHE=hostcache
 CRM_VERIFY_F=crm_verify.txt
 CIB_F=cib.xml
-export CRM_MON_F CCMTOOL_F CRM_VERIFY_F CIB_F
+export CRM_MON_F CCMTOOL_F CRM_VERIFY_F CIB_F HB_UUID_F
 
 # this only on master
 if [ "$SLAVE" = "" ]; then

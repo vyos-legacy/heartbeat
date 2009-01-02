@@ -292,6 +292,8 @@ dumpstate() {
 	crm_mon -1 | grep -v '^Last upd' > $1/$CRM_MON_F
 	cibadmin -Ql > $1/$CIB_F
 	ccm_tool $CCM_TOOL_OPTS -p > $1/$CCMTOOL_F 2>&1
+	[ "$HB_UUID_F" ] &&
+		crm_uuid -r > $1/$HB_UUID_F 2>&1
 }
 getconfig() {
 	[ -f "$CONF" ] &&
