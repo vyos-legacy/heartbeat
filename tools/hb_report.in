@@ -321,7 +321,7 @@ getpeinputs() {
 }
 touch_DC_if_dc() {
 	#dc=`crmadmin -D 2>/dev/null | awk '{print $NF}'`
-	dc=`crm_mon -1 2>/dev/null | grep 'Current DC' | awk '{print $3}'`
+	dc=`crm_mon -1 2>/dev/null | awk '/Current DC/ {print $3}'`
 	if [ "$WE" = "$dc" ]; then
 		touch $1/DC
 	fi
