@@ -320,7 +320,8 @@ getpeinputs() {
 		(cd $HA_VARLIB && tar cf - $flist) | (cd $3 && tar xf -)
 }
 touch_DC_if_dc() {
-	dc=`crmadmin -D 2>/dev/null | awk '{print $NF}'`
+	#dc=`crmadmin -D 2>/dev/null | awk '{print $NF}'`
+	dc=`crm_mon -1 2>/dev/null | grep 'Current DC' | awk '{print $3}'`
 	if [ "$WE" = "$dc" ]; then
 		touch $1/DC
 	fi

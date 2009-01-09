@@ -317,7 +317,8 @@ getbt() {
 #
 iscrmrunning() {
 	ps -ef | grep -qs [c]rmd || return 1
-	crmadmin -D >/dev/null 2>&1 &
+	#crmadmin -D >/dev/null 2>&1 &
+	crm_mon -1 >/dev/null 2>&1 &
 	pid=$!
 	maxwait=10
 	while kill -0 $pid 2>/dev/null && [ $maxwait -gt 0 ]; do
