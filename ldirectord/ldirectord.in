@@ -112,7 +112,7 @@ service must follow this line immediately and be indented.
 
 B<checktimeout = >I<n>
 
-Timeout in seconds for connect, external and ping checks. If the timeout is
+Timeout in seconds for connect, external, external-perl and ping checks. If the timeout is
 exceeded then the real server is declared dead.
 
 If defined in a virtual server section then the global value is overridden.
@@ -333,7 +333,7 @@ emailalertfreq and quiescent options listed above may also appear inside a
 virtual section, in which case the global setting is overridden.
 
 B<checktype =
->B<connect>|B<external>|B<negotiate>|B<off>|B<on>|B<ping>|B<checktimeout>I<N>
+>B<connect>|B<external>|B<external-perl>|B<negotiate>|B<off>|B<on>|B<ping>|B<checktimeout>I<N>
 
 Type of check to perform. Negotiate sends a request and matches a receive
 string. Connect only attemts to make a TCP/IP connection, thus the
@@ -402,7 +402,7 @@ Default:
 
 B<checkcommand = ">I<path to script>B<">
 
-This setting is used if checktype is external and is the command to be run
+This setting is used if checktype is external or external-perl and is the command to be run
 to check the status of a real server. It should exit with status 0 if
 everything is ok, or non-zero otherwise.
 
@@ -419,6 +419,12 @@ Four parameters are passed to the script:
 =item * real server port
 
 =back 4
+
+If the checktype is external-perl then the command is assumed to be a
+Perl script and it is evaluated into an anonymous subroutine which is
+called at check time, avoiding a fork-exec.  The argument signature and
+exit code conventions are identical to checktype external.  That is, an
+external-perl checktype should also work as an external checktype.
 
 Default: /bin/true
 
@@ -663,6 +669,7 @@ use vars qw(
 	    %FORK_CHILDREN
 	    $SERVICE_UP
 	    $SERVICE_DOWN
+	    %check_external_perl__funcs
 
 	    $CRLF
 );
@@ -715,6 +722,12 @@ use Socket6;
 use Sys::Hostname;
 use POSIX qw(setsid :sys_wait_h);
 use Sys::Syslog qw(:DEFAULT setlogsock);
+
+BEGIN
+{
+	# wrap exit() to preserve replacability
+	*CORE::GLOBAL::exit = sub { CORE::exit(@_ ? shift : 0); };
+}
 
 # command line options
 my @OLD_ARGV = @ARGV;
@@ -1209,13 +1222,13 @@ sub read_config
 					if ($1 =~ /(\d+)/ && $1>=0) {
 						$vsrv{num_connects} = $1;
 						$vsrv{checktype} = "combined";
-					} elsif ( $1 =~ /(\w+)/ && ($1 eq "connect" || $1 eq "negotiate" || $1 eq "ping" || $1 eq "off" || $1 eq "on" || $1 eq "external") ) {
+					} elsif ( $1 =~ /([\w-]+)/ && ($1 eq "connect" || $1 eq "negotiate" || $1 eq "ping" || $1 eq "off" || $1 eq "on" || $1 eq "external" || $1 eq "external-perl") ) {
 						$vsrv{checktype} = $1;
 					} else {
-						&config_error($line, "checktype must be \"connect\", \"negotiate\", \"on\", \"off\", \"ping\", \"external\" or a positive number");
+						&config_error($line, "checktype must be \"connect\", \"negotiate\", \"on\", \"off\", \"ping\", \"external\", \"external-perl\" or a positive number");
 					}
 				} elsif ($rcmd =~ /^checkcommand\s*=\s*\"(.*)\"/ or $rcmd =~ /^checkcommand\s*=\s*(.*)/){
-                                        $1 =~ /(.+)/ or &config_error($line, "invalid external script");
+                                        $1 =~ /(.+)/ or &config_error($line, "invalid check command");
                                         $vsrv{checkcommand} = $1;
 				} elsif ($rcmd =~ /^checktimeout\s*=\s*(.*)/){
                                         $1 =~ /(\d+)/ && $1 or &config_error($line, "invalid check timeout");
@@ -2457,6 +2470,9 @@ sub _check_real
         } elsif ($$v{checktype} eq "external") {
                 &ld_debug(2, "Checking external: real server=$real_id (virtual=$virtual_id)");
                 check_external($v, $r);
+        } elsif ($$v{checktype} eq "external-perl") {
+                &ld_debug(2, "Checking external-perl: real server=$real_id (virtual=$virtual_id)");
+                check_external_perl($v, $r);
         } elsif ($$v{checktype} eq "off") {
                 &ld_debug(2, "Checking off: No real or fallback servers to be added\n");
         } elsif ($$v{checktype} eq "on") {
@@ -3010,6 +3026,51 @@ sub check_external
 		return 0;
 	} else {
 		&service_set($v, $r, "up", {do_log => 1});
+		&ld_debug(3, "Activated service $$r{server}:$$r{port}");
+		return 1;
+	}
+}
+
+sub check_external_perl
+{
+	my ($v, $r) = @_;
+	my $result;
+	my $v_server;
+
+	eval {
+		local $SIG{'__DIE__'} = "DEFAULT";
+		local $SIG{'ALRM'} = sub { die "Timeout Alarm" };
+		&ld_debug(4, "Timeout is $$v{checktimeout}");
+		alarm $$v{checktimeout};
+		if (defined $$v{server}) {
+			$v_server = $$v{server};
+		} else {
+			$v_server = $$v{fwm};
+		}
+		my $cmdfunc = $check_external_perl__funcs{$$v{checkcommand}};
+		if (!defined($cmdfunc)) {
+			open(CMDFILE, "<$$v{checkcommand}") || die "cannot open external-perl checkcommand file: $$v{checkcommand}";
+			$cmdfunc = eval("sub { \@ARGV=\@_; " . join("", <CMDFILE>) . " }");
+			close(CMDFILE);
+			$check_external_perl__funcs{$$v{checkcommand}} = $cmdfunc;
+		}
+		no warnings 'redefine';
+		local *CORE::GLOBAL::exit = sub {
+			$result = shift;
+			goto external_exit;
+		};
+		$cmdfunc->($v_server, $$v{port}, $$r{server}, $$r{port});
+		external_exit:
+		alarm 0;
+	};
+	if ($@ or $result != 0) {
+		&service_set($v, $r, "down");
+		&ld_debug(3, "Deactivated service $$r{server}:$$r{port}: " .
+			  "$@ after calling (external-perl) $$v{checkcommand} with result " .
+			  "$result");
+		return 0;
+	} else {
+		&service_set($v, $r, "up");
 		&ld_debug(3, "Activated service $$r{server}:$$r{port}");
 		return 1;
 	}
@@ -4313,7 +4374,8 @@ sub get_real_id_str
 			$v->{"checktype"} eq "combined") {
 		$check = $v->{"checktype"} . ":" . $v->{"service"};
 	}
-	elsif($v->{"checktype"} eq "external") {
+	elsif($v->{"checktype"} eq "external" or
+			$v->{"checktype"} eq "external-perl") {
 		$check = $v->{"checktype"} . ":" . $v->{"checkcommand"};
 	}
 	else {
