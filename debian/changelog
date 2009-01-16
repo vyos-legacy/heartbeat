@@ -1,8 +1,10 @@
 heartbeat (2.99.2-1) unstable; urgency=low
 
   * New Upstream
+  * Add dependancy on libsocket6-perl to ldirectord,
+    which is needed for IPv6 support which was recently added
 
- -- Simon Horman <horms@debian.org>  Fri, 17 Oct 2008 13:46:43 +1100
+ -- Simon Horman <horms@debian.org>  Fri, 16 Jan 2009 14:10:14 +1100
 
 heartbeat (2.1.4-2) unstable; urgency=low
 
