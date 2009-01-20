@@ -161,6 +161,7 @@ findln_by_time() {
 			[ "$tmid" ] && break
 			warning "cannot extract time: $logf:$mid; will try the next one"
 			trycnt=$(($trycnt-1))
+			# shift the whole first-last segment
 			first=$(($first-1))
 			last=$(($last-1))
 			mid=$((($last+$first)/2))
