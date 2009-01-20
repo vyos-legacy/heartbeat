@@ -159,7 +159,7 @@ struct directive {
 , {KEY_CONNINTVAL,set_logdconntime, TRUE, "60", "the interval to reconnect to logd"}  
 , {KEY_REGAPPHBD, set_register_to_apphbd, FALSE, NULL, "register with apphbd"}
 , {KEY_BADPACK,   set_badpack_warn, TRUE, "true", "warn about bad packets"}
-, {KEY_SYSLOGFMT, set_syslog_logfilefmt, TRUE, "false", "log to files in syslog format"}
+, {KEY_SYSLOGFMT, set_syslog_logfilefmt, TRUE, "true", "log to files in syslog format"}
 , {KEY_COREDUMP,  set_coredump, TRUE, "true", "enable Linux-HA core dumps"}
 , {KEY_COREROOTDIR,set_corerootdir, TRUE, NULL, "set root directory of core dump area"}
 , {KEY_REL2,      set_release2mode, TRUE, "false"
