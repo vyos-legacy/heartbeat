@@ -3,8 +3,10 @@ heartbeat (2.99.2-1) unstable; urgency=low
   * New Upstream
   * Add dependancy on libsocket6-perl to ldirectord,
     which is needed for IPv6 support which was recently added
+  * Fixed "can is" typo in heartbeat.8. Thanks to Niko Tyni.
+    (closes: #512632)
 
- -- Simon Horman <horms@debian.org>  Fri, 16 Jan 2009 14:10:14 +1100
+ -- Simon Horman <horms@debian.org>  Fri, 23 Jan 2009 10:09:44 +1100
 
 heartbeat (2.1.4-2) unstable; urgency=low
 
