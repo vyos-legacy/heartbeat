@@ -64,7 +64,7 @@ usage: hb_report -f {time|"cts:"testnum} [-t time] [-u user] [-l file]
 	         (use either -n "a b" or -n a -n b)
 	         if you run $PROG on the log host or use autojoin,
 	         it is highly recommended to set this option
-	-u user: ssh user to access other nodes (dflt: empty, hacluster, root)
+	-u user: ssh user to access other nodes (dflt: empty, root, hacluster)
 	-l file: log file
 	-E file: extra logs to collect; this option is additive
 	         (dflt: /var/log/messages)
@@ -138,7 +138,7 @@ setvarsanddefaults() {
 	# used only by the master
 	NO_SSH=""
 	SSH_USER=""
-	TRY_SSH="hacluster root"
+	TRY_SSH="root hacluster"
 	SLAVEPIDS=""
 	NO_DESCRIPTION=""
 }
