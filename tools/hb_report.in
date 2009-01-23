@@ -284,16 +284,24 @@ testsshuser() {
 findsshuser() {
 	for u in "" $TRY_SSH; do
 		rc=0
+		failed_nodes=""
 		for n in $NODES; do
 			[ "$node" = "$WE" ] && continue
 			testsshuser $n $u || {
 				rc=1
-				break
+				failed_nodes="$failed_nodes $n"
 			}
 		done
 		if [ $rc -eq 0 ]; then
 			echo $u
 			return 0
+		else
+			if [ "$u" ]; then
+				info "ssh with user $u does not work to $failed_nodes"
+			else
+				info "ssh without user does not work to $failed_nodes"
+			fi
+			info "will try next user"
 		fi
 	done
 	return 1
