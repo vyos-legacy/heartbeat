@@ -31,6 +31,15 @@ get_cluster_type() {
 	fi
 }
 #
+# find out which membership tool is installed
+#
+echo_membership_tool() {
+	membership_tools="ccm_tool crm_node"
+	for f in $membership_tools; do
+		which $f && break
+	done
+}
+#
 # find nodes for this cluster
 #
 getnodes() {
@@ -338,7 +347,7 @@ iscrmrunning() {
 dumpstate() {
 	crm_mon -1 | grep -v '^Last upd' > $1/$CRM_MON_F
 	cibadmin -Ql > $1/$CIB_F
-	ccm_tool $CCM_TOOL_OPTS -p > $1/$CCMTOOL_F 2>&1
+	`echo_membership_tool` $MEMBERSHIP_TOOL_OPTS -p > $1/$MEMBERSHIP_F 2>&1
 }
 getconfig() {
 	[ -f "$CONF" ] &&

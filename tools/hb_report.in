@@ -480,7 +480,7 @@ analyze_one() {
 	return $rc
 }
 analyze() {
-	flist="$HOSTCACHE $CCMTOOL_F $CIB_F $CRM_MON_F $B_CONF logd.cf $SYSINFO_F"
+	flist="$HOSTCACHE $MEMBERSHIP_F $CIB_F $CRM_MON_F $B_CONF logd.cf $SYSINFO_F"
 	for f in $flist; do
 		printf "Diff $f... "
 		ls $1/*/$f >/dev/null 2>&1 || {
@@ -660,14 +660,14 @@ openais)
 	PACKAGES="openais $COMMON_PACKAGES"
 	CF_SUPPORT=$HA_NOARCHBIN/openais_conf_support.sh
 	CORES_DIRS="$CORES_DIRS /var/lib/openais"
-	CCM_TOOL_OPTS="-A"
+	MEMBERSHIP_TOOL_OPTS="-A"
 	unset HOSTCACHE HB_UUID_F
 	;;
 heartbeat)
 	CONF=$HA_CF
 	PACKAGES="heartbeat $COMMON_PACKAGES"
 	CF_SUPPORT=$HA_NOARCHBIN/ha_cf_support.sh
-	CCM_TOOL_OPTS="-H"
+	MEMBERSHIP_TOOL_OPTS="-H"
 	;;
 esac
 B_CONF=`basename $CONF`
@@ -705,13 +705,13 @@ SYSINFO_F=sysinfo.txt
 SYSSTATS_F=sysstats.txt
 export ANALYSIS_F DESCRIPTION_F HALOG_F BT_F SYSINFO_F SYSSTATS_F
 CRM_MON_F=crm_mon.txt
-CCMTOOL_F=ccm_tool.txt
+MEMBERSHIP_F=members.txt
 HB_UUID_F=hb_uuid.txt
 HOSTCACHE=hostcache
 CRM_VERIFY_F=crm_verify.txt
 PERMISSIONS_F=permissions.txt
 CIB_F=cib.xml
-export CRM_MON_F CCMTOOL_F CRM_VERIFY_F CIB_F HB_UUID_F PERMISSIONS_F
+export CRM_MON_F MEMBERSHIP_F CRM_VERIFY_F CIB_F HB_UUID_F PERMISSIONS_F
 
 # this only on master
 if [ "$SLAVE" = "" ]; then
