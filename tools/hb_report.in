@@ -668,7 +668,7 @@ openais)
 	PACKAGES="openais $COMMON_PACKAGES"
 	CF_SUPPORT=$HA_NOARCHBIN/openais_conf_support.sh
 	CORES_DIRS="$CORES_DIRS /var/lib/openais"
-	MEMBERSHIP_TOOL_OPTS="-A"
+	MEMBERSHIP_TOOL_OPTS=""
 	unset HOSTCACHE HB_UUID_F
 	;;
 heartbeat)
