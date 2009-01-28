@@ -373,7 +373,7 @@ sys_stats() {
 # replace sensitive info with '****'
 #
 sanitize() {
-	for f in $1/$B_CONF $1/$CIB_F $1/pengine/*; do
+	for f in $1/$B_CONF $1/$CIB_F $1/$CIB_TXT_F $1/pengine/*; do
 		[ -f "$f" ] && sanitize_one $f
 	done
 }
@@ -719,7 +719,8 @@ HOSTCACHE=hostcache
 CRM_VERIFY_F=crm_verify.txt
 PERMISSIONS_F=permissions.txt
 CIB_F=cib.xml
-export CRM_MON_F MEMBERSHIP_F CRM_VERIFY_F CIB_F HB_UUID_F PERMISSIONS_F
+CIB_TXT_F=cib.txt
+export CRM_MON_F MEMBERSHIP_F CRM_VERIFY_F CIB_F CIB_TXT_F HB_UUID_F PERMISSIONS_F
 
 # this only on master
 if [ "$SLAVE" = "" ]; then
