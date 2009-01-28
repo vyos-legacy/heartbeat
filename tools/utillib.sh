@@ -36,7 +36,7 @@ get_cluster_type() {
 echo_membership_tool() {
 	membership_tools="ccm_tool crm_node"
 	for f in $membership_tools; do
-		which $f && break
+		which $f 2>/dev/null && break
 	done
 }
 #
