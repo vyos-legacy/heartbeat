@@ -33,7 +33,8 @@ RELEASE := $(shell dpkg-parsechangelog | awk '/^Version: / { print $$2 }')
 UPSTREAM := $(shell echo "$(RELEASE)" | sed 's/:\?\([0-9\.]\+\)-[0-9].*/\1/')
 
 
-configure: checkbuild
+build: checkbuild build-stamp
+build-stamp:
 	dh_testdir
 	# Allow debian packages to also be built directly from Hg archives
 	# Official debian packages are built from dist tarballs
@@ -42,10 +43,8 @@ configure: checkbuild
 	$(MAKE)
 	touch build-stamp
 
-build: checkbuild configure build-stamp
-build-stamp:
-
-clean: configure
+clean:
+	dh_testdir
 	dh_testroot
 	dh_clean
 	rm -f build-stamp install-stamp
