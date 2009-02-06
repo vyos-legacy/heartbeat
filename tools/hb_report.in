@@ -572,7 +572,7 @@ pickcompress() {
 }
 finalword() {
 	cat<<EOF
-The report is saved in $DESTDIR.tar$COMPRESS_EXT.
+The report is saved in $DESTDIR.tar$COMPRESS_EXT 
 
 Thank you for taking time to create this report.
 EOF
