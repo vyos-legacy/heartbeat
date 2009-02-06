@@ -300,6 +300,12 @@ findbinary() {
 	binary=`gdb $random_binary $1 < /dev/null 2>/dev/null |
 		grep 'Core was generated' | awk '{print $5}' |
 		sed "s/^.//;s/[.':]*$//"`
+	if [ x = x"$binary" ]; then
+		binary=`file $1 | grep from | awk '{print $NF}' | sed 's/.//;s/.$//'`
+		if [ "$binary" ]; then
+			binary=`which $binary 2>/dev/null`
+		fi
+	fi
 	[ x = x"$binary" ] && return
 	fullpath=`which $binary 2>/dev/null`
 	if [ x = x"$fullpath" ]; then
