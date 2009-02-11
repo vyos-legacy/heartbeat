@@ -252,11 +252,6 @@ rc=$?
 if [ $rc -eq 3 ]; then
     assert $rc 7 "Your agent does not support the monitor action" 1
 
-elif [ $rc -eq 1 ]; then
-    assert $rc 7 "Monitoring a stopped resources should return 0"
-    echo "Test updated to expect 1 for stopped resources for the remainder of this run"
-    stopped_rc=1
-
 elif [ $rc -eq 8 ]; then
     test_command demote "Cleanup, demote"
     assert $? 0 "Your agent was a master and could not be demoted" 1
