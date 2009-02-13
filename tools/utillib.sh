@@ -301,13 +301,15 @@ findbinary() {
 		grep 'Core was generated' | awk '{print $5}' |
 		sed "s/^.//;s/[.':]*$//"`
 	if [ x = x"$binary" ]; then
-		binary=`file $1 | awk '/from/{
-			for( i=1; i<=$NF; i++ )
+		binary=$(file $1 | awk '/from/{
+			for( i=1; i<=NF; i++ )
 				if( $i == "from" ) {
 					print $(i+1)
 					break
 				}
-			}' | sed 's/[\'\`]//'`
+			}')
+		binary=`echo $binary | tr -d "'"`
+		binary=$(echo $binary | tr -d '`')
 		if [ "$binary" ]; then
 			binary=`which $binary 2>/dev/null`
 		fi
