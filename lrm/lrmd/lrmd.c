@@ -593,8 +593,8 @@ lrmd_rsc_new(const char * id, struct ha_msg* msg)
 	lrmd_rsc_t*	rsc;
 	rsc = (lrmd_rsc_t *)calloc(sizeof(lrmd_rsc_t),1);
 	if (rsc == NULL) {
-		lrmd_log(LOG_ERR, "lrmd_rsc_new(): out of memory when calloc "
-			 "a lrmd_rsc_t");
+		lrmd_log(LOG_ERR, "%s: out of memory when calloc "
+			 "a lrmd_rsc_t", __FUNCTION__);
 		return NULL;
 	}
 	rsc->delay_timeout = (guint)0;
@@ -2031,19 +2031,8 @@ async_notify(gpointer key, gpointer val, gpointer data)
 	if (!client) {
 		lrmd_log(LOG_INFO,
 			"%s: client %s not found, probably signed out", __FUNCTION__, (char *)key);
-		return;
-	}
-	if (HA_OK != ha_msg_mod(msg,F_LRM_APP,client->app_name)) {
-		lrmd_log(LOG_ERR,"%s:%d: cannot add field to a message"
-		,	__FUNCTION__, __LINE__);
-		return;
-	}
-	if (!client->ch_cbk) {
-		lrmd_log(LOG_WARNING,
-			"%s: callback channel is null", __FUNCTION__);
-	} else if (HA_OK != msg2ipcchan(msg, client->ch_cbk)) {
-		lrmd_log(LOG_WARNING,
-			"%s: can not send the ret msg", __FUNCTION__);
+	} else {
+		send_msg(msg, client);
 	}
 }
 
@@ -2082,7 +2071,13 @@ on_msg_fail_rsc(lrmd_client_t* client, struct ha_msg* msg)
 	,	"received asynchronous failure for rsc %s (rc: %d, reason: %s)"
 	,	lrmd_nullcheck(id), fail_rc, fail_reason);
 	/* notify all clients from last_op table about the failure */
-	g_hash_table_foreach(rsc->last_op_table,async_notify,msg);
+	if (rsc->last_op_table) {
+		g_hash_table_foreach(rsc->last_op_table,async_notify,msg);
+	} else {
+		lrmd_log(LOG_INFO
+		,	"rsc to be failed %s had no operations so far",	lrmd_nullcheck(id));
+		send_msg(msg, client);
+	}
 	return HA_OK;
 }
 
@@ -3343,6 +3338,39 @@ send_ret_msg (IPC_Channel* ch, int ret)
 	return HA_OK;
 }
 
+static void
+send_cbk_msg(struct ha_msg* msg, lrmd_client_t* client)
+{
+	if (!client) {
+		lrmd_log(LOG_WARNING,
+			"%s: zero client", __FUNCTION__);
+		return;
+	}
+	if (!client->ch_cbk) {
+		lrmd_log(LOG_WARNING,
+			"%s: callback channel is null", __FUNCTION__);
+	} else if (HA_OK != msg2ipcchan(msg, client->ch_cbk)) {
+		lrmd_log(LOG_WARNING,
+			"%s: can not send the ret msg", __FUNCTION__);
+	}
+}
+
+static void
+send_msg(struct ha_msg* msg, lrmd_client_t* client)
+{
+	if (!client) {
+		lrmd_log(LOG_WARNING,
+			"%s: zero client", __FUNCTION__);
+		return;
+	}
+	if (HA_OK != ha_msg_mod(msg,F_LRM_APP,client->app_name)) {
+		lrmd_log(LOG_ERR,"%s:%d: cannot add field to a message"
+		,	__FUNCTION__, __LINE__);
+		return;
+	}
+	send_cbk_msg(msg, client);
+}
+
 void
 notify_client(lrmd_op_t* op)
 {
@@ -3350,13 +3378,7 @@ notify_client(lrmd_op_t* op)
 
 	if (client) {
 		/* send the result to client */
-		if (!client->ch_cbk) {
-			lrmd_log(LOG_ERR,
-				"%s: callback channel is null", __FUNCTION__);
-		} else if (HA_OK != msg2ipcchan(op->msg, client->ch_cbk)) {
-			lrmd_log(LOG_ERR,
-				"%s: can not send the ret msg", __FUNCTION__);
-		}
+		send_cbk_msg(op->msg, client);
 	} else {
 		lrmd_log(LOG_ERR
 		,	"%s: client for the operation %s does not exist"
