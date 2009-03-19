@@ -683,7 +683,7 @@ fi
 %{_libdir}/pils
 %{_libdir}/heartbeat/ha_logd
 %{_libdir}/heartbeat/ha_logger
-%{_libdir}/heartbeat/lrmadmin
+%{_sbindir}/lrmadmin
 %{_libdir}/heartbeat/lrmd
 %{_libdir}/heartbeat/plugins/RAExec
 %exclude %{_libdir}/heartbeat/utillib.sh
