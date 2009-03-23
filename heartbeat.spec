@@ -671,6 +671,7 @@ fi
 %dir %{_libdir}/heartbeat/plugins
 %dir %{_datadir}/heartbeat
 %dir %{_datadir}/doc/packages/heartbeat
+%dir %{_datadir}/doc/packages/heartbeat/stonith
 %dir %{_sysconfdir}/ha.d
 %{_sysconfdir}/init.d/logd
 /sbin/rclogd
@@ -698,11 +699,21 @@ fi
 %doc %{_datadir}/doc/packages/heartbeat/COPYING
 %doc %{_datadir}/doc/packages/heartbeat/COPYING.LGPL
 %exclude %{_datadir}/doc/packages/heartbeat/ChangeLog
-%{_datadir}/doc/packages/heartbeat/logd.cf
+%doc %{_datadir}/doc/packages/heartbeat/logd.cf
 %{_datadir}/heartbeat/utillib.sh
 %{_datadir}/heartbeat/ha_cf_support.sh
 %{_datadir}/heartbeat/openais_conf_support.sh
 %{_datadir}/doc/packages/heartbeat/apphbd.cf
+%doc %{_datadir}/doc/packages/heartbeat/stonith/README.bladehpi
+%doc %{_datadir}/doc/packages/heartbeat/stonith/README.cyclades
+%doc %{_datadir}/doc/packages/heartbeat/stonith/README.drac3
+%doc %{_datadir}/doc/packages/heartbeat/stonith/README.external
+%doc %{_datadir}/doc/packages/heartbeat/stonith/README.ipmilan
+%doc %{_datadir}/doc/packages/heartbeat/stonith/README.meatware
+%doc %{_datadir}/doc/packages/heartbeat/stonith/README.rcd_serial
+%doc %{_datadir}/doc/packages/heartbeat/stonith/README.riloe
+%doc %{_datadir}/doc/packages/heartbeat/stonith/README.vacm
+%doc %{_datadir}/doc/packages/heartbeat/stonith/README_kdumpcheck.txt
 %{_var}/run/heartbeat
 %dir %attr (0700, root, root)           %{_var}/lib/heartbeat/cores/root
 %dir %attr (0700, nobody,   %{nogroup}) %{_var}/lib/heartbeat/cores/nobody
