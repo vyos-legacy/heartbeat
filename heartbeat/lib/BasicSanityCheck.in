@@ -1053,7 +1053,7 @@ StonithCheck
 AppHBCheck
 LRMTest
 StonithDaemonTest
-TestCRM
+#TestCRM
 SNMPAgentTest
 #TestMgmtd
 
