@@ -2403,13 +2403,13 @@ sub run_child
         
         my $real = $$v{real};
         my $virtual_id = get_virtual_id_str($v);
-        $0 = $virtual_id;
+        $0 = "ldirectord $virtual_id";
         while (1) {
                 foreach my $r (@$real) {
-                        $0 = "$virtual_id checking $$r{server}";
+                        $0 = "ldirectord $virtual_id checking $$r{server}";
                         _check_real($v, $r);
                 }
-                $0 = $virtual_id;
+                $0 = "ldirectord $virtual_id";
                 sleep $CHECKINTERVAL;
                 ld_emailalert_resend();
         }
