@@ -2298,6 +2298,14 @@ sub ld_cmd_children
 
 sub ld_stop
 {
+	# Kill children
+	if ($FORKING eq 'yes') {
+		foreach my $virtual_id (keys (%FORK_CHILDREN)) {
+			my $pid = $FORK_CHILDREN{$virtual_id};
+			ld_log("Killing child $virtual_id PID=$pid");
+			kill 15, $pid;
+		}
+	}
 	foreach my $v (@VIRTUAL) {
 		my $real = $$v{real};
 		foreach my $r (@$real) {
