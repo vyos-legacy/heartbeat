@@ -295,6 +295,21 @@ If defined in a virtual server section then the global value is overridden.
 Default: I<yes>
 
 
+B<cleanstop = >B<yes>|B<no>
+
+If I<yes>, then when ldirectord exits it will remove all of the virtual
+server pools that it is managing from the kernel's LVS table.
+
+If I<no>, then the virtual server pools it is managing and any real
+or failback servers listed in them at the time ldirectord exits will
+be left as-is.  If you want to be able to stop ldirectord without having
+traffic to your realservers interrupted you will want to set this to I<no>.
+
+If defined in a virtual server section then the global value is overridden.
+
+Default: I<yes>
+
+
 =head2 Section virtual
 
 The following commands must follow a B<virtual> entry and must be indented
@@ -637,6 +652,7 @@ use vars qw(
 	    $EMAILALERT
 	    $EMAILALERTFREQ
 	    $EMAILALERTSTATUS
+	    $CLEANSTOP
 
 	    $CALLBACK
 	    $CFGNAME
@@ -710,6 +726,7 @@ $QUIESCENT        = "yes";
 $EMAILALERT	  = "";
 $EMAILALERTFREQ	  = 0;
 $EMAILALERTSTATUS = $DAEMON_STATUS_ALL;
+$CLEANSTOP	  = "yes"; 
 
 $CRLF = "\x0d\x0a";
 
@@ -1391,6 +1408,10 @@ sub read_config
 						&config_error($line, "unable to open monitorfile $monitorfile: $!");
 					}
 					$vsrv{monitorfile} = $monitorfile;
+                                } elsif  ($rcmd =~ /^cleanstop\s*=\s*(.*)/) {
+					($1 eq "yes" || $1 eq "no")
+						or &config_error($line, "cleanstop must be 'yes' or 'no'");
+					$vsrv{cleanstop} = $1;
 				} else {
 					&config_error($line, "Unknown command \"$linedata\"");
 				}
@@ -1505,6 +1526,10 @@ sub read_config
 			$EMAILALERTFREQ = $1;
 		} elsif  ($linedata  =~ /^emailalertstatus\s*=\s*(.*)/) {
 			$EMAILALERTSTATUS = &parse_emailalertstatus($line, $1);
+		} elsif  ($linedata  =~ /^cleanstop\s*=\s*(.*)/) {
+			($1 eq "yes" || $1 eq "no")
+			    or &config_error($line, "cleanstop must be 'yes' or 'no'");
+			$CLEANSTOP = $1;
 		} else {
 			if ($linedata  =~ /^timeout\s*=\s*(.*)/) {
 				&config_error($line, 
@@ -2307,6 +2332,8 @@ sub ld_stop
 		}
 	}
 	foreach my $v (@VIRTUAL) {
+		next if ( (! defined($$v{cleanstop}) and $CLEANSTOP eq 'no') or
+			(defined($$v{cleanstop}) and $$v{cleanstop} eq 'no') );
 		my $real = $$v{real};
 		foreach my $r (@$real) {
 			if (defined $$r{virtual_status}) {
