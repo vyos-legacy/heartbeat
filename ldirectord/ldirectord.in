@@ -141,6 +141,16 @@ B<checkinterval = >I<n>
 
 Defines the number of second between server checks.
 
+When fork=no this option defines the amount of time ldirectord sleeps
+between running all of the realserver checks in all virtual service pools.
+
+When fork=yes this option defines the amount of time each forked child
+sleeps per virtual service pool after running all realserver checks for
+that pool.
+
+If set in the virtual server section then the global value is overridden,
+but ONLY if using forking mode (B<fork = >I<yes>).
+
 Default: 10 seconds
 
 B<checkcount = >I<n>
@@ -1542,6 +1552,18 @@ sub read_config
 		}
 	}
 	close(CFGFILE);
+
+	# Check for sensible use of checkinterval, warn if it is used in a virtual
+	# service when fork=no
+	if ($FORKING eq 'no') {
+		foreach my $v (@VIRTUAL) {
+			if (defined($$v{checkinterval})) {
+				config_warn(-1, "checkinterval in virtual service ".
+					get_virtual_id_str($v)." ignored when fork=no");
+			}
+		}
+	}
+
 	return(0);
 }
 
@@ -2430,6 +2452,7 @@ sub run_child
         
         my $real = $$v{real};
         my $virtual_id = get_virtual_id_str($v);
+        my $checkinterval = $$v{checkinterval} || $CHECKINTERVAL;
         $0 = "ldirectord $virtual_id";
         while (1) {
                 foreach my $r (@$real) {
@@ -2437,7 +2460,7 @@ sub run_child
                         _check_real($v, $r);
                 }
                 $0 = "ldirectord $virtual_id";
-                sleep $CHECKINTERVAL;
+                sleep $checkinterval;
                 ld_emailalert_resend();
         }
 }
