@@ -650,6 +650,7 @@ fi
 %doc %{_datadir}/doc/packages/heartbeat/*.txt
 %doc %{_datadir}/doc/packages/heartbeat/*.html
 %doc %{_datadir}/doc/packages/heartbeat/README
+%doc %{_datadir}/doc/packages/heartbeat/README.sfex
 %doc %{_datadir}/doc/packages/heartbeat/authkeys
 %doc %{_datadir}/doc/packages/heartbeat/startstop
 %doc %{_datadir}/doc/packages/heartbeat/haresources

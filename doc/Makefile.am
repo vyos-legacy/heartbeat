@@ -36,8 +36,9 @@ CLEANFILES              = ChangeLog $(txtfiles)
 SPECSRC 		= $(top_builddir)/heartbeat.spec
 
 OTHER_DOCS              = AUTHORS COPYING COPYING.LGPL ChangeLog \
-                                README authkeys ha.cf startstop haresources \
-				DirectoryMap.txt apphbd.cf logd.cf
+                                README README.sfex \
+                                authkeys ha.cf startstop haresources \
+                                DirectoryMap.txt apphbd.cf logd.cf
 
 doc_DATA		= $(OTHER_DOCS) $(txtfiles) $(htmlfiles) 
 
