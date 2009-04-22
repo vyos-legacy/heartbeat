@@ -141,6 +141,16 @@ B<checkinterval = >I<n>
 
 Defines the number of second between server checks.
 
+When fork=no this option defines the amount of time ldirectord sleeps
+between running all of the realserver checks in all virtual service pools.
+
+When fork=yes this option defines the amount of time each forked child
+sleeps per virtual service pool after running all realserver checks for
+that pool.
+
+If set in the virtual server section then the global value is overridden,
+but ONLY if using forking mode (B<fork = >I<yes>).
+
 Default: 10 seconds
 
 B<checkcount = >I<n>
@@ -289,6 +299,21 @@ ipvsadm as root should load LVS into the kernel if it is possible.
 
 If I<no>, then the real or failback servers will be removed
 from the kernel's LVS table. The default is I<yes>.
+
+If defined in a virtual server section then the global value is overridden.
+
+Default: I<yes>
+
+
+B<cleanstop = >B<yes>|B<no>
+
+If I<yes>, then when ldirectord exits it will remove all of the virtual
+server pools that it is managing from the kernel's LVS table.
+
+If I<no>, then the virtual server pools it is managing and any real
+or failback servers listed in them at the time ldirectord exits will
+be left as-is.  If you want to be able to stop ldirectord without having
+traffic to your realservers interrupted you will want to set this to I<no>.
 
 If defined in a virtual server section then the global value is overridden.
 
@@ -637,6 +662,7 @@ use vars qw(
 	    $EMAILALERT
 	    $EMAILALERTFREQ
 	    $EMAILALERTSTATUS
+	    $CLEANSTOP
 
 	    $CALLBACK
 	    $CFGNAME
@@ -710,6 +736,7 @@ $QUIESCENT        = "yes";
 $EMAILALERT	  = "";
 $EMAILALERTFREQ	  = 0;
 $EMAILALERTSTATUS = $DAEMON_STATUS_ALL;
+$CLEANSTOP	  = "yes"; 
 
 $CRLF = "\x0d\x0a";
 
@@ -1391,6 +1418,10 @@ sub read_config
 						&config_error($line, "unable to open monitorfile $monitorfile: $!");
 					}
 					$vsrv{monitorfile} = $monitorfile;
+                                } elsif  ($rcmd =~ /^cleanstop\s*=\s*(.*)/) {
+					($1 eq "yes" || $1 eq "no")
+						or &config_error($line, "cleanstop must be 'yes' or 'no'");
+					$vsrv{cleanstop} = $1;
 				} else {
 					&config_error($line, "Unknown command \"$linedata\"");
 				}
@@ -1505,6 +1536,10 @@ sub read_config
 			$EMAILALERTFREQ = $1;
 		} elsif  ($linedata  =~ /^emailalertstatus\s*=\s*(.*)/) {
 			$EMAILALERTSTATUS = &parse_emailalertstatus($line, $1);
+		} elsif  ($linedata  =~ /^cleanstop\s*=\s*(.*)/) {
+			($1 eq "yes" || $1 eq "no")
+			    or &config_error($line, "cleanstop must be 'yes' or 'no'");
+			$CLEANSTOP = $1;
 		} else {
 			if ($linedata  =~ /^timeout\s*=\s*(.*)/) {
 				&config_error($line, 
@@ -1517,6 +1552,18 @@ sub read_config
 		}
 	}
 	close(CFGFILE);
+
+	# Check for sensible use of checkinterval, warn if it is used in a virtual
+	# service when fork=no
+	if ($FORKING eq 'no') {
+		foreach my $v (@VIRTUAL) {
+			if (defined($$v{checkinterval})) {
+				config_warn(-1, "checkinterval in virtual service ".
+					get_virtual_id_str($v)." ignored when fork=no");
+			}
+		}
+	}
+
 	return(0);
 }
 
@@ -2298,7 +2345,17 @@ sub ld_cmd_children
 
 sub ld_stop
 {
+	# Kill children
+	if ($FORKING eq 'yes') {
+		foreach my $virtual_id (keys (%FORK_CHILDREN)) {
+			my $pid = $FORK_CHILDREN{$virtual_id};
+			ld_log("Killing child $virtual_id PID=$pid");
+			kill 15, $pid;
+		}
+	}
 	foreach my $v (@VIRTUAL) {
+		next if ( (! defined($$v{cleanstop}) and $CLEANSTOP eq 'no') or
+			(defined($$v{cleanstop}) and $$v{cleanstop} eq 'no') );
 		my $real = $$v{real};
 		foreach my $r (@$real) {
 			if (defined $$r{virtual_status}) {
@@ -2395,17 +2452,15 @@ sub run_child
         
         my $real = $$v{real};
         my $virtual_id = get_virtual_id_str($v);
-        $0 = $virtual_id;
-        foreach my $r (@$real) {
-                service_set($v, $r, "down", {force => 1});
-        }
+        my $checkinterval = $$v{checkinterval} || $CHECKINTERVAL;
+        $0 = "ldirectord $virtual_id";
         while (1) {
                 foreach my $r (@$real) {
-                        $0 = "$virtual_id checking $$r{server}";
+                        $0 = "ldirectord $virtual_id checking $$r{server}";
                         _check_real($v, $r);
                 }
-                $0 = $virtual_id;
-                sleep $CHECKINTERVAL;
+                $0 = "ldirectord $virtual_id";
+                sleep $checkinterval;
                 ld_emailalert_resend();
         }
 }
