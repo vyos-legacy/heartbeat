@@ -51,7 +51,7 @@ $HA_NOARCHBIN/ResourceManager status $RESOURCE && exit 0
 #		ip-address		IP address requested
 #						DENY if we won't/can't
 #
-case $HA_DEBUG in
+case $HA_debug in
  [123458789]*)	ha_log "debug: in $0 $*"
 		ha_log "debug: dont_ask: $HA_DONTASK nice_failback: $HA_NICEFAILBACK";;
 esac

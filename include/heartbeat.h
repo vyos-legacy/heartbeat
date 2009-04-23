@@ -102,7 +102,7 @@
 #define	VAR_LIB_D	HA_VARLIBHBDIR
 #define HALIB		HA_LIBDIR
 
-/* #define HA_DEBUG */
+/* #define HA_debug */
 #define	DEFAULTLOG	HA_VARLOGDIR "/ha-log"
 #define	DEFAULTDEBUG	HA_VARLOGDIR "/ha-debug"
 #define	DEVNULL 	"/dev/null"
@@ -141,7 +141,7 @@
 #define HAFUNCENV	"HA_FUNCS"	/* Location of ha shell functions */
 #define HANICEFAILBACK	"HA_NICEFAILBACK" /* "yes" when nice_failback is on */
 #define HADONTASK	"HA_DONTASK"	/* "yes" when no other nodes "active" ...*/
-#define HADEBUGVAL	"HA_DEBUG"	/* current debug value (if nonzero) */
+#define HADEBUGVAL	"HA_debug"	/* current debug value (if nonzero) */
 #define HALOGD		"HA_LOGD"	/* whether we use logging daemon or not */
 
 #define	DEFAULTBAUD	B19200	/* Default serial link speed */

@@ -74,7 +74,7 @@ static gnutls_certificate_credentials x509_cred;
 
 #define ENV_PREFIX 	"HA_"
 #define KEY_LOGDAEMON   "use_logd"
-#define HADEBUGVAL	"HA_DEBUG"
+#define HADEBUGVAL	"HA_debug"
 #define OPTARGS		"skrhvt"
 #define PID_FILE 	HA_VARRUNDIR"/quorumd.pid"
 #define QUORUMD		"quorumd"
