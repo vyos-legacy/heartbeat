@@ -351,19 +351,23 @@ int main(int argc, char *argv[])
 	}
 
 	SFEX_LOG_INFO("Starting SFeX Daemon...\n");
+	
+	/* acquire lock first.*/
+	acquire_lock();
 
 	if (daemon(0, 1) != 0) {
 		cl_perror("%s::%d: daemon() failed.", __FUNCTION__, __LINE__);
+		release_lock();
 		exit(EXIT_FAILURE);
 	}
 	if (cl_lock_pidfile(rscpidfile) < 0) {
 		SFEX_LOG_ERR("Creating pidfile failed.");
+		release_lock();
 		exit(EXIT_FAILURE);
 	}
 
 	cl_make_realtime(-1, -1, 128, 128);
 	
-	acquire_lock();
 	SFEX_LOG_INFO("SFeX Daemon started.\n");
 	while (1) {
 		sleep (monitor_interval);
