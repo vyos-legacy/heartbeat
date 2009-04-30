@@ -18,7 +18,7 @@ autoreload=yes
 #emailalert="admin@x.y.z"
 #emailalertfreq=3600
 #emailalertstatus=all
-quiescent=yes
+quiescent=no
 
 # Sample for an http virtual service
 virtual=192.168.6.240:80
