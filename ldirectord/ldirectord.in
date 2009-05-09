@@ -248,6 +248,13 @@ If defined in a virtual server section then the global value is overridden.
 Default: all
 
 
+B<smtp = >I<ip_address|hostname>B<">
+
+A valid SMTP server address to use for sending email via SMTP.
+
+If defined in a virtual server section then the global value is overridden.
+
+
 B<execute = ">I<configuration>B<">
 
 Use this directive to start an instance of ldirectord for
@@ -662,6 +669,7 @@ use vars qw(
 	    $EMAILALERT
 	    $EMAILALERTFREQ
 	    $EMAILALERTSTATUS
+	    $SMTP
 	    $CLEANSTOP
 
 	    $CALLBACK
@@ -1422,6 +1430,9 @@ sub read_config
 					($1 eq "yes" || $1 eq "no")
 						or &config_error($line, "cleanstop must be 'yes' or 'no'");
 					$vsrv{cleanstop} = $1;
+				} elsif  ($rcmd =~ /^smtp\s*=\s*(.*)/) {
+					$1 =~ /(^([0-9A-Za-z._+-]+))/ or &config_error($line, "invalid SMTP server address");
+					$vsrv{smtp} = $1;
 				} else {
 					&config_error($line, "Unknown command \"$linedata\"");
 				}
@@ -1540,6 +1551,10 @@ sub read_config
 			($1 eq "yes" || $1 eq "no")
 			    or &config_error($line, "cleanstop must be 'yes' or 'no'");
 			$CLEANSTOP = $1;
+		} elsif  ($linedata  =~ /^smtp\s*=\s*(.*)/) {
+			$1 =~ /(^([0-9A-Za-z._+-]+))/ or &config_error($line,
+					"invalid SMTP server address");
+			$SMTP = $1;
 		} else {
 			if ($linedata  =~ /^timeout\s*=\s*(.*)/) {
 				&config_error($line, 
@@ -4109,14 +4124,13 @@ sub daemon_status_str
 sub ld_emailalert_send
 {
 	my ($subject, $v, $rserver, $currenttime) = (@_);
-	my $emailmsg;
-	my $emailfh;
 	my $status = 0;
 	my $to_addr;
 	my $frequency;
 	my $virtual_str;
 	my $id;
 	my $statusfilter;
+	my $smtp_server;
 
 	$frequency = defined $v->{emailalertfreq} ? $v->{emailalert} :
 				$EMAILALERTFREQ;
@@ -4143,9 +4157,74 @@ sub ld_emailalert_send
 		return 0;
 	}
 
-	use Mail::Send;
+	$smtp_server = defined $v->{smtp} ? $v->{smtp} :
+				$SMTP;
 
 	&ld_log("emailalert: $subject");
+	if (defined $smtp_server) {
+		$status = &ld_emailalert_net_smtp($smtp_server, $to_addr, $subject);
+	}
+	else {
+		$status = &ld_emailalert_mail_send($to_addr, $subject);
+	}
+
+	return($status);
+}
+
+# ld_emailalert_net_smtp
+# Send email alerts via SMTP server
+# pre: smtp: SMTP server defined
+# post: message is emailed if SMTP server is valid and working
+# return: 0 on success
+#	  1 on error
+
+sub ld_emailalert_net_smtp
+{
+	my ($smtp_server, $to_addr, $subject) = (@_);
+	my $status = 0;
+
+	use Net::SMTP;
+	use Sys::Hostname;
+
+	my $hostname = hostname;
+
+	my $smtp = Net::SMTP->new($smtp_server);
+
+	if ($smtp) {
+		$smtp->mail("$ENV{USER}\@$hostname");
+		$smtp->to($to_addr);
+		$smtp->data();
+		$smtp->datasend("From: $ENV{USER}\@$hostname\n");
+		$smtp->datasend("To: $to_addr\n");
+		$smtp->datasend("Subject: $subject\n\n");
+		$smtp->datasend("Log-Message: $subject\n" .
+				"Daemon-Status: " .
+				&daemon_status_str() . "\n");
+		$smtp->dataend();
+		$smtp->quit;
+	} else {
+		&ld_log("failed to send SMTP email message\n");
+		$status = 1;
+	}
+
+	return($status);
+}
+
+# ld_emailalert_mail_send
+# Send email alerts via Mail::Send
+# pre: smtp: SMTP server not defined
+# post: message is emailed if one of the Mail::Send methods works
+# return: 0 on success
+#	  1 on error
+
+sub ld_emailalert_mail_send
+{
+	my ($to_addr, $subject) = (@_);
+	my $emailmsg;
+	my $emailfh;
+	my $status = 0;
+
+	use Mail::Send;
 
 	unless ($emailmsg = new Mail::Send Subject=>$subject, To=>$to_addr
 			and $emailfh = $emailmsg->open
@@ -4159,7 +4238,6 @@ sub ld_emailalert_send
 
 	return($status);
 }
-
 
 # ld_emailalert_resend
 # Resend email alerts as neccessary
