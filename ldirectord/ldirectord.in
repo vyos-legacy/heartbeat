@@ -666,6 +666,7 @@ Jacob Rief <jacob.rief@tiscover.com>
 =cut
 
 use strict;
+# Set defaults for configuration variables in the "set_defaults" function
 use vars qw(
 	    $VERSION_STR
 	    $AUTOCHECK
@@ -740,29 +741,16 @@ $SERVICE_DOWN	=1;
 # default values
 $DAEMON_TERM      = undef;
 $DAEMON_HUP       = undef;
-$AUTOCHECK        = "no";
-$CHECKINTERVAL    = 10;
-$DEFAULT_CHECKTIMEOUT     = 5;
-$CHECKTIMEOUT     = -1;
-$CHECKCOUNT       = 1;
-$FAILURECOUNT     = 1;
 $LDIRECTORD       = ld_find_cmd("ldirectord", 1);
 if (! defined $LDIRECTORD) {
 	$LDIRECTORD = "@sbindir@/ldirectord";
 }
-$LDIRLOG          = "/var/log/ldirectord.log";
-$NEGOTIATETIMEOUT = -1;
-$DEFAULT_NEGOTIATETIMEOUT = 30;
 $RUNPID           = "/var/run/ldirectord";
-$SUPERVISED       = "no";
-$FORKING          = "no";
-$QUIESCENT        = "no";
-$EMAILALERT	  = "";
-$EMAILALERTFREQ	  = 0;
-$EMAILALERTSTATUS = $DAEMON_STATUS_ALL;
-$CLEANSTOP	  = "yes"; 
 
 $CRLF = "\x0d\x0a";
+
+# Set global configuration default values:
+set_defaults();
 
 use Getopt::Long;
 use Pod::Usage;
@@ -1173,6 +1161,29 @@ sub parse_emailalertstatus
 	return $status;
 }
 
+sub set_defaults {
+	$AUTOCHECK        = "no";
+	$CALLBACK         = undef;
+	$CHECKCOUNT       = 1;
+	$CHECKINTERVAL    = 10;
+	$CHECKTIMEOUT     = -1;
+	$CLEANSTOP	  = "yes";
+	$DEFAULT_CHECKTIMEOUT     = 5;
+	$DEFAULT_NEGOTIATETIMEOUT = 30;
+	$EMAILALERT	  = "";
+	$EMAILALERTFREQ	  = 0;
+	$EMAILALERTSTATUS = $DAEMON_STATUS_ALL;
+	$FAILURECOUNT     = 1;
+	$FALLBACK         = undef;
+	$FALLBACKCOMMAND  = undef;
+	$FORKING          = "no";
+	$LDIRLOG          = "/var/log/ldirectord.log";
+	$NEGOTIATETIMEOUT = -1;
+	$QUIESCENT        = "no";
+	$SUPERVISED       = "no";
+	$SMTP             = undef;
+}
+
 sub read_config
 {
 	undef @VIRTUAL;
@@ -1180,6 +1191,8 @@ sub read_config
 	undef $CALLBACK;
 	undef %LD_INSTANCE;
 	undef $checksum;
+	# Reset/set global config variables to defaults before parsing the config file.
+	set_defaults();
 	$stattime = 0;
 	my %virtual_seen;
 	open(CFGFILE, "<$CONFIG") or
