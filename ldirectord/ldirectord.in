@@ -155,6 +155,9 @@ Default: 10 seconds
 
 B<checkcount = >I<n>
 
+This option is deprecated and slated for removal in a future version.
+Please see the 'failurecount' option.
+
 The number of times a check will be attmpted before it is considered to
 have failed. Only works with ping checks. Note that the
 checktimeout/negotiatetimeout is additive, so if a connect check is used,
@@ -162,6 +165,17 @@ checkcount is 3 and checktimeout is 2 seconds, then a total of 6 seconds
 worth of timeout will occur becore the check fails.
 
 If defined in a virtual server section then the global value is overridden.
+
+Default: 1
+
+B<failurecount = >I<n>
+
+The number of consecutive times a failure will have to be reported by a
+check before the realserver is considered to have failed.  A
+value of 1 will have the realserver considered failed on the first failure.
+A successful check will reset the failure counter to 0.
+
+If defined in a virtual server section then the global value is overriden.
 
 Default: 1
 
@@ -664,6 +678,7 @@ use vars qw(
 	    $CHECKTIMEOUT
 	    $DEFAULT_CHECKTIMEOUT
 	    $CHECKCOUNT
+	    $FAILURECOUNT
 	    $QUIESCENT
 	    $FORKING
 	    $EMAILALERT
@@ -730,6 +745,7 @@ $CHECKINTERVAL    = 10;
 $DEFAULT_CHECKTIMEOUT     = 5;
 $CHECKTIMEOUT     = -1;
 $CHECKCOUNT       = 1;
+$FAILURECOUNT     = 1;
 $LDIRECTORD       = ld_find_cmd("ldirectord", 1);
 if (! defined $LDIRECTORD) {
 	$LDIRECTORD = "@sbindir@/ldirectord";
@@ -1225,6 +1241,7 @@ sub read_config
 			$vsrv{checktimeout} = -1;
 			$vsrv{checkcount} = -1;
 			$vsrv{negotiatetimeout} = -1;
+			$vsrv{failurecount} = -1;
 			$vsrv{num_connects} = 0;
 			$vsrv{httpmethod} = "GET";
 			$vsrv{secret} = "";
@@ -1279,6 +1296,10 @@ sub read_config
 				} elsif ($rcmd =~ /^checkcount\s*=\s*(.*)/){
                                         $1 =~ /(\d+)/ && $1 or &config_error($line, "invalid check count");
                                         $vsrv{checkcount} = $1;
+                                        &config_warn($line, "checkcount option is deprecated and slated for removal.  please see 'failurecount'");
+				} elsif ($rcmd =~ /^failurecount\s*=\s*(.*)/){
+                                        $1 =~ /(\d+)/ && $1 or &config_error($line, "invalid failure count");
+                                        $vsrv{failurecount} = $1;
 				} elsif ($rcmd =~ /^checkinterval\s*=\s*(.*)/){
                                         $1 =~ /(\d+)/ && $1 or &config_error($line, "invalid checkinterval");
                                         $vsrv{checkinterval} = $1
@@ -1487,6 +1508,11 @@ sub read_config
 			$1 =~ /(\d+)/ && $1 or &config_error($line, 
 					"invalid check count value");
 			$CHECKCOUNT = $1;
+			&config_warn($line, "checkcount option is deprecated and slated for removal.  please see 'failurecount'");
+		} elsif ($linedata  =~ /^failurecount\s*=\s*(.*)/) {
+			$1 =~ /(\d+)/ && $1 or &config_error($line,
+					"invalid failure count value");
+			$FAILURECOUNT = $1;
 		} elsif ($linedata  =~ /^fallback\s*=\s*(.*)/) {
 			my $tcp = parse_fallback($line, $1, undef);
 			my $udp = parse_fallback($line, $1, undef);
@@ -2118,6 +2144,10 @@ sub ld_setup
 
 		if ($$v{checkcount} < 0) {
 			$$v{checkcount} = $CHECKCOUNT;
+		}
+
+		if ($$v{failurecount} < 0) {
+			$$v{failurecount} = $FAILURECOUNT;
 		}
 	}
 }
@@ -3720,10 +3750,12 @@ sub _restore_service {
 }
 
 
-# Set the status of a server as up
-# Should only be called from _service_up or _ld_start
 
-sub _status_up
+# Check the status of a server
+# Should only be called from _status_up, _status_down,
+# _service_up, or _service_down
+# Returns 1 if the server is up, 0 if down
+sub _status_check
 {
 	my ($v, $r, $is_fallback) = (@_);
 
@@ -3734,15 +3766,30 @@ sub _status_up
 		if (defined($v->{real_status}) or
 				(defined($v->{fallback_status}) and
 				$v->{fallback_status}->{"$real_id"})) {
-			return undef;
+			return 1;
 		}
 	}
 	else {
 		if (defined ($v->{real_status}) and
 				$v->{real_status}->{"$real_id"}) {
-			return undef;
+			return 1;
 		}
 	}
+	return 0;
+}
+
+
+# Set the status of a server as up
+# Should only be called from _service_up or _ld_start
+
+sub _status_up
+{
+	my ($v, $r, $is_fallback) = (@_);
+
+	my $virtual_id = get_virtual_id_str($v);
+	my $real_id = get_real_id_str($r, $v);
+
+	return undef if(_status_check($v, $r, $is_fallback));
 
 	$r->{virtual_status}->{"$virtual_id"} = 1;
 	if (defined $is_fallback) {
@@ -3765,19 +3812,7 @@ sub _status_down
 	my $virtual_id = get_virtual_id_str($v);
 	my $real_id = get_real_id_str($r, $v);
 
-	if (defined($is_fallback)) {
-		if (! defined($v->{real_status}) and
-				 (! defined($v->{fallback_status}) or
-				  !$v->{fallback_status}->{"$real_id"})) {
-			return undef;
-		}
-	}
-	else {
-		if (! defined ($v->{real_status}) or
-				! $v->{real_status}->{"$real_id"}) {
-			return undef;
-		}
-	}
+	return undef if (!_status_check($v, $r, $is_fallback));
 
 	if (defined($is_fallback)) {
 		delete $v->{fallback_status}->{"$real_id"};
@@ -3819,6 +3854,13 @@ sub _service_up
 {
 	my ($v, $r, $force) = (@_);
 
+	if ($r->{failcount} > 0) {
+		ld_log("Resetting soft failure count: " . $r->{server} . ":" .
+		       $r->{port} . " (" . get_virtual_id_str($v) . ")");
+	}
+
+	$r->{failcount} = 0;
+
 	if (! _status_up($v, $r) and ! defined($force)) {
 		return;
 	}
@@ -3845,9 +3887,21 @@ sub _service_down
 {
 	my ($v, $r, $force) = @_;
 
-	if (! _status_down($v, $r) and ! defined($force)) {
+	if (!_status_check($v, $r) and !defined($force)) {
 		return;
 	}
+
+	$r->{failcount}++;
+
+	if (!defined($force) and _status_check($v, $r) and
+	     ($r->{failcount} < $v->{failurecount})) {
+		ld_log("Soft failure real server: " . $r->{server} . ":" .
+		       $r->{port} . " (" . get_virtual_id_str($v) .
+		       ") failure " . $r->{failcount} . "/" . $v->{failurecount});
+		return;
+	}
+
+	_status_down($v, $r);
 
         &_remove_service($v, $r->{server} . ":" . $r->{port}, 
                           $r->{forw}, "real");
