@@ -236,6 +236,17 @@ methods.
 If defined in a virtual server section then the global value is overridden.
 
 
+B<emailalertfrom = >I<emailaddress>
+
+A valid email address to use as the from address of the email alerts.  You
+can use a plain email address or any RFC-compliant string for the From header
+in the body of an email message (such as: "ldirectord Alerts" <alerts@example.com>)
+Do not quote this string unless you want the quotes passed in as part of the
+From header.
+
+Default: unset, take system generated default (probably root@hostname)
+
+
 B<emailalertfreq => I<n>
 
 Delay in seconds between repeating email alerts while any given real server
@@ -685,6 +696,7 @@ use vars qw(
 	    $EMAILALERT
 	    $EMAILALERTFREQ
 	    $EMAILALERTSTATUS
+	    $EMAILALERTFROM
 	    $SMTP
 	    $CLEANSTOP
 
@@ -1172,6 +1184,7 @@ sub set_defaults {
 	$DEFAULT_NEGOTIATETIMEOUT = 30;
 	$EMAILALERT	  = "";
 	$EMAILALERTFREQ	  = 0;
+	$EMAILALERTFROM   = undef;
 	$EMAILALERTSTATUS = $DAEMON_STATUS_ALL;
 	$FAILURECOUNT     = 1;
 	$FALLBACK         = undef;
@@ -1586,6 +1599,10 @@ sub read_config
 			$EMAILALERTFREQ = $1;
 		} elsif  ($linedata  =~ /^emailalertstatus\s*=\s*(.*)/) {
 			$EMAILALERTSTATUS = &parse_emailalertstatus($line, $1);
+		} elsif  ($linedata  =~ /^emailalertfrom\s*=\s*(.*)/) {
+			$1 =~ /(.+)/ or &config_error($line,
+					"no email from address specified");
+			$EMAILALERTFROM = $1;
 		} elsif  ($linedata  =~ /^cleanstop\s*=\s*(.*)/) {
 			($1 eq "yes" || $1 eq "no")
 			    or &config_error($line, "cleanstop must be 'yes' or 'no'");
@@ -4261,10 +4278,15 @@ sub ld_emailalert_net_smtp
 		$smtp->mail("$ENV{USER}\@$hostname");
 		$smtp->to($to_addr);
 		$smtp->data();
-		$smtp->datasend("From: $ENV{USER}\@$hostname\n");
+		if($EMAILALERTFROM) {
+			$smtp->datasend("From: $EMAILALERTFROM\n");
+		} else {
+			$smtp->datasend("From: $ENV{USER}\@$hostname\n");
+		}
 		$smtp->datasend("To: $to_addr\n");
 		$smtp->datasend("Subject: $subject\n\n");
-		$smtp->datasend("Log-Message: $subject\n" .
+		$smtp->datasend("ldirectord host: $hostname\n" .
+				"Log-Message: $subject\n" .
 				"Daemon-Status: " .
 				&daemon_status_str() . "\n");
 		$smtp->dataend();
@@ -4293,12 +4315,13 @@ sub ld_emailalert_mail_send
 
 	use Mail::Send;
 
-	unless ($emailmsg = new Mail::Send Subject=>$subject, To=>$to_addr
-			and $emailfh = $emailmsg->open
-			and print $emailfh "Log-Message: $subject\n" .
-					   "Daemon-Status: " .
-					   &daemon_status_str() . "\n"
-			and $emailfh->close) {
+	$emailmsg = new Mail::Send Subject=>$subject, To=>$to_addr;
+	$emailmsg->set('From', $EMAILALERTFROM) if ($EMAILALERTFROM);
+	$emailfh = $emailmsg->open;
+	print $emailfh "ldirectord host: " . hostname() . "\n" .
+		       "Log-Message: $subject\n" .
+		       "Daemon-Status: " . &daemon_status_str() . "\n";
+	unless ($emailfh->close) {
 		&ld_log("failed to send email message\n");
 		$status = 1;
 	}
