@@ -2675,19 +2675,10 @@ set_release2mode(const char* value)
 		r2size = DIMOF(r2respawn_dirs);
 		
 	} else if (0 == strcasecmp("valgrind", value)) {
-#if CL_USE_LIBC_MALLOC
 		r2dirs = &r2valgrind_dirs[0];
 		r2size = DIMOF(r2valgrind_dirs);
 		setenv("HA_VALGRIND_ENABLED", "1", 1);
 		cl_log(LOG_INFO, "Enabling Valgrind on selected components");
-#else
-		r2dirs = &r2auto_dirs[0];
-		r2size = DIMOF(r2valgrind_dirs); /* prevent gcc complaints */
-		r2size = DIMOF(r2auto_dirs);
-		cl_log(LOG_ERR,
-		       "Heartbeat was not compiled with --enable-libc-malloc,"
-		       " \"crm valgrind\" is therefor not supported.");
-#endif
 	} else if ((rc = cl_str_to_boolean(value, &dorel2)) == HA_OK) {
 		if (!dorel2) {
 			return HA_OK;

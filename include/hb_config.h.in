@@ -26,9 +26,6 @@
 /* have new heartbeat api */
 #undef HAVE_NEW_HB_API
 
-/* $malloc_desc */
-#undef CL_USE_LIBC_MALLOC
-
 /* Set if CLOCK_T is adequate by itself for the "indefinite future" (>= 100
    years) */
 #undef CLOCK_T_IS_LONG_ENOUGH
