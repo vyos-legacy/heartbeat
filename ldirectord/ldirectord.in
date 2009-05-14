@@ -352,6 +352,48 @@ If defined in a virtual server section then the global value is overridden.
 Default: I<yes>
 
 
+B<maintenancedir = >I<directoryname>
+
+If this option is set ldirectord will look for a special file in the specified
+directory and, if found, force the status of the real server identified by the
+file to down, skipping the normal health check.  This would be useful if you
+wish to force servers down for maintenance without having to modify the actual
+ldirectord configuration file.
+
+For example, given a realserver with IP 172.16.1.2, service on port 4444, and
+a resolvable reverse DNS entry pointing to "realserver2.example.com" ldirectord
+will check for the existance of the following files:
+
+=over
+
+=item 172.16.1.2:4444
+
+=item 172.16.1.2
+
+=item realserver2.example.com:4444
+
+=item realserver2.example.com
+
+=item realserver2:4444
+
+=item realserver2
+
+=back
+
+If any one of those files is found then ldirectord will immediately force the
+status of the server to down as if the check had failed.
+
+Note: Since it checks for the IP/hostname without the port this means you can
+decide to place an entire realserver into maintenance across a large number of
+virtual service pools with a single file (if you were going to reboot the server,
+for instance) or include the port number and put just a particular service into
+maintenance.
+
+This option is not valid in a virtual server section.
+
+Default: disabled
+
+
 =head2 Section virtual
 
 The following commands must follow a B<virtual> entry and must be indented
@@ -699,6 +741,7 @@ use vars qw(
 	    $EMAILALERTFROM
 	    $SMTP
 	    $CLEANSTOP
+	    $MAINTDIR
 
 	    $CALLBACK
 	    $CFGNAME
@@ -1191,6 +1234,7 @@ sub set_defaults {
 	$FALLBACKCOMMAND  = undef;
 	$FORKING          = "no";
 	$LDIRLOG          = "/var/log/ldirectord.log";
+	$MAINTDIR         = undef;
 	$NEGOTIATETIMEOUT = -1;
 	$QUIESCENT        = "no";
 	$SUPERVISED       = "no";
@@ -1611,6 +1655,12 @@ sub read_config
 			$1 =~ /(^([0-9A-Za-z._+-]+))/ or &config_error($line,
 					"invalid SMTP server address");
 			$SMTP = $1;
+		} elsif  ($linedata  =~ /^maintenancedir\s*=\s*(.*)/) {
+			$1 =~ /(.+)/ or &config_error($line,
+					"maintenance directory not specified");
+			$MAINTDIR = $1;
+			-d $MAINTDIR or &config_warn($line,
+					"maintenance directory does not exist");
 		} else {
 			if ($linedata  =~ /^timeout\s*=\s*(.*)/) {
 				&config_error($line, 
@@ -2545,10 +2595,14 @@ sub _check_real
         my $v = shift;
         my $r = shift;
 
+
         my $real_id = get_real_id_str($r, $v);
         my $virtual_id = get_virtual_id_str($v);
 
-        if ($$v{checktype} eq "negotiate" || $$r{num_connects}>=$$v{num_connects}) {
+	if (_check_real_for_maintenance($r)) {
+		service_set($v, $r, "down", {do_log => 1, force => 1}, "Server in maintenance");
+		return;
+	} elsif ($$v{checktype} eq "negotiate" || $$r{num_connects}>=$$v{num_connects}) {
                 &ld_debug(2, "Checking negotiate: real server=$real_id (virtual=$virtual_id)");
                 if (grep $$v{service} eq $_, ("http", "https", "http_proxy")) {
                         $$r{num_connects} = 0 if (check_http($v, $r) == $SERVICE_UP);
@@ -2616,6 +2670,40 @@ sub _check_real
                         $$r{num_connects} = 999999;
                 }
         }
+}
+
+sub _check_real_for_maintenance
+{
+	my $r = shift;
+
+	return undef if(!$MAINTDIR);
+
+	my $servername = ld_gethostbyaddr($$r{server});
+
+	# Extract just the first component of the full name so we can match short or FQDN names
+	$servername =~ /^([a-z][a-z0-9\-]+)\./;
+	my $servershortname = $1;
+
+	if (-e "$MAINTDIR/$$r{server}:$$r{port}") {
+		&ld_debug(2, "Server maintenance: Found file $$r{server}:$$r{port}");
+		return 1;
+	} elsif (-e "$MAINTDIR/$$r{server}") {
+		&ld_debug(2, "Server maintenance: Found file $$r{server}");
+		return 1;
+	} elsif ($servername && -e "$MAINTDIR/$servername:$$r{port}") {
+		&ld_debug(2, "Server maintenance: Found file $servername:$$r{port}");
+		return 1;
+	} elsif ($servername && -e "$MAINTDIR/$servername") {
+		&ld_debug(2, "Server maintenance: Found file $servername");
+		return 1;
+	} elsif ($servershortname && -e "$MAINTDIR/$servershortname:$$r{port}") {
+		&ld_debug(2, "Server maintenance: Found file $servershortname:$$r{port}");
+		return 1;
+	} elsif ($servershortname && -e "$MAINTDIR/$servershortname") {
+		&ld_debug(2, "Server maintenance: Found file $servershortname");
+		return 1;
+	}
+	return undef;
 }
 
 sub check_http
@@ -4859,6 +4947,26 @@ sub ld_gethostbyname
 	return $ret[0];
 }
 
+# ld_gethostbyaddr
+# Wrapper to gethostbyaddr. Look up the hostname from an IP address.
+# If no reverse DNS record is found, return undef
+# pre: ip: IP address of host to lookup
+# post: gethostbyaddr is called to find a hostname for IP $ip
+# return: hostname
+#         undef on error
+
+sub ld_gethostbyaddr
+{
+	my ($ip)=(@_);
+
+	my @host = getaddrinfo($ip,0);
+	if (!defined($host[3])) {
+		return undef;
+	}
+	my @ret = getnameinfo($host[3], NI_NAMEREQD);
+	return undef unless(scalar(@ret) == 2);
+	return $ret[0];
+}
 
 # ld_getservbyname
 # Wraper for getservbyname. Look up the port for a service name
