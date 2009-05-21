@@ -33,9 +33,9 @@
 #define MAX_ITEMS	5 /* for a max 5-nodes cluster */
 
 /* global variables */
-SaClmHandleT hd;
-SaClmClusterNotificationT nbuf[MAX_ITEMS];
-SaClmClusterNodeT cn;
+static SaClmHandleT hd;
+static SaClmClusterNotificationT nbuf[MAX_ITEMS];
+static SaClmClusterNodeT cn;
 
 static void
 track_start(int sig)

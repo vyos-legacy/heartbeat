@@ -100,7 +100,7 @@
 # define MASK_DEFAULT_TO_ZERO
 #endif
 
-int	OutputInCIDR=0;
+static int OutputInCIDR=0;
 
 
 /*
@@ -123,7 +123,7 @@ typedef int SearchRoute (char *address, struct in_addr *in
 static SearchRoute SearchUsingProcRoute;
 static SearchRoute SearchUsingRouteCmd;
 
-SearchRoute *search_mechs[] = {
+static SearchRoute *search_mechs[] = {
 	&SearchUsingProcRoute,
 	&SearchUsingRouteCmd,
 	NULL
@@ -144,7 +144,7 @@ char * get_ifname(char * buf, char * ifname);
 
 int ConvertQuadToInt(char *dest);
 
-const char *	cmdname = "findif";
+static const char *cmdname = "findif";
 void usage(void);
 
 #define PATH_PROC_NET_DEV "/proc/net/dev"
@@ -726,7 +726,7 @@ main(int argc, char ** argv) {
 }
 
 void
-usage()
+usage(void)
 {
 	fprintf(stderr, "\n"
 		"%s version " VERSION " Copyright Alan Robertson\n"

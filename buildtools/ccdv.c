@@ -21,18 +21,18 @@
 #define TEXT_BLOCK_SIZE 8192
 #define INDENT 2
 #define TERMS "vt100:vt102:vt220:vt320:xterm:xterm-color:ansi:linux:scoterm:scoansi:dtterm:cons25:cygwin"
-size_t gNBufUsed = 0, gNBufAllocated = 0;
-char *gBuf = NULL;
-int gCCPID;
-char gAction[64] = "";
-char gTarget[64] = "";
-char gAr[32] = "";
-char gArLibraryTarget[64] = "";
-int gDumpCmdArgs = 0;
-char gArgsStr[800];
-int gColumns = 80;
-int gANSIEscapes = 0;
-int gExitStatus = 95;
+static size_t gNBufUsed = 0, gNBufAllocated = 0;
+static char *gBuf = NULL;
+static int gCCPID;
+static char gAction[64] = "";
+static char gTarget[64] = "";
+static char gAr[32] = "";
+static char gArLibraryTarget[64] = "";
+static int gDumpCmdArgs = 0;
+static char gArgsStr[800];
+static int gColumns = 80;
+static int gANSIEscapes = 0;
+static int gExitStatus = 95;
 
 int main(int argc, char **argv);
 
