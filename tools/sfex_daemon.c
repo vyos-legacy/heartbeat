@@ -14,22 +14,22 @@
 #include "sfex.h"
 #include "sfex_lib.h"
 
-int sysrq_fd;
-int lock_index = 1;        /* default 1st lock */
-time_t collision_timeout = 1; /* default 1 sec */
-time_t lock_timeout = 60; /* default 60 sec */
+static int sysrq_fd;
+static int lock_index = 1;        /* default 1st lock */
+static time_t collision_timeout = 1; /* default 1 sec */
+static time_t lock_timeout = 60; /* default 60 sec */
 time_t unlock_timeout = 60;
-time_t monitor_interval = 10;
+static time_t monitor_interval = 10;
 
-sfex_controldata cdata;
-sfex_lockdata ldata;
-sfex_lockdata ldata_new;
+static sfex_controldata cdata;
+static sfex_lockdata ldata;
+static sfex_lockdata ldata_new;
 
-const char *device;
+static const char *device;
 const char *progname;
 char *nodename;
-const char *rsc_id = "sfex";
-const char *rscpidfile = NULL;
+static const char *rsc_id = "sfex";
+static const char *rscpidfile;
 
 static void usage(FILE *dist) {
 	  fprintf(dist, "usage: %s [-i <index>] [-c <collision_timeout>] [-t <lock_timeout>] <device>\n", progname);

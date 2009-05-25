@@ -37,7 +37,7 @@
 #include <clplumbing/cl_log.h>
 #include <apphb.h>
 
-int debug = 0;
+static int debug;
 
 void doafailtest(void);
 
@@ -373,7 +373,7 @@ apphb_setwarn_test(int warnhb_ms, int hb_ms)
 	errno = 0;
 }
 
-void dup_reg_test()
+void dup_reg_test(void)
 {
 	/* apphbd should not allow a process register two times */
 	int	rc;

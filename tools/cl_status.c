@@ -42,11 +42,12 @@
 
 
 /* exit code */
-const int OK = 0,
-	  NORMAL_FAIL = 1,		/* such as the local node is down */
-	  PARAMETER_ERROR = 11,
-	  TIMEOUT = 12,
-	  UNKNOWN_ERROR = 13;		/* error due to unkown causes */ 
+static const int
+	OK = 0,
+	NORMAL_FAIL = 1,		/* such as the local node is down */
+	PARAMETER_ERROR = 11,
+	TIMEOUT = 12,
+	UNKNOWN_ERROR = 13;		/* error due to unkown causes */
 /*
  * The exit values under some situations proposed by Alan.
  * nodestatus    fail when the node is down
@@ -238,7 +239,7 @@ static const char * cl_status_name = "cl_status";
  * The following is to avoid cl_status sleeping forever. This is due to the 
  * hearbeat's abnormal status or even its crash.  
  */
-unsigned int DEFAULT_TIMEOUT = 5;
+static const unsigned int DEFAULT_TIMEOUT = 5;
 /* the handler of signal SIGALRM */
 static void quit(int signum);
 

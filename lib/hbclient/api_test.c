@@ -68,14 +68,14 @@ ClientStatus(const char * node, const char * client, const char * status
 	,	node, client, status);
 }
 
-int quitnow = 0;
+static int quitnow;
 void gotsig(int nsig)
 {
 	(void)nsig;
 	quitnow = 1;
 }
 
-const char * mandparms[] =
+static const char *mandparms[] =
 {	KEY_HBVERSION
 ,	KEY_HOPS
 ,	KEY_KEEPALIVE
@@ -91,7 +91,7 @@ const char * mandparms[] =
 ,	KEY_DEBUGLEVEL
 ,	KEY_NORMALPOLL};
 
-const char * optparms[] =
+static const char *optparms[] =
 {	KEY_LOGFILE
 ,	KEY_DBGFILE
 ,	KEY_FACILITY

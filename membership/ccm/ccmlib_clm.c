@@ -70,14 +70,14 @@ static void retrieve_changes_only_buffer(__clm_handle_t *hd);
 static SaErrorT retrieve_node_buffer(SaClmNodeIdT nodeId
 ,		SaClmClusterNodeT *clusterNode);
 
-static void pthread_lock()
+static void pthread_lock(void)
 {
 #ifdef POSIX_THREADS
 	pthread_mutex_lock(&__clmlib_mutex);
 #endif
 }
 
-static void pthread_unlock()
+static void pthread_unlock(void)
 {
 #ifdef POSIX_THREADS
 	pthread_mutex_unlock(&__clmlib_mutex);
@@ -85,7 +85,7 @@ static void pthread_unlock()
 }
 
 static void
-clm_init()
+clm_init(void)
 {
 	static gboolean clminit_flag = FALSE;
 

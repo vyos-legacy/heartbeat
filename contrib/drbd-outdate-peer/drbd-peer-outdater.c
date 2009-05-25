@@ -48,7 +48,7 @@ typedef struct dop_client_s
 	int rc;
 } dop_client_t;
 
-const char *crm_system_name = "drbd-peer-outdater";
+static const char *crm_system_name = "drbd-peer-outdater";
 
 static void usage(const char* cmd, int exit_status);
 
