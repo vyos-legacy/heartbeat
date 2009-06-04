@@ -421,10 +421,10 @@ export CFLAGS
 	--localstatedir=%{_var} --infodir=%{_infodir} 		\
 	--mandir=%{_mandir} --libdir=%{_libdir} 		\
 	--libexecdir=%{_libdir} 				\
+	--docdir=%{_datadir}/doc/packages/heartbeat/stonith	\
 	--with-group-name=%{gname} --with-ccmuser-name=%{uname} \
 	--with-group-id=%{uid} --with-ccmuser-id=%{uid} 	\
 	--with-hapkgversion=%{version} 				\
-	--enable-libc-malloc 					\
 	--enable-pretty 					\
 %if %without_fatal_warnings
 	--enable-fatal-warnings=no 				\
@@ -650,6 +650,7 @@ fi
 %doc %{_datadir}/doc/packages/heartbeat/*.txt
 %doc %{_datadir}/doc/packages/heartbeat/*.html
 %doc %{_datadir}/doc/packages/heartbeat/README
+%doc %{_datadir}/doc/packages/heartbeat/README.sfex
 %doc %{_datadir}/doc/packages/heartbeat/authkeys
 %doc %{_datadir}/doc/packages/heartbeat/startstop
 %doc %{_datadir}/doc/packages/heartbeat/haresources

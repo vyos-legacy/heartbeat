@@ -65,7 +65,7 @@ verbose=0
 while test "$done" = "0"; do
     case "$1" in
 	-n) OCF_RESOURCE_INSTANCE=$2; ra_args="$ra_args OCF_RESOURCE_INSTANCE=$2"; shift; shift;;
-	-o) name=${2%%=*}; value=${2##*=}; 
+	-o) name=${2%%=*}; value=${2#*=}; 
 		lrm_ra_args="$lrm_ra_args $2";
 		ra_args="$ra_args OCF_RESKEY_$name=$value"; shift; shift;;
 	-L) use_lrmd=1; shift;;

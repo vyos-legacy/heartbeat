@@ -8,6 +8,7 @@ usr/lib/ocf/resource.d/heartbeat/.ocf-binaries
 usr/lib/ocf/resource.d/heartbeat/.ocf-directories
 usr/lib/ocf/resource.d/heartbeat/.ocf-returncodes
 usr/lib/ocf/resource.d/heartbeat/.ocf-shellfuncs
+usr/lib/ocf/resource.d/heartbeat/AoEtarget
 usr/lib/ocf/resource.d/heartbeat/AudibleAlarm
 usr/lib/ocf/resource.d/heartbeat/ClusterMon
 usr/lib/ocf/resource.d/heartbeat/Delay
@@ -47,6 +48,7 @@ usr/lib/ocf/resource.d/heartbeat/eDir88
 usr/lib/ocf/resource.d/heartbeat/ids
 usr/lib/ocf/resource.d/heartbeat/iscsi
 usr/lib/ocf/resource.d/heartbeat/mysql
+usr/lib/ocf/resource.d/heartbeat/mysql-proxy
 usr/lib/ocf/resource.d/heartbeat/nfsserver
 usr/lib/ocf/resource.d/heartbeat/oracle
 usr/lib/ocf/resource.d/heartbeat/oralsnr

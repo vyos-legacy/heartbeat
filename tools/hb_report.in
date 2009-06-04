@@ -169,6 +169,9 @@ time2str() {
 logmark() {
 	logger -p $*
 }
+#
+# a special stamp is logged through syslog on _all_ nodes
+#
 logmarks() {
 	msg=$1
 	c="$PROGDIR/hb_report __slave $DESTDIR logmark $msg"
@@ -201,12 +204,104 @@ findlog() {
 #
 # find log slices
 #
-findlogseg() {
-	logf=$1
-	from_time=$2
-	to_time=$3
 
-	FROM_LINE=`findln_by_time $logf $from_time`
+find_decompressor() {
+	if echo $1 | grep -qs 'bz2$'; then
+		echo "bzip2 -dc"
+	elif echo $1 | grep -qs 'gz$'; then
+		echo "gzip -dc"
+	else
+		echo "cat"
+	fi
+}
+#
+# check if the log contains a piece of our segment
+#
+is_our_log() {
+	local logf=$1
+	local from_time=$2
+	local to_time=$3
+
+	local cat=`find_decompressor $logf`
+	local first_time=$(str2time "`$cat $logf | head -1 | $getstampproc`")
+	local last_time=$(str2time "`$cat $logf | tail -1 | $getstampproc`")
+	if [ x = "x$first_time" -o x = "x$last_time" ]; then
+		return 0 # skip (empty log?)
+	fi
+	if [ $from_time -gt $last_time ]; then
+		# we shouldn't get here anyway if the logs are in order
+		return 2 # we're past good logs; exit
+	fi
+	if [ $from_time -ge $first_time ]; then
+		return 3 # this is the last good log
+	fi
+	# have to go further back
+	if [ x = "x$to_time" -o $to_time -ge $first_time ]; then
+		return 1 # include this log
+	else
+		return 0 # don't include this log
+	fi
+}
+#
+# go through archived logs (timewise backwards) and see if there
+# are lines belonging to us
+# (we rely on untouched log files, i.e. that modify time
+# hasn't been changed)
+#
+arch_logs() {
+	local logf=$1
+	local from_time=$2
+	local to_time=$3
+
+	# look for files such as: ha-log-20090308 or
+	# ha-log-20090308.gz (.bz2) or ha-log.0, etc
+	ls -t $logf $logf*[0-9z] 2>/dev/null |
+	while read next_log; do
+		is_our_log $next_log $from_time $to_time
+		case $? in
+		0) ;;  # noop, continue
+		1) echo $next_log  # include log and continue
+			info "found log $next_log"
+			;;
+		2) break;; # don't go through older logs!
+		3) echo $next_log  # include log and continue
+			info "found log $next_log"
+			break
+			;; # don't go through older logs!
+		esac
+	done
+}
+#
+# print part of the log
+#
+drop_tmp_file() {
+	[ -z "$tmp" ] || rmtempfile "$tmp"
+}
+print_log() {
+	local cat=`find_decompressor $1`
+	$cat $1
+}
+print_logseg() {
+	local logf=$1
+	local from_time=$2
+	local to_time=$3
+
+	# uncompress to a temp file (if necessary)
+	local cat=`find_decompressor $logf`
+	if [ "$cat" != "cat" ]; then
+		tmp=`maketempfile`
+		$cat $logf > $tmp
+		trap drop_tmp_file 0
+		logf=$tmp
+	else
+		tmp=""
+	fi
+
+	if [ "$from_time" = 0 ]; then
+		FROM_LINE=1
+	else
+		FROM_LINE=`findln_by_time $logf $from_time`
+	fi
 	if [ -z "$FROM_LINE" ]; then
 		warning "couldn't find line for time $from_time; corrupt log file?"
 		return
@@ -220,8 +315,48 @@ findlogseg() {
 			return
 		fi
 	fi
+	dumplog $logf $FROM_LINE $TO_LINE
+	drop_tmp_file
+	trap "" 0
+}
+#
+# find log/set of logs which are interesting for us
+#
+dumplogset() {
+	local logf=$1
+	local from_time=$2
+	local to_time=$3
+
+	local logf_set=`arch_logs $logf $from_time $to_time`
+	if [ x = "x$logf_set" ]; then
+		return
+	fi
+
+	local num_logs=`echo "$logf_set" | wc -l`
+	local oldest=`echo $logf_set | awk '{print $NF}'`
+	local newest=`echo $logf_set | awk '{print $1}'`
+	local mid_logfiles=`echo $logf_set | awk '{for(i=NF-1; i>1; i--) print $i}'`
+
+	# the first logfile: from $from_time to $to_time (or end)
+	# logfiles in the middle: all
+	# the last logfile: from beginning to $to_time (or end)
+	case $num_logs in
+	1) print_logseg $newest $from_time $to_time;;
+	*)
+		print_logseg $oldest $from_time 0
+		for f in $mid_logfiles; do
+			print_log $f
+		done
+		print_logseg $newest 0 $to_time
+	;;
+	esac
 }
 
+#
+# cts_findlogseg finds lines for the CTS test run (FROM_LINE and
+# TO_LINE) and then extracts the timestamps to get FROM_TIME and
+# TO_TIME
+#
 cts_findlogseg() {
 	logf=$1
 	testnum=$2
@@ -802,10 +937,10 @@ if [ -f "$HA_LOG" ]; then
 			export getstampproc # used by linetime
 			if [ "$CTS" ]; then
 				cts_findlogseg $HA_LOG $CTS
+				dumplog $HA_LOG $FROM_LINE $TO_LINE
 			else
-				findlogseg $HA_LOG $FROM_TIME $TO_TIME
-			fi
-			dumplog $HA_LOG $FROM_LINE $TO_LINE |
+				dumplogset $HA_LOG $FROM_TIME $TO_TIME
+			fi |
 			if [ "$THIS_IS_NODE" ]; then
 				cat > $DESTDIR/$WE/$HALOG_F
 			else
@@ -857,8 +992,7 @@ if [ "$THIS_IS_NODE" ]; then
 		getstampproc=`find_getstampproc < $l`
 		if [ "$getstampproc" ]; then
 			export getstampproc # used by linetime
-			findlogseg $l $FROM_TIME $TO_TIME
-			dumplog $l $FROM_LINE $TO_LINE > $DESTDIR/$WE/`basename $l`
+			dumplogset $l $FROM_TIME $TO_TIME > $DESTDIR/$WE/`basename $l`
 		else
 			warning "could not figure out the log format of $l"
 		fi

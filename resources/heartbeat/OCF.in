@@ -139,7 +139,7 @@ Resource_Script=`ls ${OCF_AGENTS}/*/${Resource_Name} 2>/dev/null | head -n 1`
 
 
 if
-  [ ! -f "$Resource_Script" -o ! -x "$Resource_Script" \
+  [ ! -f "$Resource_Script" -o ! -x "$Resource_Script" -o \
     ! -f "$Resource_Inst_File" ]
 then
   usage

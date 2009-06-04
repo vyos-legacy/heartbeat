@@ -47,35 +47,36 @@
 #include <clplumbing/GSource.h>
 #include <clplumbing/Gmain_timeout.h>
 
-const char * optstring = "AD:X:dEF:d:sg:M:O:P:c:S:LI:CT:n:h";
+static const char *optstring = "A:D:X:dE:F:dg:p:M:O:P:c:S:LI:CT:n:h";
 
 #ifdef HAVE_GETOPT_H
 static struct option long_options[] = {
-	{"daemon", 0, 0, 'd'},
-	{"executera", 1, 0, 'E'},
-	{"flush",1,0,'F'},
-	{"monitor",0,0,'M'},
-	{"state",1,0,'S'},
-	{"listall",0,0,'L'},
-	{"information",1,0,'I'},
-	{"add",1,0,'A'},
-	{"delete",1,0,'D'},
-	{"fail",1,0,'X'},
-	{"raclass_supported",1,0,'C'},
-	{"ratype_supported",1,0,'T'},
-	{"all_type_metadata",1,0,'O'},
-	{"metadata",1,0,'M'},
-	{"provider",1,0,'P'},
-	{"help",0,0,'h'},
-	{0,0,0,0}
+	{"daemon",		0, NULL, 'd'},
+	{"executera",		1, NULL, 'E'},
+	{"flush",		1, NULL, 'F'},
+	{"state",		1, NULL, 'S'},
+	{"listall",		0, NULL, 'L'},
+	{"information",		1, NULL, 'I'},
+	{"add",			1, NULL, 'A'},
+	{"delete",		1, NULL, 'D'},
+	{"fail",		1, NULL, 'X'},
+	{"raclass_supported",	1, NULL, 'C'},
+	{"ratype_supported",	1, NULL, 'T'},
+	{"all_type_metadata",	1, NULL, 'O'},
+	{"metadata",		1, NULL, 'M'},
+	{"provider",		1, NULL, 'P'},
+	{"set_lrmd_param",	1, NULL, 'p'},
+	{"get_lrmd_param",	1, NULL, 'g'},
+	{"help",		0, NULL, 'h'},
+	{NULL,			0, NULL, 0}
 };
 #endif /* HAVE_GETOPT_H */
 
-GMainLoop *mainloop = NULL;
-const char * lrmadmin_name = "lrmadmin";
-const char * fake_name = NULL;
+static GMainLoop *mainloop;
+static const char *lrmadmin_name = "lrmadmin";
+static const char *fake_name;
 /* 20 is the length limit for a argv[x] */
-const int ARGVI_MAX_LEN = 48;
+static const int ARGVI_MAX_LEN = 48;
 
 typedef enum {
 	ERROR_OPTION = -1,
@@ -86,6 +87,8 @@ typedef enum {
 	RSC_STATE,
 	LIST_ALLRSC,
 	INF_RSC,
+	SET_PARAM,
+	GET_PARAM,
 	ADD_RSC,
 	DEL_RSC,
 	FAIL_RSC,
@@ -135,7 +138,7 @@ static gboolean ASYN_OPS = FALSE;
 static int call_id = 0;
 static int TIMEOUT = -1; /* the unit is ms */
 
-const char * simple_help_screen =
+static const char *simple_help_screen =
 "lrmadmin {-d|--deamon}\n"
 "         {-A|--add} <rscid> <raclass> <ratype> <provider|NULL> [<rsc_params_list>]\n"
 "         {-D|--delete} <rscid>\n"
@@ -150,6 +153,8 @@ const char * simple_help_screen =
 "         {-O|--all metadata of this class} <raclass>\n"
 "         {-M|--metadata} <raclass> <ratype> <provider|NULL>\n"
 "         {-P|--provider} <raclass> <ratype>\n"
+"         {-p|--set_lrmd_param} <name> <value>\n"
+"         {-g|--get_lrmd_param} <name>\n"
 "         {-h|--help}\n";
 
 #define OPTION_OBSCURE_CHECK \
@@ -163,6 +168,8 @@ static int resource_operation(ll_lrm_t * lrmd, int argc, int optind,
 			      char * argv[]);
 static int add_resource(ll_lrm_t * lrmd, int argc, int optind, char * argv[]);
 static int fail_resource(ll_lrm_t * lrmd, char *rsc_id, int optc, char *opts[]);
+static int get_param(ll_lrm_t * lrmd, int argc, int optind, char * argv[]);
+static int set_param(ll_lrm_t * lrmd, int argc, int optind, char * argv[]);
 static int transfer_cmd_params(int amount, int start, char * argv[], 
 			   const char * class, GHashTable ** params_ht);
 static void g_print_stringitem_and_free(gpointer data, gpointer user_data);
@@ -190,21 +197,21 @@ static gboolean lrm_op_timeout(gpointer data);
 
 static void lrm_op_done_callback(lrm_op_t* op);
 
-int ret_value = 0; 
+static int ret_value;
 int main(int argc, char **argv)
 {
 	int option_char;
 	char rscid_arg_tmp[RID_LEN];
         ll_lrm_t* lrmd;
 	lrm_rsc_t * lrm_rsc;
-	GList 	*raclass_list = 0, 
-		*ratype_list = 0,
+	GList 	*raclass_list = NULL,
+		*ratype_list = NULL,
 		*rscid_list;
 	GHashTable *all_meta = NULL;
 	char raclass[20];
 	const char * login_name = lrmadmin_name;
 
-	/* Prevent getopt_long to print error message on stderr isself */
+	/* Prevent getopt_long to print error message on stderr itself */
 	/*opterr = 0; */  
 	
 	if (argc == 1) {
@@ -321,6 +328,16 @@ int main(int argc, char **argv)
 				lrmadmin_cmd = INF_RSC;
 				break;
 
+			case 'p':
+				OPTION_OBSCURE_CHECK 
+				lrmadmin_cmd = SET_PARAM;
+				break;
+
+			case 'g':
+				OPTION_OBSCURE_CHECK 
+				lrmadmin_cmd = GET_PARAM;
+				break;
+
 			case 'n':
 				if (optarg) {
 					fake_name = optarg;
@@ -415,6 +432,16 @@ int main(int argc, char **argv)
 			break;
 		case RA_PROVIDER:
 			ra_provider(lrmd, argc, optind, argv);
+			ASYN_OPS = FALSE;
+			break;
+
+		case SET_PARAM:
+			set_param(lrmd, argc, optind, argv);
+			ASYN_OPS = FALSE;
+			break;
+
+		case GET_PARAM:
+			get_param(lrmd, argc, optind, argv);
 			ASYN_OPS = FALSE;
 			break;
 
@@ -802,6 +829,34 @@ fail_resource(ll_lrm_t * lrmd, char *rsc_id, int optc, char *opts[])
 		reason = opts[1];
 
 	return lrmd->lrm_ops->fail_rsc(lrmd, rsc_id, fail_rc, reason);
+}
+
+static int 
+get_param(ll_lrm_t * lrmd, int argc, int optind, char * argv[])
+{
+	const char *name = argv[optind-1];
+	char *value;
+
+	if ((argc - optind) != 0) {
+		cl_log(LOG_ERR,"Bad usage.");
+		return -2;
+	}
+	value = lrmd->lrm_ops->get_lrmd_param(lrmd, name);
+	printf("%s: %s\n", name, value);
+	return 0;
+}
+
+static int 
+set_param(ll_lrm_t * lrmd, int argc, int optind, char * argv[])
+{
+	const char *name = argv[optind-1];
+	const char *value = argv[optind];
+
+	if ((argc - optind) != 1) {
+		cl_log(LOG_ERR,"Bad usage.");
+		return -2;
+	}
+	return lrmd->lrm_ops->set_lrmd_param(lrmd, name, value);
 }
 
 static int

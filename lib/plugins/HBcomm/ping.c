@@ -252,14 +252,13 @@ ping_new(const char * host)
 
 	ret->pd = (void*)ipi;
 	name = STRDUP(host);
-	if(name == NULL) {
+	if(name == NULL ||
+			add_node(host, PINGNODE_I) != HA_OK) {
 		FREE(ipi); ipi = NULL;
 		FREE(ret); ret = NULL;
 		return(NULL);
 	}
 	ret->name = name;
-	add_node(host, PINGNODE_I);
-
 	return(ret);
 }
 

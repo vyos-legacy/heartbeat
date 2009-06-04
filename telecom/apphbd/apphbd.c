@@ -112,7 +112,7 @@
 #endif
 /* End: Mirrored from ipcsocket.c */
 
-const char *	cmdname = "apphbd";
+static const char *cmdname = "apphbd";
 #define		DBGMIN		1
 #define		DBGDETAIL	2
 static int	usenormalpoll = TRUE;
@@ -155,12 +155,12 @@ struct apphb_client {
 };
 
 /* Probably ought to eventually make this configurable, but it's a start */
-uid_t	critical_uid_list [] = {0, HA_CCMUID};
+static uid_t critical_uid_list[] = {0, HA_CCMUID};
 
 #define	MAXNOTIFYPLUGIN	100
 
-AppHBNotifyOps*	NotificationPlugins[MAXNOTIFYPLUGIN];
-int		n_Notification_Plugins = 0;
+static AppHBNotifyOps *NotificationPlugins[MAXNOTIFYPLUGIN];
+static int n_Notification_Plugins;
 
 static void apphb_notify(apphb_client_t* client, apphb_event_t event);
 static void make_daemon(void);
@@ -200,7 +200,7 @@ static int set_realtime(const char* option);
 static int set_notify_plugin(const char* option);
 static int set_debugfile(const char* option);
 static int set_logfile(const char* option);
-struct {
+static struct {
 	int		debug_level;
 	char		wdt_dev[MAXLINE];
 	int		wdt_interval_ms;
@@ -209,10 +209,10 @@ struct {
 	char		logfile[MAXLINE];
 } apphbd_config;
 
-struct directive{
+static struct directive {
 	const char* name;
 	int (*add_func)(const char*);
-} Directives[]=
+} Directives[] =
 {
 	{"debug_level", set_debug_level}
 ,	{"watchdog_device", set_watchdog_device}
@@ -559,7 +559,7 @@ struct hbcmd {
 /*
  * Put HEARTBEAT message first - it is by far the most common message...
  */
-struct hbcmd	hbcmds[] =
+static struct hbcmd hbcmds[] =
 {
 	{HEARTBEAT,	FALSE, apphb_client_hb},
 	{REGISTER,	TRUE, apphb_client_register},
@@ -908,10 +908,10 @@ set_logfile(const char* option)
 /*
  *	Main program for monitoring application heartbeats...
  */
-GMainLoop*	mainloop = NULL;
+static GMainLoop *mainloop;
 
 
-void
+static void
 usage(const char* cmd, int exit_status)
 {
 	FILE* stream;
@@ -1027,7 +1027,7 @@ cpu_limit_timer(gpointer unused)
 
 
 static int
-init_start()
+init_start(void)
 {
 	char		path[] = IPC_PATH_ATTR;
 	char		commpath[] = APPHBSOCKPATH;
@@ -1281,7 +1281,7 @@ static PILPluginUniv*	pisys = NULL;
 static GHashTable*	Notifications = NULL;
 
 
-AppHBNotifyImports	piimports = {
+static AppHBNotifyImports piimports = {
 	authenticate_client
 };
 

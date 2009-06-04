@@ -18,27 +18,24 @@ autoreload=yes
 #emailalert="admin@x.y.z"
 #emailalertfreq=3600
 #emailalertstatus=all
-quiescent=yes
+quiescent=no
 
 # Sample for an http virtual service
 virtual=192.168.6.240:80
 	real=192.168.6.2:80 gate
 	real=192.168.6.3:80 gate
 	real=192.168.6.6:80 gate
- 	fallback=127.0.0.1:80 gate
+	fallback=127.0.0.1:80 gate
 	service=http
-	request="index.html"
-	receive="Test Page"
-	virtualhost=some.domain.com.au
 	scheduler=rr
 	#persistent=600
 	#netmask=255.255.255.255
 	protocol=tcp
-  	checktype=negotiate
-  	checkport=80
- 	request="index.html"
- 	receive="Test Page"
- 	virtualhost=www.x.y.z
+	checktype=negotiate
+	checkport=80
+	request="index.html"
+	receive="Test Page"
+	virtualhost=www.x.y.z
 
 # Sample configuration for a fwmark based service For an explination of
 # fwmark see the ipvsadm(8) man page
@@ -87,7 +84,7 @@ virtual=192.168.6.240:80
 #	#netmask=255.255.255.255
 #	protocol=tcp
 #	checktype=negotiate
-# 	checkport=443
+#	checkport=443
 #	request="index.html"
 #	receive="Test Page"
 #	virtualhost=x.y.z
@@ -99,7 +96,7 @@ virtual=192.168.6.240:80
 #	real=192.168.16.5:21 masq
 #	fallback=127.0.0.1:21
 #	service=ftp
-# 	checkport=21
+#	checkport=21
 #	scheduler=wlc
 #	scheduler=rr
 #	#persistent=600
@@ -123,7 +120,7 @@ virtual=192.168.6.240:80
 #	persistent=600
 #	#netmask=255.255.255.255
 #	checktype=negotiate
-# 	checkport=25
+#	checkport=25
 
 #Sample configuration for a pop virtual service.
 #Fallback setting overides global
@@ -137,7 +134,7 @@ virtual=192.168.6.240:80
 #	#netmask=255.255.255.255
 #	protocol=tcp
 #	checktype=negotiate
-# 	checkport=110
+#	checkport=110
 #	#login="test"
 #	#passwd="test"
 
@@ -154,7 +151,7 @@ virtual=192.168.6.240:80
 #	#netmask=255.255.255.255
 #	protocol=tcp
 #	checktype=negotiate
-# 	checkport=143
+#	checkport=143
 #	#login="test"
 #	#passwd="test"
 
@@ -170,7 +167,7 @@ virtual=192.168.6.240:80
 #	#netmask=255.255.255.255
 #	protocol=tcp
 #	checktype=negotiate
-# 	checkport=369
+#	checkport=369
 #	request="dc=upmc, dc=fr"
 #	receive="dc=upmc, dc=fr"
 #	#login="test"
@@ -188,7 +185,7 @@ virtual=192.168.6.240:80
 #	#netmask=255.255.255.255
 #	protocol=tcp
 #	checktype=negotiate
-# 	checkport=119
+#	checkport=119
 
 #Sample configuration for a UDP DNS virtual service.
 #Fallback setting overides global
@@ -202,7 +199,7 @@ virtual=192.168.6.240:80
 #	#netmask=255.255.255.255
 #	protocol=udp
 #	checktype=negotiate
-# 	checkport=53
+#	checkport=53
 #	request="x.y.z"
 #	receive="127.0.0.1"
 
@@ -254,7 +251,7 @@ virtual=192.168.6.240:80
 #Sample configuration for an unsuported protocol
 #The real servers will just be brought up without checking for availability
 #virtual=192.168.6.240:23
-#	real=192.168.16.3:23 masq 
+#	real=192.168.16.3:23 masq
 #	real=192.168.16.5:23 masq
 #	fallback=127.0.0.1:23
 #	service=none
@@ -271,7 +268,7 @@ virtual=192.168.6.240:80
 #	real=192.168.6.2:53 gate
 #	real=192.168.6.3:53 gate
 #	real=192.168.6.6:53 gate
-# 	fallback=127.0.0.1:53 gate
+#	fallback=127.0.0.1:53 gate
 #	scheduler=rr
 #	#persistent=600
 #	#netmask=255.255.255.255

@@ -34,38 +34,38 @@
 
 static void usage(void) __attribute__((noreturn));
 
-int quit_on_reply=0;
-char *device = NULL;
-int ifindex;
-char *source;
-struct in_addr src, dst;
-char *target;
-int dad, unsolicited, advert;
-int quiet;
-int count=-1;
-int timeout;
-int unicasting;
-int s;
-int broadcast_only;
+static int quit_on_reply;
+static char *device;
+static int ifindex;
+static char *source;
+static struct in_addr src, dst;
+static char *target;
+static int dad, unsolicited, advert;
+static int quiet;
+static int count = -1;
+static int timeout;
+static int unicasting;
+static int s;
+static int broadcast_only;
 
-struct sockaddr_ll me;
-struct sockaddr_ll he;
+static struct sockaddr_ll me;
+static struct sockaddr_ll he;
 
-struct timeval start, last;
+static struct timeval start, last;
 
-int sent, brd_sent;
-int received, brd_recv, req_recv;
+static int sent, brd_sent;
+static int received, brd_recv, req_recv;
 
 #define MS_TDIFF(tv1,tv2) ( ((tv1).tv_sec-(tv2).tv_sec)*1000 + \
 			   ((tv1).tv_usec-(tv2).tv_usec)/1000 )
 
-void print_hex(unsigned char *p, int len);
-int recv_pack(unsigned char *buf, int len, struct sockaddr_ll *FROM);
-void set_signal(int signo, void (*handler)(void));
-int send_pack(int s, struct in_addr src, struct in_addr dst,
+static void print_hex(unsigned char *p, int len);
+static int recv_pack(unsigned char *buf, int len, struct sockaddr_ll *FROM);
+static void set_signal(int signo, void (*handler)(void));
+static int send_pack(int s, struct in_addr src, struct in_addr dst,
 	      struct sockaddr_ll *ME, struct sockaddr_ll *HE);
-void finish(void);
-void catcher(void);
+static void finish(void);
+static void catcher(void);
 
 void usage(void)
 {

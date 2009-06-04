@@ -30,7 +30,7 @@
 #include <clplumbing/cl_log.h>
 
 
-oc_ev_t *ev_token;
+static oc_ev_t *ev_token;
 
 extern void oc_ev_special(const oc_ev_t *, oc_ev_class_t , int );
 

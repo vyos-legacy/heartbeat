@@ -45,8 +45,8 @@
 #include "sfex.h"
 #include "sfex_lib.h"
 
-void *locked_mem = NULL;
-int dev_fd = 0;
+static void *locked_mem;
+static int dev_fd;
 unsigned long sector_size = 0;
 
 int

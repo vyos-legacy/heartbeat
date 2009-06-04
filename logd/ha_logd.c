@@ -76,17 +76,17 @@
 #define EOS '\0'
 #define	nullchk(a)	((a) ? (a) : "<null>")
 
-int	logd_keepalive_ms = 1000;
-int	logd_warntime_ms = 5000;
-int	logd_deadtime_ms = 10000;
-gboolean RegisteredWithApphbd = FALSE;
-gboolean	verbose =FALSE;
-pid_t	write_process_pid;
-IPC_Channel*	chanspair[2];
-gboolean	stop_reading = FALSE;
-gboolean	needs_shutdown = FALSE;
+static const int logd_keepalive_ms = 1000;
+static const int logd_warntime_ms = 5000;
+static const int logd_deadtime_ms = 10000;
+static gboolean RegisteredWithApphbd = FALSE;
+static gboolean verbose = FALSE;
+static pid_t write_process_pid;
+static IPC_Channel *chanspair[2];
+static gboolean stop_reading = FALSE;
+static gboolean needs_shutdown = FALSE;
 
-struct {
+static struct {
 	char		debugfile[MAXLINE];
 	char		logfile[MAXLINE];
 	char		entity[MAXLINE];
@@ -120,10 +120,10 @@ static int	set_syslogfmtmsgs(const char * option);
 static char*			cmdname = NULL;
 
 
-struct directive{
+static struct directive {
 	const char* name;
 	int (*add_func)(const char*);
-} Directives[]= {
+} Directives[] = {
 	{"debugfile",	set_debugfile},
 	{"logfile",	set_logfile},
 	{"logfacility",	set_facility},
@@ -505,7 +505,7 @@ on_connect_cmd (IPC_Channel* ch, gpointer user_data)
 					       ch, FALSE, on_receive_cmd,
 					       (gpointer)client,
 					       on_remove_client);
-	if (client->g_src <=0){
+	if (client->g_src == NULL){
 		cl_log(LOG_ERR, "add the client to main loop failed");
 		free(client);
 		return TRUE;
