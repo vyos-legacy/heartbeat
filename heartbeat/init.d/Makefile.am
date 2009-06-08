@@ -21,9 +21,9 @@ MAINTAINERCLEANFILES    = Makefile.in
 
 initddir		= @INITDIR@
 
-initd_SCRIPTS		= heartbeat logd
+initd_SCRIPTS		= heartbeat
 
-EXTRA_DIST              = heartbeat.in logd.in
+EXTRA_DIST              = heartbeat.in
 
 install-initdSCRIPTS: $(initd_SCRIPTS)
 	@$(NORMAL_INSTALL)

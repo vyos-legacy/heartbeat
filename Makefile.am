@@ -78,38 +78,9 @@ deb:		dist
 		cd $(distdir) ; dpkg-buildpackage -rfakeroot -us -uc 
 		rm -rf $(distdir)
 
-install-exec-local:
-	test -p $(DESTDIR)$(coredir) || mkdir -p $(DESTDIR)$(coredir)
-	-chown root $(DESTDIR)$(coredir)
-	chmod 755 $(DESTDIR)$(coredir)
-	mkdir -p $(DESTDIR)$(coredir)/root
-	-chown root $(DESTDIR)$(coredir)/root
-	chmod 700 $(DESTDIR)$(coredir)/root
-	mkdir -p $(DESTDIR)$(coredir)/nobody
-	-chown nobody $(DESTDIR)$(coredir)/nobody
-	chmod 700 $(DESTDIR)$(coredir)/nobody
-	mkdir -p $(DESTDIR)$(coredir)/$(hauser)
-	-chown $(hauser) $(DESTDIR)$(coredir)/$(hauser)
-	chmod 700 $(DESTDIR)$(coredir)/$(hauser)
-	cd $(DESTDIR)@HA_LIBHBDIR@;				\
-	for file in `ls $(DESTDIR)$(HBSHAREDIR)`;			\
-	do if [  -d $$file ]; then continue; fi;	\
-		rm -f $$file && ln -s $(HBSHAREDIR)/$$file .;	\
-	done
-
 OBS_TAR	= heartbeat.tar.gz
-OBS_PREFIX=c001n16.suse.de:Development/obs/server:ha-clustering
 hg-dist:
 	hg archive -t tgz $(OBS_TAR)
-
-stable: hg-dist
-	scp $(OBS_TAR) $(OBS_PREFIX)/heartbeat/
-
-factory: hg-dist
-	scp $(OBS_TAR) $(OBS_PREFIX):Factory/heartbeat/
-
-unstable: hg-dist
-	scp $(OBS_TAR) $(OBS_PREFIX):UNSTABLE/heartbeat/
 
 dist-clean-local:
 	rm -f autoconf automake autoheader $(PACKAGE)-*.tar.gz

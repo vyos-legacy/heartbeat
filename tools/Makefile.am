@@ -32,9 +32,9 @@ hanoarchdir		= @HA_NOARCHDATAHBDIR@
 gliblib			= @GLIBLIB@
 
 habin_PROGRAMS		= cl_status cl_respawn
+halib_PROGRAMS		=
 
 hanoarch_DATA		= utillib.sh ha_cf_support.sh openais_conf_support.sh
-sbin_SCRIPTS		= hb_report ocf-tester
 
 cl_status_SOURCES	= cl_status.c
 cl_status_LDADD		= $(top_builddir)/lib/hbclient/libhbclient.la	\
@@ -47,9 +47,6 @@ cl_respawn_LDADD	= -lplumb	\
 			  $(top_builddir)/lib/apphb/libapphb.la 	\
 			  $(gliblib)					\
 			  $(top_builddir)/replace/libreplace.la
-
-halib_PROGRAMS		= sfex_daemon 					
-sbin_PROGRAMS		= sfex_init
 
 if USE_LIBNET
 halib_PROGRAMS		+= send_arp
@@ -65,18 +62,6 @@ send_arp_SOURCES	= send_arp.linux.c
 endif
 
 endif
-
-sfex_daemon_SOURCES	= sfex_daemon.c sfex.h sfex_lib.c sfex_lib.h
-sfex_daemon_CFLAGS	= -D_GNU_SOURCE
-sfex_daemon_LDADD	= $(GLIBLIB)                    			\
-					  -lplumb  \
-					  -lplumbgpl
-
-sfex_init_SOURCES	= sfex_init.c sfex.h sfex_lib.c sfex_lib.h
-sfex_init_CFLAGS	= -D_GNU_SOURCE
-sfex_init_LDADD		= $(GLIBLIB)                    \
-					  -lplumb  \
-					  -lplumbgpl
 
 install-data-hook:    # install-exec-hook doesn't work (!)
 	-chgrp $(apigid) $(DESTDIR)/$(habindir)/cl_status

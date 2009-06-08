@@ -367,6 +367,7 @@ then
 	sleep $SNOOZING
 fi
 
+CFLAGS="$CFLAGS -I${prefix}/include/heartbeat"
 AC_CHECK_HEADERS(glue_config.h)
 if test "$ac_cv_header_glue_config_h" != "yes";  then
    AC_MSG_FAILURE(Core development headers were not found)
@@ -2674,7 +2675,6 @@ lib/Makefile							\
 	lib/apphb/Makefile					\
 	lib/hbclient/Makefile					\
 	lib/plugins/Makefile					\
-		lib/plugins/InterfaceMgr/Makefile		\
 		lib/plugins/HBauth/Makefile			\
 		lib/plugins/HBcomm/Makefile			\
 		lib/plugins/HBcompress/Makefile			\
@@ -2728,8 +2728,6 @@ port/Makefile							\
 telecom/Makefile						\
 	telecom/apphbd/Makefile					\
 tools/Makefile							\
-	tools/hb_report						\
-	tools/ocf-tester					\
 resources/Makefile						\
 	resources/heartbeat/Makefile				\
 	resources/heartbeat/apache				\
