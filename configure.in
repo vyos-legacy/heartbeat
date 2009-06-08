@@ -435,10 +435,6 @@ HA_COREDIR="${HA_VARLIBHBDIR}/cores"
 AC_SUBST(HA_COREDIR)
 AC_DEFINE_UNQUOTED(HA_COREDIR,"$HA_COREDIR", top directory of area to drop core files in)
 
-HA_LOGDAEMON_IPC="${HA_VARLIBDIR}/log_daemon"
-AC_SUBST(HA_LOGDAEMON_IPC)
-AC_DEFINE_UNQUOTED(HA_LOGDAEMON_IPC, "$HA_LOGDAEMON_IPC", Logging Daemon IPC socket name)
-
 dnl This IS a default but we should make sure we can override it for any 
 dnl odd OS requirements.
 HA_VARLOGDIR="${localstatedir}/log"
