@@ -38,12 +38,12 @@ sbin_SCRIPTS		= hb_report ocf-tester
 
 cl_status_SOURCES	= cl_status.c
 cl_status_LDADD		= $(top_builddir)/lib/hbclient/libhbclient.la	\
-			  $(top_builddir)/lib/clplumbing/libplumb.la	\
+			  -lplumb	\
 			  $(gliblib)					\
 			  $(top_builddir)/replace/libreplace.la
 
 cl_respawn_SOURCES	= cl_respawn.c
-cl_respawn_LDADD	= $(top_builddir)/lib/clplumbing/libplumb.la	\
+cl_respawn_LDADD	= -lplumb	\
 			  $(top_builddir)/lib/apphb/libapphb.la 	\
 			  $(gliblib)					\
 			  $(top_builddir)/replace/libreplace.la
@@ -55,7 +55,7 @@ if USE_LIBNET
 halib_PROGRAMS		+= send_arp
 send_arp_SOURCES	= send_arp.libnet.c
 send_arp_CFLAGS		= @LIBNETDEFINES@
-send_arp_LDADD	 	= $(top_builddir)/lib/clplumbing/libplumb.la	\
+send_arp_LDADD	 	= -lplumb	\
 			  $(gliblib) @LIBNETLIBS@
 else
 
@@ -69,14 +69,14 @@ endif
 sfex_daemon_SOURCES	= sfex_daemon.c sfex.h sfex_lib.c sfex_lib.h
 sfex_daemon_CFLAGS	= -D_GNU_SOURCE
 sfex_daemon_LDADD	= $(GLIBLIB)                    			\
-					  $(top_builddir)/lib/clplumbing/libplumb.la  \
-					  $(top_builddir)/lib/clplumbing/libplumbgpl.la
+					  -lplumb  \
+					  -lplumbgpl
 
 sfex_init_SOURCES	= sfex_init.c sfex.h sfex_lib.c sfex_lib.h
 sfex_init_CFLAGS	= -D_GNU_SOURCE
 sfex_init_LDADD		= $(GLIBLIB)                    \
-					  $(top_builddir)/lib/clplumbing/libplumb.la  \
-					  $(top_builddir)/lib/clplumbing/libplumbgpl.la
+					  -lplumb  \
+					  -lplumbgpl
 
 install-data-hook:    # install-exec-hook doesn't work (!)
 	-chgrp $(apigid) $(DESTDIR)/$(habindir)/cl_status

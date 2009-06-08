@@ -367,6 +367,11 @@ then
 	sleep $SNOOZING
 fi
 
+AC_CHECK_HEADERS(glue_config.h)
+if test "$ac_cv_header_glue_config_h" != "yes";  then
+   AC_MSG_FAILURE(Core development headers were not found)
+fi
+
 AC_DEFINE_UNQUOTED(HA_SYSCONFDIR, "$sysconfdir", Location of system configuration files)
 
 HA_URLBASE="http://linux-ha.org/"
@@ -2638,7 +2643,6 @@ dnl *** "echo" adjustments (end) ***
 dnl The Makefiles and shell scripts we output
 AC_CONFIG_FILES(Makefile				        \
 README							        \
-logd/Makefile							\
 buildtools/Makefile						\
 config/Makefile							\
 cts/Makefile					        	\
@@ -2663,50 +2667,20 @@ contrib/Makefile						\
         contrib/mlock/Makefile					\
 	contrib/drbd-outdate-peer/Makefile			\
 include/Makefile						\
-        include/clplumbing/Makefile				\
-	include/lrm/Makefile					\
         include/ocf/Makefile					\
-        include/pils/Makefile					\
-        include/pils/plugin.h					\
         include/saf/Makefile					\
-        include/stonith/Makefile				\
 replace/Makefile						\
 lib/Makefile							\
 	lib/apphb/Makefile					\
-	lib/clplumbing/Makefile					\
 	lib/hbclient/Makefile					\
-	lib/lrm/Makefile					\
-	lib/pils/Makefile					\
 	lib/plugins/Makefile					\
 		lib/plugins/InterfaceMgr/Makefile		\
 		lib/plugins/HBauth/Makefile			\
 		lib/plugins/HBcomm/Makefile			\
-		lib/plugins/lrm/Makefile			\
-		lib/plugins/stonith/Makefile			\
-		lib/plugins/stonith/ribcl.py			\
-		lib/plugins/stonith/external/Makefile		\
-		lib/plugins/stonith/external/ibmrsa		\
-		lib/plugins/stonith/external/riloe		\
-		lib/plugins/stonith/external/ssh		\
-		lib/plugins/stonith/external/hmchttp		\
-		lib/plugins/stonith/external/kdumpcheck		\
-		lib/plugins/stonith/external/xen0-ha		\
-		lib/plugins/stonith/external/drac5		\
 		lib/plugins/HBcompress/Makefile			\
 		lib/plugins/quorum/Makefile			\
 		lib/plugins/quorumd/Makefile			\
 		lib/plugins/tiebreaker/Makefile			\
-	lib/stonith/Makefile					\
-lrm/Makefile							\
-	lrm/lrmd/Makefile					\
-	lrm/admin/Makefile					\
-	lrm/test/regression.sh					\
-	lrm/test/LRMBasicSanityCheck				\
-	lrm/test/Makefile					\
-	lrm/test/lrmregtest					\
-	lrm/test/lrmregtest-lsb					\
-	lrm/test/lrmregtest-heartbeat				\
-	lrm/test/testcases/Makefile				\
 heartbeat/Makefile						\
 	heartbeat/shellfuncs					\
 	heartbeat/rc.d/Makefile					\
@@ -2714,7 +2688,6 @@ heartbeat/Makefile						\
 		heartbeat/rc.d/hb_takeover			\
 	heartbeat/init.d/Makefile				\
 		heartbeat/init.d/heartbeat			\
-		heartbeat/init.d/logd			\
 	heartbeat/lib/Makefile					\
 		heartbeat/lib/BasicSanityCheck			\
 		heartbeat/lib/ha_config				\
@@ -2758,12 +2731,6 @@ tools/Makefile							\
 	tools/hb_report						\
 	tools/ocf-tester					\
 resources/Makefile						\
-	resources/OCF/Makefile					\
-	resources/OCF/.ocf-binaries				\
-	resources/OCF/.ocf-directories				\
-	resources/OCF/.ocf-shellfuncs				\
-	resources/OCF/ocf-returncodes				\
-	resources/OCF/ocf-shellfuncs				\
 	resources/heartbeat/Makefile				\
 	resources/heartbeat/apache				\
 	resources/heartbeat/AudibleAlarm			\

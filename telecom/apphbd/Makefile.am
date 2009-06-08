@@ -29,9 +29,9 @@ commmoddir		= $(halibdir)/modules/comm
 havarlibdir		= $(localstatedir)/lib/@HB_PKG@
 PIDFILE			= $(localstatedir)/run/apphbd.pid
 
-COMMONLIBS		= $(top_builddir)/lib/clplumbing/libplumb.la	\
+COMMONLIBS		= -lplumb	\
 			$(GLIBLIB)					\
-			$(top_builddir)/lib/pils/libpils.la
+			-lpils
 
 
 LIBRT 			= @LIBRT@
@@ -49,7 +49,7 @@ apphbd_SOURCES	= apphbd.c
 #	We don't really need libpils/libltdl (yet...)
 #
 apphbd_LDADD		= $(COMMONLIBS) 				\
-			$(top_builddir)/lib/pils/libpils.la		\
+			-lpils		\
 			@LIBLTDL@ $(LIBRT)				
 
 

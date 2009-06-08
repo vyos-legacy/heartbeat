@@ -31,8 +31,7 @@ include_HEADERS	        = apphb.h apphb_notify.h HBauth.h HBcomm.h	\
 			  ha_msg.h heartbeat.h hb_api.h	hb_config.h	\
 			  replace_uuid.h compress.h
 
-SUBDIRS                 = clplumbing ocf pils saf 			\
-			  stonith lrm $(CRM_DIR) 
+SUBDIRS                 = ocf saf 
 
 ## The backtick commands are not executed here,
 ## but rather as macro-expansions at use within the rules.

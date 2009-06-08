@@ -31,11 +31,7 @@ MAINTAINERCLEANFILES    = Makefile.in
 
 ## Subdirectories...
 SUBDIRS			=  	\
-	pils			\
-	clplumbing		\
-	stonith 		\
 	hbclient		\
 	apphb			\
-	plugins 		\
-	lrm
+	plugins
 

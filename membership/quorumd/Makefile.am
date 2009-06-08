@@ -24,7 +24,7 @@ INCLUDES        = -I$(top_builddir)/include  -I$(top_srcdir)/include     \
 		  -I$(top_builddir)          -I$(top_srcdir)
 
 
-COMMONLIBS	=  $(top_builddir)/lib/clplumbing/libplumb.la   \
+COMMONLIBS	=  -lplumb   \
 		   $(GLIBLIB)
 
 halibdir	=  $(libdir)/@HB_PKG@

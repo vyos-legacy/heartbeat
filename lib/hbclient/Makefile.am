@@ -51,8 +51,8 @@ libhbclient_la_LIBADD	= $(top_builddir)/replace/libreplace.la
 halib_PROGRAMS		= api_test
 
 api_test_SOURCES	= api_test.c
-api_test_LDADD		= $(top_builddir)/lib/clplumbing/libplumb.la	\
+api_test_LDADD		= -lplumb	\
 			libhbclient.la $(gliblib) \
-			$(top_builddir)/lib/pils/libpils.la
+			-lpils
 
 

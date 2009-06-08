@@ -60,7 +60,7 @@ endif
 
 # 'buildtools' must be first in the list: tools to aid building of remainder.
 SUBDIRS	= buildtools $(LIBLTDL_DIR) debian pkg port replace include lib	\
-          heartbeat membership telecom resources lrm logd tools doc cts  \
+          heartbeat membership telecom resources tools doc cts  \
           $(LDIRECTORD_DIR) config contrib
 
 HANDY_DOCS = doc/ChangeLog doc/GettingStarted.html doc/DirectoryMap.txt

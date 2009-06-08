@@ -35,11 +35,11 @@ halib_PROGRAMS		= dopd drbd-peer-outdater
 ## SOURCES
 dopd_SOURCES		= dopd.c dopd.h
 dopd_LDADD		= \
-			$(top_builddir)/lib/clplumbing/libplumb.la		\
+			-lplumb		\
 			$(top_builddir)/lib/hbclient/libhbclient.la $(GLIBLIB)
 
 drbd_peer_outdater_SOURCES	= drbd-peer-outdater.c
-drbd_peer_outdater_LDADD	= $(top_builddir)/lib/clplumbing/libplumb.la
+drbd_peer_outdater_LDADD	= -lplumb
 
 
 

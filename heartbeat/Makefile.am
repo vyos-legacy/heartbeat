@@ -59,10 +59,10 @@ heartbeat_SOURCES	= heartbeat.c auth.c				\
 			ha_msg_internal.c hb_api.c hb_resource.c	\
 			hb_signal.c module.c hb_uuid.c hb_rexmit.c
 
-heartbeat_LDADD		= $(top_builddir)/lib/stonith/libstonith.la	\
-			$(top_builddir)/lib/pils/libpils.la		\
-			$(top_builddir)/lib/clplumbing/libplumb.la	\
-			$(top_builddir)/lib/clplumbing/libplumbgpl.la	\
+heartbeat_LDADD		= -lstonith	\
+			-lpils		\
+			-lplumb	\
+			-lplumbgpl	\
 			$(top_builddir)/lib/apphb/libapphb.la		\
 			$(top_builddir)/replace/libreplace.la		\
 			$(gliblib) $(LIBRT)

@@ -17,4 +17,4 @@
 #
 MAINTAINERCLEANFILES = Makefile.in
 
-SUBDIRS = OCF heartbeat
+SUBDIRS = heartbeat
