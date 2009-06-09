@@ -23,7 +23,7 @@ INCLUDES                = -I$(top_builddir)/include -I$(top_srcdir)/include \
 			  -I$(top_builddir)/linux-ha -I$(top_srcdir)/linux-ha \
 			  -I$(top_builddir)/libltdl -I$(top_srcdir)/libltdl
 
-EXTRA_DIST		= $(hanoarch_DATA) $(sbin_SCRIPTS)
+EXTRA_DIST		= $(sbin_SCRIPTS)
 
 apigid			= @HA_APIGID@
 habindir		= @bindir@
@@ -33,8 +33,6 @@ gliblib			= @GLIBLIB@
 
 habin_PROGRAMS		= cl_status cl_respawn
 halib_PROGRAMS		=
-
-hanoarch_DATA		= utillib.sh ha_cf_support.sh openais_conf_support.sh
 
 cl_status_SOURCES	= cl_status.c
 cl_status_LDADD		= $(top_builddir)/lib/hbclient/libhbclient.la	\
@@ -47,21 +45,6 @@ cl_respawn_LDADD	= -lplumb	\
 			  $(top_builddir)/lib/apphb/libapphb.la 	\
 			  $(gliblib)					\
 			  $(top_builddir)/replace/libreplace.la
-
-if USE_LIBNET
-halib_PROGRAMS		+= send_arp
-send_arp_SOURCES	= send_arp.libnet.c
-send_arp_CFLAGS		= @LIBNETDEFINES@
-send_arp_LDADD	 	= -lplumb	\
-			  $(gliblib) @LIBNETLIBS@
-else
-
-if SENDARP_LINUX
-halib_PROGRAMS		+= send_arp
-send_arp_SOURCES	= send_arp.linux.c
-endif
-
-endif
 
 install-data-hook:    # install-exec-hook doesn't work (!)
 	-chgrp $(apigid) $(DESTDIR)/$(habindir)/cl_status
