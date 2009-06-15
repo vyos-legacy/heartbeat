@@ -46,7 +46,7 @@
 #define PIDDIR       HA_VARRUNDIR "/" PACKAGE "/rsctmp/send_arp"
 #define PIDFILE_BASE PIDDIR "/send_arp-"
 
-static int send_arp(LTYPE* l, u_long ip, u_char *device, u_char mac[6]
+static int send_arp(LTYPE* l, uint32_t ip, u_char *device, u_char mac[6]
 ,	u_char *broadcast, u_char *netmask, u_short arptype);
 
 static char print_usage[]={
@@ -115,22 +115,22 @@ byebye(int nsig)
 int
 main(int argc, char *argv[])
 {
-	int	c = -1;
-	char	errbuf[LIBNET_ERRBUF_SIZE];
-	char*	device;
-	char*	ipaddr;
-	char*	macaddr;
-	char*	broadcast;
-	char*	netmask;
-	u_long	ip;
-	u_char  src_mac[6];
-	LTYPE*	l;
-	int	repeatcount = 1;
-	int	j;
-	long	msinterval = 1000;
-	int	flag;
-	char    pidfilenamebuf[64];
-	char    *pidfilename = NULL;
+	int	 c = -1;
+	char	 errbuf[LIBNET_ERRBUF_SIZE];
+	char*	 device;
+	char*	 ipaddr;
+	char*	 macaddr;
+	char*	 broadcast;
+	char*	 netmask;
+	uint32_t ip;
+	u_char   src_mac[6];
+	LTYPE*	 l;
+	int	 repeatcount = 1;
+	int	 j;
+	long	 msinterval = 1000;
+	int	 flag;
+	char     pidfilenamebuf[64];
+	char     *pidfilename = NULL;
 
 	CL_SIGNAL(SIGTERM, byebye);
 	CL_SIGINTERRUPT(SIGTERM, 1);
@@ -192,9 +192,9 @@ main(int argc, char *argv[])
 
 #if defined(HAVE_LIBNET_1_0_API)
 #ifdef ON_DARWIN
-	if ((ip = libnet_name_resolve((unsigned char*)ipaddr, 1)) == -1UL) {
+	if ((ip = libnet_name_resolve((unsigned char*)ipaddr, 1)) == -1U) {
 #else
-	if ((ip = libnet_name_resolve(ipaddr, 1)) == -1UL) {
+	if ((ip = libnet_name_resolve(ipaddr, 1)) == -1U) {
 #endif
 		cl_log(LOG_ERR, "Cannot resolve IP address [%s]", ipaddr);
 		unlink(pidfilename);
@@ -377,7 +377,7 @@ get_hw_addr(char *device, u_char mac[6])
 
 #ifdef HAVE_LIBNET_1_0_API
 int
-send_arp(struct libnet_link_int *l, u_long ip, u_char *device, u_char *macaddr, u_char *broadcast, u_char *netmask, u_short arptype)
+send_arp(struct libnet_link_int *l, uint32_t ip, u_char *device, u_char *macaddr, u_char *broadcast, u_char *netmask, u_short arptype)
 {
 	int n;
 	u_char *buf;
@@ -454,7 +454,7 @@ send_arp(struct libnet_link_int *l, u_long ip, u_char *device, u_char *macaddr, 
 
 #ifdef HAVE_LIBNET_1_1_API
 int
-send_arp(libnet_t* lntag, u_long ip, u_char *device, u_char macaddr[6], u_char *broadcast, u_char *netmask, u_short arptype)
+send_arp(libnet_t* lntag, uint32_t ip, u_char *device, u_char macaddr[6], u_char *broadcast, u_char *netmask, u_short arptype)
 {
 	int n;
 	u_char *target_mac;
