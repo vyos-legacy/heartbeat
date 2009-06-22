@@ -18,7 +18,6 @@ static int sysrq_fd;
 static int lock_index = 1;        /* default 1st lock */
 static time_t collision_timeout = 1; /* default 1 sec */
 static time_t lock_timeout = 60; /* default 60 sec */
-time_t unlock_timeout = 60;
 static time_t monitor_interval = 10;
 
 static sfex_controldata cdata;
