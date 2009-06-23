@@ -4732,7 +4732,7 @@ sub ld_open_socket
 #
 # Gratuitously over documented, because it can be
 #
-# Writen by Horms, horms@verge.net.au for an unrelated project while
+# Written by Horms, horms@verge.net.au for an unrelated project while
 # working for Zip World, http://www.zipworld.com.au/, 1997-1999.
 sub ld_daemon
 {
