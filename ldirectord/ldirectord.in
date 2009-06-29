@@ -1510,7 +1510,8 @@ sub read_config
 					$vsrv{emailalertfreq} = $1;
 				} elsif  ($rcmd =~ /^emailalertstatus\s*=\s*(.*)/) {
 					$vsrv{emailalertstatus} = &parse_emailalertstatus($line, $1);
-				} elsif  ($rcmd =~ /^monitorfile\s*=\s*(.*)/) {
+				} elsif  ($rcmd =~ /^monitorfile\s*=\s*\"(.*)\"/ or
+					  $rcmd =~ /^monitorfile\s*=\s*(.*)/) {
 					my $monitorfile = $1;
 					unless (open(MONITORFILE, ">>$monitorfile") and close(MONITORFILE)) {
 						&config_error($line, "unable to open monitorfile $monitorfile: $!");
@@ -4731,7 +4732,7 @@ sub ld_open_socket
 #
 # Gratuitously over documented, because it can be
 #
-# Writen by Horms, horms@verge.net.au for an unrelated project while
+# Written by Horms, horms@verge.net.au for an unrelated project while
 # working for Zip World, http://www.zipworld.com.au/, 1997-1999.
 sub ld_daemon
 {
