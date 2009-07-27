@@ -284,10 +284,15 @@ test -f ltdl.m4 || touch ltdl.m4
 
 cd $HERE
 
-echo $CONFIG "$@"
-$CONFIG "$@"
+if [ "x$@" != "x" ]; then
+  echo $CONFIG "$@"
+  $CONFIG "$@"
 
-echo "Now type 'gmake' to compile the system, noting that"
-echo "'gmake' is often available as 'make'."
-echo 
+  echo "Now type 'gmake' to compile the system, noting that"
+  echo "'gmake' is often available as 'make'."
+  echo 
+else
+  echo "Now run 'configure'
+  echo 
+fi
 trap '' 0
