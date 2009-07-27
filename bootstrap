@@ -125,12 +125,12 @@ then
     echo "Autoconf package $autoconf found."
 else
     RC=$?
-    cat <<-!EOF >&2
+    cat <<-EOF >&2
 
 	You must have $pkg installed to compile the linux-ha package.
 	Download the appropriate package for your system,
 	or get the source tarball at: $URL
-	!EOF
+	EOF
 fi
 
 # Create local copy so that the incremental updates will work.
@@ -159,12 +159,12 @@ then
     echo "Automake package $automake found."
 else
     RC=$?
-    cat <<-!EOF >&2
+    cat <<-EOF >&2
 
 	You must have $pkg installed to compile the linux-ha package.
 	Download the appropriate package for your system,
 	or get the source tarball at: $URL
-	!EOF
+	EOF
 fi
 
 # Create local copy so that the incremental updates will work.
@@ -192,12 +192,12 @@ then
     echo "Libtool package $libtool found."
 else
     RC=$?
-    cat <<-!EOF >&2
+    cat <<-EOF >&2
 
 	You must have $pkg installed to compile the linux-ha package.
 	Download the appropriate package for your system,
 	or get the source tarball at: $URL
-	!EOF
+	EOF
 fi
 
 # Create local copy so that the incremental updates will work.
@@ -212,16 +212,6 @@ esac
 case $IsHelp in
   yes)	$CONFIG "$@"; trap '' 0; exit 0;;
 esac
-
-if
-  [ $# -lt 1 ]
-then
-  cat <<-!
-	Running $CONFIG with no arguments.
-	If you wish to pass any arguments to $CONFIG please
-	       specify them on the $0 command line.
-	!
-fi
 
 oneline() {
   read x; echo "$x"
@@ -284,15 +274,16 @@ test -f ltdl.m4 || touch ltdl.m4
 
 cd $HERE
 
-if [ "x$@" != "x" ]; then
+if
+  [ $# -lt 1 ]
+then
+  echo Now run $CONFIG.
+else
   echo $CONFIG "$@"
   $CONFIG "$@"
 
   echo "Now type 'gmake' to compile the system, noting that"
   echo "'gmake' is often available as 'make'."
-  echo 
-else
-  echo "Now run 'configure'
   echo 
 fi
 trap '' 0
