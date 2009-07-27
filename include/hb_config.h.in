@@ -30,26 +30,8 @@
    years) */
 #undef CLOCK_T_IS_LONG_ENOUGH
 
-/* Group to own API fifos */
-#undef HA_APIGROUP
-
-/* GID to own API fifos */
-#undef HA_APIGID
-
-/* User to own CCM fifos */
-#undef HA_CCMUSER
-
-/* UID to own CCM fifos */
-#undef HA_CCMUID
-
 /* Web site base URL */
 #undef HA_URLBASE
-
-/* ocf ra dir */
-#undef OCF_RA_DIR
-
-/* ocf root dir */
-#undef OCF_ROOT_DIR
 
 /* heartbeat rc script directory */
 #undef HA_RC_DIR
@@ -86,9 +68,6 @@
 
 /* Heartbeat configuration directory */
 #undef HA_HBCONF_DIR
-
-/* heartbeat ra dir */
-#undef HB_RA_DIR
 
 /* lsb ra dir */
 #undef LSB_RA_DIR
