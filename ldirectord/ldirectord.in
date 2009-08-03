@@ -1095,6 +1095,7 @@ sub ld_process_hup
 sub ld_handler_chld
 {
 	$DAEMON_CHLD=1;
+	# NOTE: calling waitpid here would mess up $?
 }
 
 sub ld_process_chld
@@ -3185,26 +3186,19 @@ sub check_connect
 sub check_external
 {
 	my ($v, $r) = @_;
-	my $result;
 	my $v_server;
-	my $timed_out = 1;
 
-	eval {
-		local $SIG{'__DIE__'} = "DEFAULT";
-		local $SIG{'ALRM'} = sub { die "Timeout Alarm" };
-		&ld_debug(4, "Timeout is $$v{checktimeout}");
-		alarm $$v{checktimeout};
-		if (defined $$v{server}) {
-			$v_server = $$v{server};
-		} else {
-			$v_server = $$v{fwm};
-		}
-		$result = system_wrapper($$v{checkcommand}, $v_server,
-					 $$v{port}, $$r{server}, $$r{port});
-		alarm 0;
-		$result >>= 8;
-	};
-	if ($@ or $result != 0) {
+	if (defined $$v{server}) {
+		$v_server = $$v{server};
+	} else {
+		$v_server = $$v{fwm};
+	}
+
+	my $result = system_timeout($$v{checktimeout},
+				    $$v{checkcommand}, $v_server, $$v{port},
+				    $$r{server}, $$r{port});
+
+	if ($result) {
 		&service_set($v, $r, "down", {do_log => 1});
 		&ld_debug(3, "Deactivated service $$r{server}:$$r{port}: " .
 			  "$@ after calling $$v{checkcommand} with result " .
@@ -4395,6 +4389,11 @@ sub ld_debug
 
 # system_wrapper
 # Wrapper around system() to log errors
+#
+# WARNING: Do not use alarm() together with this function.  A internal
+# pipe will not be reclaimed (at least with Perl 5.8.8).  This can
+# cause ldirectord to run out of file handles.
+#
 # pre: LIST: arguments to pass to system()
 # post: system() is called and if it returns non-zero a failure
 #       message is logged
@@ -4412,6 +4411,70 @@ sub system_wrapper
 	}
 
 	return($status)
+}
+
+# system_timeout
+# Emulate system() with timeout via fork(), exec(), and waitpid() and
+# TERMinate the child on timeout.  Set an alarm() for the timeout.
+#
+# This function does not suffer the deficiencies of system_wrapper()
+# of leaving pipes unreclaimed.  Zombies are reaped by ld_handler_chld
+# and the related code.
+#
+# pre: timeout: timeout in seconds
+#      LIST: arguments to pass to exec()
+# return: >= 0 exit status of the child process
+#          127 exec failed
+#           -1 timeout
+#           -2 fork failed
+sub system_timeout
+{
+	my $timeout = shift;
+	my (@args) = (@_);
+	my $status;
+
+	&ld_log("Running system_timeout($timeout, @args)") if $DEBUG>2;
+
+	my $childpid = fork();
+	if (!defined($childpid)) {
+		&ld_log("fork failed: $!");
+		return(-2);
+        }
+	elsif ($childpid) {
+		# parent
+		eval {
+			local $SIG{'ALRM'} = sub { die "timeout\n"; };
+			alarm $timeout;
+			waitpid($childpid, 0);
+			$status = $? >> 8;
+			# When die()-ing in the SIGALRM handler we
+			# will never reach this point.  Child/Zombie
+			# is left behind.  The grim reaper
+			# (ld_handler_chld + ld_process_chld) will
+			# take care of the zombie.
+		};
+		alarm 0;
+		if ($@) {
+			# timeout
+			if ($@ ne "timeout\n") {
+				# propagate unexpected errors
+				&ld_log("system_timeout unexpected error: $!");
+			}
+
+			# TERMinate child
+			kill 15, $childpid;
+			return(-1);
+		}
+		else {
+			# did not timeout
+			return($status);
+		}
+	}
+	else {
+		# child
+        	exec(@args) or &ld_exit(127, "exec(@args) failed: $!");
+		die "ld_exit() broken?, stopped";
+        }
 }
 
 # exec_wrapper
