@@ -834,6 +834,8 @@ GetOptions("debug|d" => \$opt_d,
 	   "version|v" => \$opt_v) or usage();
 
 # main code
+$DEBUG = $opt_d ? 3 : 0;
+
 if ($opt_h) {
 	exec_wrapper("/usr/bin/perldoc -U $LDIRECTORD");
 	&ld_exit(127, "Exec failed");
@@ -851,7 +853,6 @@ if ($opt_v) {
 	&ld_exit(0, "");
 }
 
-$DEBUG = $opt_d ? 3 : 0;
 if ($DEBUG>0 and -f "./ipvsadm") {
 	$IPVSADM="./ipvsadm";
 } else {
