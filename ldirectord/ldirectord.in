@@ -4457,8 +4457,13 @@ sub system_timeout
 		if ($@) {
 			# timeout
 			if ($@ ne "timeout\n") {
-				# propagate unexpected errors
-				&ld_log("system_timeout unexpected error: $!");
+				# log unexpected errors
+				&ld_log("system_timeout($timeout, @args) " .
+					"unexpected error: $@");
+			}
+			else {
+				&ld_log("system_timeout($timeout, @args) " .
+					"timed out, kill -TERM child");
 			}
 
 			# TERMinate child
