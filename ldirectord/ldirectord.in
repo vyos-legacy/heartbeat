@@ -2581,9 +2581,9 @@ sub _check_real
 		if (grep $$v{service} eq $_, ("http", "https", "http_proxy")) {
 			$$r{num_connects} = 0 if (check_http($v, $r) == $SERVICE_UP);
 		} elsif ($$v{service} eq "pop") {
-			$$r{num_connects} = 0 if (check_pop($v, $r) == $SERVICE_UP);
+			$$r{num_connects} = 0 if (check_pop($v, $r, 0) == $SERVICE_UP);
 		} elsif ($$v{service} eq "pops") {
-			$$r{num_connects} = 0 if (check_pops($v, $r) == $SERVICE_UP);
+			$$r{num_connects} = 0 if (check_pop($v, $r, 1) == $SERVICE_UP);
 		} elsif ($$v{service} eq "imap") {
 			$$r{num_connects} = 0 if (check_imap($v, $r) == $SERVICE_UP);
 		} elsif ($$v{service} eq "imaps") {
@@ -2781,15 +2781,15 @@ sub check_smtp
 sub check_pop
 {
 	require Mail::POP3Client;
-	my ($v, $r) = @_;
+	my ($v, $r, $ssl) = @_;
 	my $port = ld_checkport($v, $r);
 
-	&ld_debug(2, "Checking pop server=$$r{server} port=$port");
+	&ld_debug(2, "Checking pop server=$$r{server} port=$port ssl=$ssl");
 
 	my $pop = new Mail::POP3Client(USER => $$v{login},
 					PASSWORD => $$v{passwd},
 					HOST => $$r{server},
-					USESSL => 0,
+					USESSL => $ssl,
 					PORT => $port,
 					DEBUG => 0,
 					TIMEOUT => $$v{negotiatetimeout});
@@ -2809,41 +2809,6 @@ sub check_pop
 	}
 
 	$pop->close();
-	service_set($v, $r, "up", {do_log => 1});
-	return $SERVICE_UP;
-}
-
-sub check_pops
-{
-	require Mail::POP3Client;
-	my ($v, $r) = @_;
-	my $port = ld_checkport($v, $r);
-
-	&ld_debug(2, "Checking pops server=$$r{server} port=$port");
-
-	my $pops = new Mail::POP3Client(USER => $$v{login},
-					PASSWORD => $$v{passwd},
-					HOST => $$r{server},
-					USESSL => 1,
-					PORT => $port,
-					DEBUG => 0,
-					TIMEOUT => $$v{negotiatetimeout});
-	if (!$pops) {
-		service_set($v, $r, "down", {do_log => 1});
-		return $SERVICE_DOWN;
-	}
-
-	if($$v{login} ne "") {
-		my $authres = $pops->login();
-		$pops->close();
-		if (!$authres) {
-			service_set($v, $r, "down", {do_log => 1});
-			return $SERVICE_DOWN;
-		}
-	}
-
-
-	$pops->close();
 	service_set($v, $r, "up", {do_log => 1});
 	return $SERVICE_UP;
 }
