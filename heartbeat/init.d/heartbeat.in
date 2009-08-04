@@ -12,7 +12,7 @@
 #		We don't hate anyone, and like for everyone to use
 #		our software, no matter what OS or distribution you're using.
 #
-# chkconfig: 2345 @HB_INITSTARTPRI@ @HB_INITSTOPPRI@
+# chkconfig: - @HB_INITSTARTPRI@ @HB_INITSTOPPRI@
 # description: Startup script high-availability services.
 # processname: heartbeat
 # pidfile: @localstatedir@/run/heartbeat.pid
