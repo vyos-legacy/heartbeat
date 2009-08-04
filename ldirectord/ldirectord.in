@@ -2796,7 +2796,7 @@ sub check_pop
 
 	if (!$pop) {
 		service_set($v, $r, "down", {do_log => 1});
-		return $SERVICE_UP;
+		return $SERVICE_DOWN;
 	}
 
 	if($$v{login} ne "") {
