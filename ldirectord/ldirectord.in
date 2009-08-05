@@ -834,6 +834,8 @@ GetOptions("debug|d" => \$opt_d,
 	   "version|v" => \$opt_v) or usage();
 
 # main code
+$DEBUG = $opt_d ? 3 : 0;
+
 if ($opt_h) {
 	exec_wrapper("/usr/bin/perldoc -U $LDIRECTORD");
 	&ld_exit(127, "Exec failed");
@@ -851,7 +853,6 @@ if ($opt_v) {
 	&ld_exit(0, "");
 }
 
-$DEBUG = $opt_d ? 3 : 0;
 if ($DEBUG>0 and -f "./ipvsadm") {
 	$IPVSADM="./ipvsadm";
 } else {
@@ -1095,6 +1096,7 @@ sub ld_process_hup
 sub ld_handler_chld
 {
 	$DAEMON_CHLD=1;
+	# NOTE: calling waitpid here would mess up $?
 }
 
 sub ld_process_chld
@@ -1510,7 +1512,8 @@ sub read_config
 					$vsrv{emailalertfreq} = $1;
 				} elsif  ($rcmd =~ /^emailalertstatus\s*=\s*(.*)/) {
 					$vsrv{emailalertstatus} = &parse_emailalertstatus($line, $1);
-				} elsif  ($rcmd =~ /^monitorfile\s*=\s*(.*)/) {
+				} elsif  ($rcmd =~ /^monitorfile\s*=\s*\"(.*)\"/ or
+					  $rcmd =~ /^monitorfile\s*=\s*(.*)/) {
 					my $monitorfile = $1;
 					unless (open(MONITORFILE, ">>$monitorfile") and close(MONITORFILE)) {
 						&config_error($line, "unable to open monitorfile $monitorfile: $!");
@@ -2579,9 +2582,9 @@ sub _check_real
 		if (grep $$v{service} eq $_, ("http", "https", "http_proxy")) {
 			$$r{num_connects} = 0 if (check_http($v, $r) == $SERVICE_UP);
 		} elsif ($$v{service} eq "pop") {
-			$$r{num_connects} = 0 if (check_pop($v, $r) == $SERVICE_UP);
+			$$r{num_connects} = 0 if (check_pop($v, $r, 0) == $SERVICE_UP);
 		} elsif ($$v{service} eq "pops") {
-			$$r{num_connects} = 0 if (check_pops($v, $r) == $SERVICE_UP);
+			$$r{num_connects} = 0 if (check_pop($v, $r, 1) == $SERVICE_UP);
 		} elsif ($$v{service} eq "imap") {
 			$$r{num_connects} = 0 if (check_imap($v, $r) == $SERVICE_UP);
 		} elsif ($$v{service} eq "imaps") {
@@ -2779,22 +2782,22 @@ sub check_smtp
 sub check_pop
 {
 	require Mail::POP3Client;
-	my ($v, $r) = @_;
+	my ($v, $r, $ssl) = @_;
 	my $port = ld_checkport($v, $r);
 
-	&ld_debug(2, "Checking pop server=$$r{server} port=$port");
+	&ld_debug(2, "Checking pop server=$$r{server} port=$port ssl=$ssl");
 
 	my $pop = new Mail::POP3Client(USER => $$v{login},
 					PASSWORD => $$v{passwd},
 					HOST => $$r{server},
-					USESSL => 0,
+					USESSL => $ssl,
 					PORT => $port,
 					DEBUG => 0,
 					TIMEOUT => $$v{negotiatetimeout});
 
 	if (!$pop) {
 		service_set($v, $r, "down", {do_log => 1});
-		return $SERVICE_UP;
+		return $SERVICE_DOWN;
 	}
 
 	if($$v{login} ne "") {
@@ -2807,41 +2810,6 @@ sub check_pop
 	}
 
 	$pop->close();
-	service_set($v, $r, "up", {do_log => 1});
-	return $SERVICE_UP;
-}
-
-sub check_pops
-{
-	require Mail::POP3Client;
-	my ($v, $r) = @_;
-	my $port = ld_checkport($v, $r);
-
-	&ld_debug(2, "Checking pops server=$$r{server} port=$port");
-
-	my $pops = new Mail::POP3Client(USER => $$v{login},
-					PASSWORD => $$v{passwd},
-					HOST => $$r{server},
-					USESSL => 1,
-					PORT => $port,
-					DEBUG => 0,
-					TIMEOUT => $$v{negotiatetimeout});
-	if (!$pops) {
-		service_set($v, $r, "down", {do_log => 1});
-		return $SERVICE_DOWN;
-	}
-
-	if($$v{login} ne "") {
-		my $authres = $pops->login();
-		$pops->close();
-		if (!$authres) {
-			service_set($v, $r, "down", {do_log => 1});
-			return $SERVICE_DOWN;
-		}
-	}
-
-
-	$pops->close();
 	service_set($v, $r, "up", {do_log => 1});
 	return $SERVICE_UP;
 }
@@ -3184,26 +3152,19 @@ sub check_connect
 sub check_external
 {
 	my ($v, $r) = @_;
-	my $result;
 	my $v_server;
-	my $timed_out = 1;
 
-	eval {
-		local $SIG{'__DIE__'} = "DEFAULT";
-		local $SIG{'ALRM'} = sub { die "Timeout Alarm" };
-		&ld_debug(4, "Timeout is $$v{checktimeout}");
-		alarm $$v{checktimeout};
-		if (defined $$v{server}) {
-			$v_server = $$v{server};
-		} else {
-			$v_server = $$v{fwm};
-		}
-		$result = system_wrapper($$v{checkcommand}, $v_server,
-					 $$v{port}, $$r{server}, $$r{port});
-		alarm 0;
-		$result >>= 8;
-	};
-	if ($@ or $result != 0) {
+	if (defined $$v{server}) {
+		$v_server = $$v{server};
+	} else {
+		$v_server = $$v{fwm};
+	}
+
+	my $result = system_timeout($$v{checktimeout},
+				    $$v{checkcommand}, $v_server, $$v{port},
+				    $$r{server}, $$r{port});
+
+	if ($result) {
 		&service_set($v, $r, "down", {do_log => 1});
 		&ld_debug(3, "Deactivated service $$r{server}:$$r{port}: " .
 			  "$@ after calling $$v{checkcommand} with result " .
@@ -4394,6 +4355,11 @@ sub ld_debug
 
 # system_wrapper
 # Wrapper around system() to log errors
+#
+# WARNING: Do not use alarm() together with this function.  A internal
+# pipe will not be reclaimed (at least with Perl 5.8.8).  This can
+# cause ldirectord to run out of file handles.
+#
 # pre: LIST: arguments to pass to system()
 # post: system() is called and if it returns non-zero a failure
 #       message is logged
@@ -4411,6 +4377,75 @@ sub system_wrapper
 	}
 
 	return($status)
+}
+
+# system_timeout
+# Emulate system() with timeout via fork(), exec(), and waitpid() and
+# TERMinate the child on timeout.  Set an alarm() for the timeout.
+#
+# This function does not suffer the deficiencies of system_wrapper()
+# of leaving pipes unreclaimed.  Zombies are reaped by ld_handler_chld
+# and the related code.
+#
+# pre: timeout: timeout in seconds
+#      LIST: arguments to pass to exec()
+# return: >= 0 exit status of the child process
+#          127 exec failed
+#           -1 timeout
+#           -2 fork failed
+sub system_timeout
+{
+	my $timeout = shift;
+	my (@args) = (@_);
+	my $status;
+
+	&ld_log("Running system_timeout($timeout, @args)") if $DEBUG>2;
+
+	my $childpid = fork();
+	if (!defined($childpid)) {
+		&ld_log("fork failed: $!");
+		return(-2);
+        }
+	elsif ($childpid) {
+		# parent
+		eval {
+			local $SIG{'ALRM'} = sub { die "timeout\n"; };
+			alarm $timeout;
+			waitpid($childpid, 0);
+			$status = $? >> 8;
+			# When die()-ing in the SIGALRM handler we
+			# will never reach this point.  Child/Zombie
+			# is left behind.  The grim reaper
+			# (ld_handler_chld + ld_process_chld) will
+			# take care of the zombie.
+		};
+		alarm 0;
+		if ($@) {
+			# timeout
+			if ($@ ne "timeout\n") {
+				# log unexpected errors
+				&ld_log("system_timeout($timeout, @args) " .
+					"unexpected error: $@");
+			}
+			else {
+				&ld_log("system_timeout($timeout, @args) " .
+					"timed out, kill -TERM child");
+			}
+
+			# TERMinate child
+			kill 15, $childpid;
+			return(-1);
+		}
+		else {
+			# did not timeout
+			return($status);
+		}
+	}
+	else {
+		# child
+        	exec(@args) or &ld_exit(127, "exec(@args) failed: $!");
+		die "ld_exit() broken?, stopped";
+        }
 }
 
 # exec_wrapper
@@ -4731,7 +4766,7 @@ sub ld_open_socket
 #
 # Gratuitously over documented, because it can be
 #
-# Writen by Horms, horms@verge.net.au for an unrelated project while
+# Written by Horms, horms@verge.net.au for an unrelated project while
 # working for Zip World, http://www.zipworld.com.au/, 1997-1999.
 sub ld_daemon
 {
