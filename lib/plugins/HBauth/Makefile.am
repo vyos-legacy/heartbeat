@@ -34,7 +34,6 @@ plugin_LTLIBRARIES	= md5.la crc.la sha1.la
 
 md5_la_SOURCES	= md5.c
 md5_la_LDFLAGS	= -export-dynamic -module -avoid-version
-md5_la_DEPENDENCIES = -lplumb
 md5_la_LIBADD	= -lplumb
 
 crc_la_SOURCES	= crc.c
