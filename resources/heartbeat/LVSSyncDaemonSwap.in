@@ -11,7 +11,8 @@
 #       Please note that as of 2.4.29, this is no longer needed
 #       as both the master and backup daemon can run simultaneously
 #
-#        usage: $0 {master|backup} {interface} {start|stop|status|monitor|cleanup}
+#        usage: $0 {master|backup} {interface {syncid}} {start|stop|status|monitor|cleanup}
+#        If you want to specify the syncid, you have to specify the mcast interface first
 #
 #        The first argument, master or backup, is the YING.
 #        The YANG is internally calculated to be which ever or master and
@@ -36,7 +37,7 @@ prefix=@prefix@
 exec_prefix=@exec_prefix@
 . @sysconfdir@/ha.d/shellfuncs
 
-USAGE="usage: $0 {master|backup} {interface} {start|stop|status|monitor|cleanup}\n\nNote: $0 only works on Linux";
+USAGE="usage: $0 {master|backup} {interface {syncid}} {start|stop|status|monitor|cleanup}\n\nNote: $0 only works on Linux";
 
 # This is consistent with ldirectord's behaviour
 # Except that this script does not have a debug mode
@@ -115,7 +116,7 @@ start_stop() {
         ha_log "info: ipvs_sync$YANG down"
     fi
 
-    run_ipvsadm --start-daemon $YING --mcast-interface=$IFACE || return $?
+    run_ipvsadm --start-daemon $YING --mcast-interface=$IFACE --syncid=$SYNCID || return $?
 
     ha_log "info: ipvs_sync$YING up"
     return 0
@@ -157,8 +158,7 @@ usage() {
   echo -e $USAGE >&2
 }
 
-if
-    [ $# -lt 2 -o $# -gt 3 ]
+if [ $# -lt 2 -o $# -gt 4 ]
 then
     usage
     exit 1
@@ -166,12 +166,19 @@ fi
 
 PS=$(ps ax | grep " \[ipvs[ _]sync")
 
-if [ $# -eq 3 ]
+if [ $# -eq 4 ]
+then
+    CMD=$4
+    SYNCID=$3
+    IFACE=$2
+elif [ $# -eq 3 ]
 then
     CMD=$3
+    SYNCID=0
     IFACE=$2
 else
     CMD=$2
+    SYNCID=0
     IFACE=eth0
 fi
 
