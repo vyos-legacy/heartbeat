@@ -25,5 +25,24 @@ OCF_TYPE=IPv6addr
 OCF_RESOURCE_INSTANCE=${OCF_TYPE}_$1
 export OCF_TYPE OCF_RESOURCE_INSTANCE
 
-OCF_RESKEY_ipv6addr=$1; export OCF_RESKEY_ipv6addr
+# We need to split the argument into pieces that IPv6addr OCF RA can
+# recognize, sed is prefered over Bash specific builtin functions
+# for portability.
+BASEIP=`echo $1 | sed 's%/.*%%'`
+OCF_RESKEY_ipv6addr=$BASEIP; export OCF_RESKEY_ipv6addr
+
+str=`echo $1 | sed 's%^'$BASEIP'*%%'`
+if [ ! -z "$str" ]; then
+    NETMASK=`echo ${str#/} | sed 's%/.*%%'`
+    OCF_RESKEY_cidr_netmask=$NETMASK; export OCF_RESKEY_cidr_netmask
+
+    str=`echo $str | sed 's%^/'$NETMASK'/*%%'`
+    NIC=`echo $str | sed 's%/.*%%'`
+    case $NIC in
+	"")	;;
+	*)	OCF_RESKEY_nic=$NIC; export OCF_RESKEY_nic
+		;;
+    esac
+fi
+
 ra_execocf $2
