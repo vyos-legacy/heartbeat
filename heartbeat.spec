@@ -783,7 +783,6 @@ fi
 %exclude %{_sysconfdir}/ha.d/resource.d/ldirectord
 /usr/lib/ocf/resource.d/heartbeat
 %{_libdir}/heartbeat/send_arp
-%{_libdir}/heartbeat/findif
 %{_libdir}/heartbeat/ocf-returncodes
 %{_libdir}/heartbeat/ocf-shellfuncs
 %{_libdir}/heartbeat/sfex_daemon

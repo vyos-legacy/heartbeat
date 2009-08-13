@@ -51,7 +51,7 @@ noinst_HEADERS		=	hb_config.h		\
 
 
 ## binary progs
-halib_PROGRAMS		= heartbeat findif
+halib_PROGRAMS		= heartbeat
 
 ## SOURCES
 heartbeat_SOURCES	= heartbeat.c auth.c				\
@@ -70,9 +70,6 @@ heartbeat_LDADD		= -lstonith	\
 heartbeat_LDFLAGS	= @LIBADD_DL@ @LIBLTDL@ -export-dynamic	@DLOPEN_FORCE_FLAGS@
 
 heartbeat_CFLAGS       = $(AM_CFLAGS)
-
-findif_SOURCES		= findif.c
-findif_LDADD		=$(top_builddir)/replace/libreplace.la
 
 ## SCRIPTS/DATA
 ha_DATA			= shellfuncs README.config 
