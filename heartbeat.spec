@@ -43,7 +43,6 @@ Url:            http://linux-ha.org/
 Group:          Productivity/Clustering/HA
 Source:         heartbeat.tar.gz
 Source1:        heartbeat.suse.in
-Source2:        ldirectord.suse.in
 Source100:      heartbeat.rpmlintrc
 BuildRoot:      %{_tmppath}/%{name}-%{version}-build
 Requires:       %{name}-common = %{version}-%{release}
@@ -284,36 +283,6 @@ Authors:
     Sun Jiang Dong <hasjd@cn.ibm.com>
     (See doc/AUTHORS)
 
-%package ldirectord
-License:        GPL v2 or later
-Summary:        A Monitoring Daemon for Maintaining High Availability Resources
-Group:          Productivity/Clustering/HA
-Requires:       %{SSLeay} perl-libwww-perl ipvsadm
-%if 0%{?suse_version}
-Requires:	logrotate
-%endif
-%if 0%{?fedora_version}
-Requires(post): /sbin/chkconfig
-Requires(preun):/sbin/chkconfig
-%endif
-
-%description ldirectord
-The Linux Director Daemon (ldirectord) was written by Jacob Rief.
-<jacob.rief@tiscover.com>
-
-ldirectord is a stand alone daemon for monitoring the services on real
-servers. Currently, HTTP, HTTPS, and FTP services are supported.
-lditrecord is simple to install and works with the heartbeat code
-(http://www.linux-ha.org/).
-
-See 'ldirectord -h' and linux-ha/doc/ldirectord for more information.
-
-
-
-Authors:
---------
-    Jacob Rief <jacob.rief@tiscover.com>
-
 %if %build_cmpi
 
 %package cmpi
@@ -387,7 +356,6 @@ Authors:
 %setup -n heartbeat
 %if 0%{?suse_version}
 cp $RPM_SOURCE_DIR/heartbeat.suse.in ./heartbeat/init.d/heartbeat.in
-cp $RPM_SOURCE_DIR/ldirectord.suse.in ./ldirectord/init.d/ldirectord.in
 %endif
 %{?suse_update_config:%{suse_update_config -f}}
 ###########################################################
@@ -446,14 +414,12 @@ make %{?jobs:-j%jobs}
 make DESTDIR=$RPM_BUILD_ROOT install
 (
   cd $RPM_BUILD_ROOT/etc/ha.d/resource.d
-  ln -s %{_sbindir}/ldirectord ldirectord
 )
 test -d $RPM_BUILD_ROOT/sbin || mkdir $RPM_BUILD_ROOT/sbin
 (
   cd $RPM_BUILD_ROOT/sbin
   ln -s /etc/init.d/heartbeat   rcheartbeat
   ln -s /etc/init.d/logd   rclogd
-  ln -sf /etc/init.d/ldirectord rcldirectord 
 )
 # Cleanup
 [ -d $RPM_BUILD_ROOT/usr/man ] && rm -rf $RPM_BUILD_ROOT/usr/man
@@ -551,26 +517,6 @@ fi
   test "$1" != 0 || /usr/sbin/fedora-groupdel %{gname} || :
 %endif
 ###########################################################
-%if 0%{?suse_version}
-
-%preun ldirectord
-    %stop_on_removal ldirectord
-%endif
-%if 0%{?fedora_version}
-
-%preun ldirectord
-%if %{stop_start_script}
-    /sbin/chkconfig --del ldirectord
-%endif
-
-%endif
-
-%if 0%{?fedora_version}
-
-%post ldirectord
-  /sbin/chkconfig --add ldirectord
-%endif
-
 %post -n libheartbeat2 -p /sbin/ldconfig
 
 %postun -n libheartbeat2 -p /sbin/ldconfig
@@ -780,7 +726,6 @@ fi
 %dir /usr/lib/ocf
 %dir /usr/lib/ocf/resource.d
 %{_sysconfdir}/ha.d/resource.d
-%exclude %{_sysconfdir}/ha.d/resource.d/ldirectord
 /usr/lib/ocf/resource.d/heartbeat
 %{_libdir}/heartbeat/send_arp
 %{_libdir}/heartbeat/ocf-returncodes
@@ -791,25 +736,6 @@ fi
 %{_sbindir}/sfex_init
 %{_datadir}/heartbeat/ra-api-1.dtd
 %exclude %{_libdir}/heartbeat/ra-api-1.dtd
-###########################################################
-# Files for ldirectord
-
-%files ldirectord
-###########################################################
-%defattr(-,root,root)
-%doc doc/README
-%doc doc/COPYING
-%doc ldirectord/ldirectord.cf
-%doc %{_mandir}/man8/ldirectord.8*
-#%doc %{_mandir}/man8/supervise-ldirectord-config.8*
-%{_sbindir}/ldirectord
-/sbin/rcldirectord
-#%{_sbindir}/supervise-ldirectord-config
-%{_sysconfdir}/init.d/ldirectord
-%{_sysconfdir}/ha.d/resource.d/ldirectord
-%config(noreplace) %{_sysconfdir}/logrotate.d/ldirectord
-
-
 %changelog heartbeat
 * Fri Nov 21 2008 Lars Marowsky-Bree <lmb@suse.de> and many others
 - hb_report: many fixes and improvements.

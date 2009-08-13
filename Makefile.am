@@ -38,11 +38,10 @@ RPMSRC=$(DESTDIR)$(RPMDIR)/SRPMS/$(PACKAGE)-$(VERSION)-$(RPMREL).src.rpm
 RPM386=$(DESTDIR)$(RPMDIR)/RPMS/i586/$(PACKAGE)-$(VERSION)-$(RPMREL).i586.rpm
 RPMstonith=$(DESTDIR)$(RPMDIR)/RPMS/i586/$(PACKAGE)-stonith-$(VERSION)-$(RPMREL).i586.rpm
 RPMpils=$(DESTDIR)$(RPMDIR)/RPMS/i586/$(PACKAGE)-pils-$(VERSION)-$(RPMREL).i586.rpm
-RPMldir=$(DESTDIR)$(RPMDIR)/RPMS/i586/$(PACKAGE)-ldirectord-$(VERSION)-$(RPMREL).i586.rpm
 SHAREDIR=@HA_DATADIR@
 HBSHAREDIR=@HA_NOARCHDATAHBDIR@
 
-ALL_RPMS = $(RPMSRC) $(RPM386) $(RPMstonith) $(RPMldir) $(RPMpils)
+ALL_RPMS = $(RPMSRC) $(RPM386) $(RPMstonith) $(RPMpils)
 
 AUTOMAKE_OPTIONS	= foreign
 ##ACLOCAL                 = aclocal -I $(auxdir)
@@ -54,14 +53,10 @@ hauser = 		@HA_CCMUSER@
 
 ## proc-ha is left out from SUBDIRS (completely obsolete)
 
-if LDIRECTORD_BUILD
-LDIRECTORD_DIR = ldirectord
-endif
-
 # 'buildtools' must be first in the list: tools to aid building of remainder.
 SUBDIRS	= buildtools $(LIBLTDL_DIR) debian pkg port replace include lib	\
           heartbeat membership telecom resources tools doc cts  \
-          $(LDIRECTORD_DIR) config contrib
+          config contrib
 
 HANDY_DOCS = doc/ChangeLog doc/GettingStarted.html doc/DirectoryMap.txt
 HBDOCS = doc/heartbeat_api.html
