@@ -634,9 +634,6 @@ fi
 %{_sbindir}/lrmadmin
 %{_libdir}/heartbeat/lrmd
 %{_libdir}/heartbeat/plugins/RAExec
-%exclude %{_libdir}/heartbeat/utillib.sh
-%exclude %{_libdir}/heartbeat/openais_conf_support.sh
-%exclude %{_libdir}/heartbeat/ha_cf_support.sh
 %doc %{_mandir}/man8/apphbd.8*
 %doc %{_mandir}/man8/stonith.8*
 %doc %{_mandir}/man8/meatclient.8*
@@ -647,9 +644,6 @@ fi
 %doc %{_datadir}/doc/packages/heartbeat/COPYING.LGPL
 %exclude %{_datadir}/doc/packages/heartbeat/ChangeLog
 %doc %{_datadir}/doc/packages/heartbeat/logd.cf
-%{_datadir}/heartbeat/utillib.sh
-%{_datadir}/heartbeat/ha_cf_support.sh
-%{_datadir}/heartbeat/openais_conf_support.sh
 %{_datadir}/doc/packages/heartbeat/apphbd.cf
 %doc %{_datadir}/doc/packages/heartbeat/stonith/README.bladehpi
 %doc %{_datadir}/doc/packages/heartbeat/stonith/README.cyclades
