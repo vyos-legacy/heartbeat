@@ -38,6 +38,8 @@
 #include "config.h"
 #endif
 
+#include <heartbeat/glue_config.h>
+
 #include <sys/param.h>
 #ifdef BSD
 #	define SCANSEL_CAST	(void *)

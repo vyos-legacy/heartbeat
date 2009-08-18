@@ -38,52 +38,10 @@
 /* heartbeat rc script directory */
 #undef HA_RC_DIR
 
-/* heartbeat logging socket */
-#undef HA_LOGDAEMON_IPC
-
 /* lib directory */
 #undef HA_LIBDIR
 
-/* lib heartbeat directory */
-#undef HA_LIBHBDIR
-
-/* top directory of area to drop core files in */
-#undef HA_COREDIR
-
-/* var lib directory */
-#undef HA_VARLIBDIR
-
-/* var lib heartbeat directory */
-#undef HA_VARLIBHBDIR
-
-/* var lock directory */
-#undef HA_VARLOCKDIR
-
-/* var log directory */
-#undef HA_VARLOGDIR
-
-/* var run directory */
-#undef HA_VARRUNDIR
-
-/* var run heartbeat directory */
-#undef HA_VARRUNHBDIR
-
 /* Heartbeat configuration directory */
 #undef HA_HBCONF_DIR
-
-/* lsb ra dir */
-#undef LSB_RA_DIR
-
-/* stonith ra dir */
-#undef STONITH_RA_DIR
-
-/* pils plugin dir */
-#undef HA_PLUGIN_DIR
-
-/* ra plugin dir */
-#undef LRM_PLUGIN_DIR
-
-/* directory for the external stonith plugins */
-#undef STONITH_EXT_PLUGINDIR
 
 #endif /* _HB_CONFIG_H */
