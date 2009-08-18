@@ -39,7 +39,7 @@ AC_ARG_WITH(hapkgversion,
 )
 
 if test -z "$HAPKGVERSION" ; then
-   HAPKGVERSION="2.99.4"
+   HAPKGVERSION="3.0.0"
 fi
 AM_INIT_AUTOMAKE(heartbeat, $HAPKGVERSION)
 
@@ -126,6 +126,23 @@ AC_SUBST(PKGNAME)
 
 MISSINGTHINGS=""
 MISSINGOPTIONALS=""
+
+dnl ===============================================
+dnl Helpers 
+dnl ===============================================
+
+extract_header_define() {
+	  AC_MSG_CHECKING(for $2 in $1)
+	  Cfile=/tmp/extract_define.$2.${$}
+	  printf "#include <stdio.h>\n" > ${Cfile}.c
+	  printf "#include <%s>\n" $1 >> ${Cfile}.c
+	  printf "int main(int argc, char **argv) { printf(\"%%s\", %s); return 0; }\n" $2 >> ${Cfile}.c
+	  $CC $CFLAGS ${Cfile}.c -o ${Cfile}
+	  value=`${Cfile}`
+	  AC_MSG_RESULT($value)
+	  printf $value
+	  rm -f ${Cfile}.c ${Cfile}
+	}
 
 FatalMissingThing() {
   if test X"$MISSINGTHINGS" = X; then
@@ -367,6 +384,14 @@ then
 	sleep $SNOOZING
 fi
 
+AC_CHECK_HEADERS(heartbeat/glue_config.h)
+GLUE_HEADER=none
+if test "$ac_cv_header_heartbeat_glue_config_h" = "yes";  then
+   GLUE_HEADER=heartbeat/glue_config.h
+else
+   AC_MSG_FAILURE(Core development headers were not found)
+fi
+
 CFLAGS="$CFLAGS -I${prefix}/include/heartbeat"
 AC_CHECK_HEADERS(glue_config.h)
 if test "$ac_cv_header_glue_config_h" != "yes";  then
@@ -391,64 +416,29 @@ HA_NOARCHDATAHBDIR="$HA_DATADIR/${HB_PKG}"
 AC_SUBST(HA_NOARCHDATAHBDIR)
 AC_DEFINE_UNQUOTED(HA_NOARCHDATAHBDIR,"$HA_NOARCHDATAHBDIR", $HB_PKG noarch data directory)
 
-HA_LIBHBDIR="$HA_LIBDIR/${HB_PKG}"
+HA_LIBHBDIR=`extract_header_define $GLUE_HEADER HA_LIBHBDIR`
 AC_SUBST(HA_LIBHBDIR)
-AC_DEFINE_UNQUOTED(HA_LIBHBDIR,"$HA_LIBHBDIR", $HB_PKG lib directory)
 
-
-HA_VARRUNDIR="${localstatedir}/run"
+HA_VARRUNDIR=`extract_header_define $GLUE_HEADER HA_VARRUNDIR`
 AC_SUBST(HA_VARRUNDIR)
-AC_DEFINE_UNQUOTED(HA_VARRUNDIR,"$HA_VARRUNDIR", var run directory)
 
 HA_VARRUNHBDIR="$HA_VARRUNDIR/${HB_PKG}"
 AC_SUBST(HA_VARRUNHBDIR)
-AC_DEFINE_UNQUOTED(HA_VARRUNHBDIR,"$HA_VARRUNHBDIR", var run heartbeat directory)
 
 HA_VARRUNHBRSCDIR="$HA_VARRUNHBDIR/rsctmp"
 AC_SUBST(HA_VARRUNHBRSCDIR)
-AC_DEFINE_UNQUOTED(HA_VARRUNHBRSCDIR,"$HA_VARRUNHBRSCDIR", var run heartbeat rsctmp directory)
 
 HA_VARLIBDIR="${localstatedir}/lib"
 AC_SUBST(HA_VARLIBDIR)
-AC_DEFINE_UNQUOTED(HA_VARLIBDIR,"$HA_VARLIBDIR", var lib directory)
 
-HA_VARLIBHBDIR="${HA_VARLIBDIR}/${HB_PKG}"
+HA_VARLIBHBDIR=`extract_header_define $GLUE_HEADER HA_VARLIBHBDIR`
 AC_SUBST(HA_VARLIBHBDIR)
-AC_DEFINE_UNQUOTED(HA_VARLIBHBDIR,"$HA_VARLIBHBDIR", var lib heartbeat directory)
 
-HA_COREDIR="${HA_VARLIBHBDIR}/cores"
+HA_COREDIR=`extract_header_define $GLUE_HEADER HA_COREDIR`
 AC_SUBST(HA_COREDIR)
-AC_DEFINE_UNQUOTED(HA_COREDIR,"$HA_COREDIR", top directory of area to drop core files in)
 
-dnl This IS a default but we should make sure we can override it for any 
-dnl odd OS requirements.
-HA_VARLOGDIR="${localstatedir}/log"
-AC_SUBST(HA_VARLOGDIR)
-AC_DEFINE_UNQUOTED(HA_VARLOGDIR,"$HA_VARLOGDIR", var log directory)
-
-
-
-STONITHPKG=stonith
-AC_SUBST(STONITHPKG)
-
-PILSPKG=pils
-AC_SUBST(PILSPKG)
-
-pils_includedir="${includedir}/${PILSPKG}"
-pils_plugindir="${libdir}/${PILSPKG}/plugins"
-stonith_includedir="${includedir}/${STONITHPKG}"
-stonith_plugindir="${libdir}/${STONITHPKG}/plugins"
-stonith_ext_plugindir="${stonith_plugindir}/external"
 base_includedir="${includedir}"
 saf_includedir="${includedir}/saf"
-AC_SUBST(pils_includedir)
-AC_SUBST(pils_plugindir)
-AC_SUBST(stonith_includedir)
-AC_SUBST(stonith_plugindir)
-AC_SUBST(stonith_ext_plugindir)
-AC_DEFINE_UNQUOTED(STONITH_EXT_PLUGINDIR, 
-	"$stonith_ext_plugindir", 
-	directory for the external stonith plugins)
 AC_SUBST(base_includedir)
 AC_SUBST(saf_includedir)
 AC_SUBST(docdir)
@@ -1589,7 +1579,6 @@ dnl - If requested, enable ALL subsystems.
 	  echo "Enabling all optional features."
 	  enable_ansi=yes;
 	  enable_fatal_warnings=yes;
-	  enable_lrm=yes;
 	  enable_quorumd=try;
 	  enable_ipmilan=try
 	fi
@@ -1939,15 +1928,17 @@ dnl	and no one has overridden group-id with a --with-group-id
 dnl	option.
 dnl
 
-AC_ARG_WITH(
-  group-name,
-    [  --with-group-name=GROUP_NAME
-                          GROUP_NAME to run our programs as. [default=haclient]  ],
-    [ HA_APIGROUP="$withval" ],
-    [ HA_APIGROUP="haclient" ],
-  )
+if
+  test  -z "${IP2UTIL}" -o ! -x "${IP2UTIL}"
+then
+  IP2UTIL=/sbin/ip
+fi
+
+HA_CCMUSER=`extract_header_define $GLUE_HEADER HA_CCMUSER`
+AC_SUBST(HA_CCMUSER)
+
+HA_APIGROUP=`extract_header_define $GLUE_HEADER HA_APIGROUP`
 AC_SUBST(HA_APIGROUP)
-AC_DEFINE_UNQUOTED(HA_APIGROUP, "$HA_APIGROUP", group for our programs)
 
 if
   test  -z "${GETENT}" -o ! -x "${GETENT}"
@@ -1957,13 +1948,6 @@ then
     grep "^${2}:" /etc/$1
   }
 fi
-
-if
-  test  -z "${IP2UTIL}" -o ! -x "${IP2UTIL}"
-then
-  IP2UTIL=/sbin/ip
-fi
-
 
 AC_ARG_WITH(
   group-id,
@@ -1979,16 +1963,6 @@ then
 fi
 AC_SUBST(HA_APIGID)
 AC_DEFINE_UNQUOTED(HA_APIGID, $HA_APIGID, id for api group)
-
-AC_ARG_WITH(
-  ccmuser-name,
-    [  --with-ccmuser-name=HA_CCMUSER_NAME
-                          HA_CCMUSER_NAME to run privileged non-root things as. [default=hacluster]  ],
-    [ HA_CCMUSER="$withval" ],
-    [ HA_CCMUSER="hacluster" ],
-  )
-AC_SUBST(HA_CCMUSER)
-AC_DEFINE_UNQUOTED(HA_CCMUSER, "$HA_CCMUSER", user to run privileged non-root things as)
 
 AC_ARG_WITH(
   ccmuser-id,
@@ -2017,16 +1991,6 @@ AC_ARG_WITH(
   )
 AC_SUBST(HB_INITSTARTPRI)
 AC_DEFINE_UNQUOTED(HB_INITSTARTPRI,"$HB_INITSTARTPRI", init start priority)
-
-AC_ARG_WITH(
-  logd-start-init-priority,
-    [  --with-logd-start-init-priority=number  
-                          ha_logd init start priority.  [default=10]  ],
-    [ LOGD_INITSTARTPRI="$withval" ],
-    [ LOGD_INITSTARTPRI=10 ],
-  )
-AC_SUBST(LOGD_INITSTARTPRI)
-AC_DEFINE_UNQUOTED(LOGD_INITSTARTPRI,"$LOGD_INITSTARTPRI", ha_logd init start priority)
 
 #
 #	Priority for stopping via init shutdown scripts
@@ -2339,48 +2303,6 @@ HA_RC_DIR=$HA_HBCONF_DIR/rc.d
 AC_SUBST(HA_RC_DIR)
 AC_DEFINE_UNQUOTED(HA_RC_DIR,"$HA_RC_DIR", heartbeat v1 script directory)
 
-enable_crm=no
-
-CRM_DIR=""
-CRM_ENABLED=0
-AC_SUBST(CRM_DIR)
-AC_SUBST(CRM_ENABLED)
-AM_CONDITIONAL(CRM_BUILD, test "x${enable_crm}" = "xyes")
-AC_MSG_NOTICE([whether to enable the Cluster Resource Manager... ${enable_crm}])
-
-dnl lrm configuration
-AC_ARG_ENABLE([lrm],
-[  --enable-lrm  Compile the new Local Resource Manager.  [default=yes]],
-                     [], [enable_lrm=yes])
-
-LRM_ENABLED=0
-if test "x${enable_crm}" = "xyes"; then
-   if test "x${enable_lrm}" = "xno"; then
-      AC_MSG_WARN([crm enabled, overriding --enable-lrm=no with --enable-lrm=yes])
-   elif test -z "${enable_lrm}"; then
-	   AC_MSG_WARN([crm enabled, defaulting to --enable-lrm=yes])
-   fi
-   enable_lrm="yes"
-elif test -z "${enable_lrm}"; then
-   enable_lrm="no"
-fi
-
-if test "x${enable_lrm}" = "xyes"; then
-	LRM_ENABLED=1
-fi
-
-if
-	test -h /proc/$$/exe
-then
-	AC_MSG_NOTICE("/proc/{pid}/exe link is supported") 
-	AC_DEFINE_UNQUOTED(HAVE_PROC_PID, 1, Define to 1 if /proc/{pid} is supported.)
-fi
-
-AC_SUBST(LRM_ENABLED)
-AM_CONDITIONAL(LRM_BUILD, test "x${enable_lrm}" = "xyes")
-
-AC_MSG_NOTICE([whether to enable the Local Resource Manager... ${enable_lrm}])
-
 dnl ************************************************************************
 dnl management and quorum daemons.
 
@@ -2463,46 +2385,20 @@ AM_CONDITIONAL(BUILD_DRBD_OUTDATE_PEER, test "x${enable_dopd}" != "xno")
 hb_libdir="${libdir}/${HB_PKG}"
 AC_SUBST(hb_libdir)
 
-HA_PLUGIN_DIR="${hb_libdir}/plugins"
+HA_PLUGIN_DIR=`extract_header_define $GLUE_HEADER HA_PLUGIN_DIR`
 AC_SUBST(HA_PLUGIN_DIR)
-AC_DEFINE_UNQUOTED(HA_PLUGIN_DIR,"$HA_PLUGIN_DIR", PILS plugin dir)
 
-LRM_PLUGIN_DIR="${hb_libdir}/plugins/RAExec"
-AC_SUBST(LRM_PLUGIN_DIR)
-AC_DEFINE_UNQUOTED(LRM_PLUGIN_DIR,"$LRM_PLUGIN_DIR", LRM plugin dir)
-
-HB_RA_DIR="${sysconfdir}/ha.d/resource.d/"
+HB_RA_DIR=`extract_header_define $GLUE_HEADER HB_RA_DIR`
 AC_SUBST(HB_RA_DIR)
-AC_DEFINE_UNQUOTED(HB_RA_DIR,"$HB_RA_DIR", Location for v1 Heartbeat v1 RAs)
 
-dnl ************ OCF (Open Cluster Framework) **********************
-dnl Should be consistent with the OCF standard fixed pathname /usr/lib/ocf
-dnl Changing it from this value violates the OCF standard. 
-dnl This is why it is not affected by the PREFIX setting.
-dnl We do not recommend changing it.
-dnl
-OCF_ROOT_DIR="/usr/lib/ocf"
-AC_ARG_WITH(ocf-root,
-    [  --with-ocf-root=DIR      directory for OCF scripts [${OCF_ROOT_DIR}]],
-    [ if test x"$withval" = xprefix; then OCF_ROOT_DIR=${prefix}; else
-	 OCF_ROOT_DIR="$withval"; fi ])
-if test "X$OCF_ROOT_DIR" = X; then
-  FatalMissingThing "OCF directory" "Could not locate OCF directory"
-fi
+OCF_ROOT_DIR=`extract_header_define $GLUE_HEADER OCF_ROOT_DIR`
 AC_SUBST(OCF_ROOT_DIR)
-AC_DEFINE_UNQUOTED(OCF_ROOT_DIR,"$OCF_ROOT_DIR", OCF root directory - specified by the OCF standard)
 
-OCF_RA_DIR="${OCF_ROOT_DIR}/resource.d/"
+OCF_RA_DIR=`extract_header_define $GLUE_HEADER OCF_RA_DIR`
 AC_SUBST(OCF_RA_DIR)
-AC_DEFINE_UNQUOTED(OCF_RA_DIR,"$OCF_RA_DIR", Location for OCF RAs)
 
-LSB_RA_DIR="${INITDIR}"
+LSB_RA_DIR=`extract_header_define $GLUE_HEADER LSB_RA_DIR`
 AC_SUBST(LSB_RA_DIR)
-AC_DEFINE_UNQUOTED(LSB_RA_DIR,"$LSB_RA_DIR", Location for LSB RAs)
-
-STONITH_RA_DIR="${hb_libdir}/stonith.d/"
-AC_SUBST(STONITH_RA_DIR)
-AC_DEFINE_UNQUOTED(STONITH_RA_DIR,"$STONITH_RA_DIR", Location for STONITH RAs)
 
 AC_ARG_ENABLE([valgrind],
 	[  --enable-valgrind  "Run selected heartbeat components using Valgrind."  [default=no]],
@@ -2769,8 +2665,6 @@ AC_MSG_RESULT([  HA user user id          = "${HA_CCMUID}"])
 
 AC_MSG_RESULT([  SNMP libraries           = "${SNMPLIB}"])
 
-AC_MSG_RESULT([  Build CRM                = "${enable_crm}"])
-AC_MSG_RESULT([  Build LRM                = "${enable_lrm}"])
 AC_MSG_RESULT([  Build IPMILan Plugin     = "${enable_ipmilan}"])
 
 AC_MSG_RESULT([  Build dopd plugin        = "${enable_dopd}"])

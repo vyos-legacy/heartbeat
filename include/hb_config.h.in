@@ -23,6 +23,8 @@
 #ifndef _HB_CONFIG_H
 #define _HB_CONFIG_H
 
+#include <heartbeat/glue_config.h>
+
 /* have new heartbeat api */
 #undef HAVE_NEW_HB_API
 
