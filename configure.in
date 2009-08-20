@@ -2198,16 +2198,6 @@ AC_CHECK_HEADERS(evs.h, , [openais_installed="no"],)
 AC_CHECK_LIB(evs, evs_initialize , , [openais_installed="no"])
 AM_CONDITIONAL(BUILD_OPENAIS_MODULE, test "x${openais_installed}" = "xyes")
 
-
-AC_MSG_CHECKING(if clock_t is long enough)
-if test $ac_cv_sizeof_long -ge 8; then
-  AC_MSG_RESULT(yes)
-  AC_DEFINE(CLOCK_T_IS_LONG_ENOUGH, 1, [Set if CLOCK_T is adequate by itself for the "indefinite future" (>= 100 years)])
-else
-  AC_MSG_RESULT(no)
-fi
-
-
 dnl check if there are getpid() inconsistency
 dnl	Note: reduce LIBS; in particular, ltdl can cause confusion.
 dnl	Possibly better:  move 'LIBS="$LIBS -lltdl"' from above to beyond here.
@@ -2553,7 +2543,6 @@ lib/Makefile							\
 		lib/plugins/quorumd/Makefile			\
 		lib/plugins/tiebreaker/Makefile			\
 heartbeat/Makefile						\
-	heartbeat/shellfuncs					\
 	heartbeat/rc.d/Makefile					\
 		heartbeat/rc.d/ask_resources			\
 		heartbeat/rc.d/hb_takeover			\

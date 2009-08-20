@@ -72,7 +72,7 @@ heartbeat_LDFLAGS	= @LIBADD_DL@ @LIBLTDL@ -export-dynamic	@DLOPEN_FORCE_FLAGS@
 heartbeat_CFLAGS       = $(AM_CFLAGS)
 
 ## SCRIPTS/DATA
-ha_DATA			= shellfuncs README.config 
+ha_DATA			= README.config 
 ha_SCRIPTS		= harc
 
 
