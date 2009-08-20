@@ -23,14 +23,8 @@
 #ifndef _HB_CONFIG_H
 #define _HB_CONFIG_H
 
-#include <heartbeat/glue_config.h>
-
 /* have new heartbeat api */
 #undef HAVE_NEW_HB_API
-
-/* Set if CLOCK_T is adequate by itself for the "indefinite future" (>= 100
-   years) */
-#undef CLOCK_T_IS_LONG_ENOUGH
 
 /* Web site base URL */
 #undef HA_URLBASE
@@ -43,5 +37,7 @@
 
 /* Heartbeat configuration directory */
 #undef HA_HBCONF_DIR
+
+#include <heartbeat/glue_config.h>
 
 #endif /* _HB_CONFIG_H */
