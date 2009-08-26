@@ -1617,6 +1617,16 @@ AC_SUBST(INCLTDL)
 AC_SUBST(LIBLTDL)
 AC_SUBST(LIBLTDL_DIR)
 
+
+AC_MSG_CHECKING(if clock_t is long enough)
+if test $ac_cv_sizeof_long -ge 8; then
+  AC_MSG_RESULT(yes)
+  AC_DEFINE(CLOCK_T_IS_LONG_ENOUGH, 1, [Set if CLOCK_T is adequate by itself for the "indefinite future" (>= 100 years)])
+else
+  AC_MSG_RESULT(no)
+fi
+
+
 dnl ************ curses **********************
 dnl A few OSes (e.g. Linux) deliver a default "ncurses" alongside "curses".
 dnl Many non-Linux deliver "curses"; sites may add "ncurses".
