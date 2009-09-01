@@ -54,24 +54,13 @@ LOCKDIR=@localstatedir@/lock/subsys
 RUNDIR=@localstatedir@/run
 
 
-#	Echo without putting a newline on the end
-EchoNoNl() {
-    Echo @ECHO_N@ "$@@ECHO_C@"
-}
-
-#	Echo with escapes enabled...
-EchoEsc() {
-    Echo @ECHO_E@ "$@"
-}
-
 echo_failure() {
-    EchoEsc " Heartbeat failure [rc=$1]. $rc_failed"
+    echo -e " Heartbeat failure [rc=$1]. $rc_failed"
     return $1
 }
 
 echo_success() {
-    : Cool!  It started!
-    EchoEsc "$rc_done"
+    echo -e "$rc_done"
 }
 
 if
@@ -122,12 +111,11 @@ then
 	$HA_BIN/heartbeat -s
   }
   echo_failure() {
-      EchoEsc " Heartbeat failure [rc=$1]. $rc_failed"
+      echo -e " Heartbeat failure [rc=$1]. $rc_failed"
       return $1
   }
   echo_success() {
-	: Cool!  It started!
-      EchoEsc "$rc_done"
+      echo -e "$rc_done"
   }
 else
   . $DISTFUNCS
@@ -139,7 +127,7 @@ fi
 if
   [ ! -f $CONFIG ]
 then
-  EchoNoNl "Heartbeat not configured: $CONFIG not found."
+  echo -n "Heartbeat not configured: $CONFIG not found."
   echo_failure 1
   exit 0
 fi
@@ -179,9 +167,9 @@ init_watchdog_linux() {
   insmod=no
   # What do they think /dev/watchdog is named?
   MISCDEV=`grep ' misc$' /proc/devices | cut -c1-4`
-  MISCDEV=`Echo $MISCDEV`
+  MISCDEV=`echo $MISCDEV`
   WATCHDEV=`ha_parameter watchdog`
-  WATCHDEV=`Echo $WATCHDEV`
+  WATCHDEV=`echo $WATCHDEV`
   if
     [ "X$WATCHDEV" != X ]
   then
@@ -243,7 +231,7 @@ start_heartbeat() {
 #
 
 StartHA() {
-  EchoNoNl "Starting High-Availability services: "
+  echo -n "Starting High-Availability services: "
 
   if
     CrmEnabled
@@ -282,8 +270,8 @@ StartHA() {
     RC=$?
     echo_failure $RC
     if [ ! -z "$ERROR" ]; then
-      Echo
-      Echo "$ERROR"
+      echo
+      echo "$ERROR"
     fi 
     return $RC
   fi
@@ -293,7 +281,7 @@ StartHA() {
 #	Ask heartbeat to stop.  It will give up its resources...
 #
 StopHA() {
-  EchoNoNl "Stopping High-Availability services: "
+  echo -n "Stopping High-Availability services: "
 
   if
     $HA_BIN/heartbeat -k >/dev/null 2>&1	# Kill it
@@ -332,7 +320,7 @@ StandbyHA() {
   if
     StatusHA >/dev/null 2>&1
   then
-    EchoNoNl "Attempting to enter standby mode"
+    echo -n "Attempting to enter standby mode"
     if
       $HA_NOARCHBIN/hb_standby
     then
@@ -342,7 +330,7 @@ StandbyHA() {
       echo_failure $?
     fi
   else
-    Echo "Heartbeat is not currently running."
+    echo "Heartbeat is not currently running."
     exit 1
   fi
 }
@@ -351,7 +339,7 @@ StandbyHA() {
 #	Ask heartbeat to restart.  It will *keep* its resources
 #
 ReloadHA() {
-  EchoNoNl "Reloading High-Availability services: "
+  echo -n "Reloading High-Availability services: "
 
   if
     $HA_BIN/heartbeat -r # Restart, and keep your resources
@@ -382,7 +370,7 @@ case "$1" in
 	RunStartStop pre-start
 	StartHA
 	RC=$?
-	Echo
+	echo
 	if
 	  [ $RC -eq 0 ]
 	then
@@ -404,7 +392,7 @@ case "$1" in
 	RunStartStop "pre-stop"
 	StopHA
 	RC=$?
-	Echo
+	echo
         if
           [ $RC -eq 0 ]
         then
@@ -416,24 +404,24 @@ case "$1" in
   restart)
         sleeptime=`ha_parameter deadtime`
 	StopHA
-	Echo
-	EchoNoNl Waiting to allow resource takeover to complete:
+	echo
+	echo -n "Waiting to allow resource takeover to complete:"
 	sleep $sleeptime
 	sleep 10 # allow resource takeover to complete (hopefully).
 	echo_success
-	Echo
+	echo
 	StartHA
-	Echo
+	echo
 	;;
 
   force-reload|reload)
 	ReloadHA
-	Echo
+	echo
 	RC=$?
 	;;
 
   *)
-	Echo "Usage: $0 {start|stop|status|restart|reload|force-reload}"
+	echo "Usage: $0 {start|stop|status|restart|reload|force-reload}"
 	exit 1
 esac
 
