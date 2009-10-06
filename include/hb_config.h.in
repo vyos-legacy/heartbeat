@@ -32,12 +32,6 @@
 /* heartbeat rc script directory */
 #undef HA_RC_DIR
 
-/* lib directory */
-#undef HA_LIBDIR
-
-/* Heartbeat configuration directory */
-#undef HA_HBCONF_DIR
-
 #include <heartbeat/glue_config.h>
 
 #endif /* _HB_CONFIG_H */
