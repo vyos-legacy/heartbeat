@@ -7,7 +7,7 @@ dnl
 dnl License: GNU General Public License (GPL)
 
 dnl Initialiase, with sanity check of a unique file in the hierarchy
-AC_INIT(heartbeat.spec)
+AC_INIT(GNUmakefile)
 AC_PREREQ(2.53)
 
 AC_CONFIG_AUX_DIR(.)

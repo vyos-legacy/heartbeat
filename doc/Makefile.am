@@ -32,7 +32,7 @@ txtfiles                = $(htmlfiles:.html=.txt)
 
 CLEANFILES              = ChangeLog $(txtfiles)
 
-SPECSRC 		= $(top_builddir)/heartbeat.spec
+SPECSRC 		= $(top_builddir)/heartbeat-fedora.spec
 
 OTHER_DOCS              = AUTHORS COPYING COPYING.LGPL ChangeLog README \
                                 authkeys ha.cf startstop haresources \

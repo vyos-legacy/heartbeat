@@ -24,9 +24,7 @@ TARFILE		= $(PROJECT).tar.bz2
 RPM_ROOT	= $(shell pwd)
 RPM_OPTS	= --define "_sourcedir $(RPM_ROOT)" 	\
 		  --define "_specdir $(RPM_ROOT)" 	\
-		  --define "_builddir $(RPM_ROOT)" 	\
-		  --define "_srcrpmdir $(RPM_ROOT)" 	\
-		  --define "_rpmdir $(RPM_ROOT)"
+		  --define "_srcrpmdir $(RPM_ROOT)" 
 
 getdistro = $(shell test -e /etc/SuSE-release || echo fedora; test -e /etc/SuSE-release && echo suse)
 DISTRO ?= $(call getdistro)
