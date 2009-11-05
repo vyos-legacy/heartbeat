@@ -23,8 +23,9 @@ TARFILE		= $(PROJECT).tar.bz2
 
 RPM_ROOT	= $(shell pwd)
 RPM_OPTS	= --define "_sourcedir $(RPM_ROOT)" 	\
-		  --define "_specdir $(RPM_ROOT)" 	\
-		  --define "_srcrpmdir $(RPM_ROOT)" 
+		  --define "_srcrpmdir $(RPM_ROOT)" 	\
+		  --define "dist .$(DISTRO)"
+
 
 getdistro = $(shell test -e /etc/SuSE-release || echo fedora; test -e /etc/SuSE-release && echo suse)
 DISTRO ?= $(call getdistro)
@@ -36,7 +37,7 @@ hgarchive:
 
 srpm:	hgarchive
 	rm -f *.src.rpm
-	rpmbuild -bs --define "dist .$(DISTRO)" $(RPM_OPTS) $(PROJECT)-$(DISTRO).spec
+	rpmbuild -bs $(RPM_OPTS) $(PROJECT)-$(DISTRO).spec
 
 rpm:	srpm
 	@echo To create custom builds, edit the flags and options in $(PROJECT)-$(call getdistro).spec first
