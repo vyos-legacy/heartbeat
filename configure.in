@@ -564,6 +564,9 @@ dnl The "test" program can be different from the "sh" builtin.
 AC_PATH_PROGS(TEST, test)
 AC_PATH_PROGS(PKGCONFIG, pkg-config)
 
+dnl xsltproc is required for building the man pages
+AC_PATH_PROGS(XSLTPROC, xsltproc)
+
 dnl ************************************************************************
 dnl Check whether non-root user can chown.
 dnl ************************************************************************

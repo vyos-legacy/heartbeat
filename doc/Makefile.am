@@ -43,6 +43,16 @@ doc_DATA		= $(OTHER_DOCS) $(txtfiles) $(htmlfiles)
 man_MANS		= heartbeat.8 apphbd.8 cl_status.1  \
 			 hb_standby.1 hb_takeover.1 hb_addnode.1 hb_delnode.1
 
+STYLESHEET_PREFIX 	?= http://docbook.sourceforge.net/release/xsl/current
+MANPAGES_STYLESHEET 	?= $(STYLESHEET_PREFIX)/manpages/docbook.xsl
+HTML_STYLESHEET 	?= $(STYLESHEET_PREFIX)/xhtml/docbook.xsl
+FO_STYLESHEET 		?= $(STYLESHEET_PREFIX)/fo/docbook.xsl
+
+XSLTPROC_OPTIONS 	?= --xinclude
+XSLTPROC_MANPAGES_OPTIONS ?= $(XSLTPROC_OPTIONS)
+XSLTPROC_HTML_OPTIONS 	?= $(XSLTPROC_OPTIONS)
+XSLTPROC_FO_OPTIONS 	?= $(XSLTPROC_OPTIONS)
+
 EXTRA_DIST = $(txtfiles) $(htmlfiles) $(man_MANS) $(OTHER_DOCS)
 
 ChangeLog: $(SPECSRC)
@@ -51,3 +61,8 @@ ChangeLog: $(SPECSRC)
 
 .html.txt:
 	if [ "X$(HTML2TXT)" = "X" ]; then echo "Lynx or w3m or user-defined HTML2TXT required to convert $< to $@" >$@ ; else $(HTML2TXT) -dump $< >$@ ; fi
+
+%.5 %.8 %.1: %.xml
+	$(XSLTPROC) \
+	$(XSLTPROC_MANPAGES_OPTIONS) \
+	$(MANPAGES_STYLESHEET) $<
