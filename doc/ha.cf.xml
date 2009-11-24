@@ -1,0 +1,39 @@
+<?xml version="1.0"?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<refentry id="re-hacf">
+  <refentryinfo>
+    <date>24 Nov 2009</date>
+    <productname>Heartbeat</productname>
+    <productnumber>3.0.2</productnumber>
+  </refentryinfo>
+  <refmeta>
+    <refentrytitle>ha.cf</refentrytitle>
+    <manvolnum>5</manvolnum>
+    <refmiscinfo class="manual">Configuration Files</refmiscinfo>
+  </refmeta>
+  <refnamediv>
+    <refname>ha.cf</refname>
+    <refpurpose>Configuration file for the Heartbeat cluster messaging layer
+    <indexterm significance="normal">
+      <primary>ha.cf</primary>
+    </indexterm>
+    </refpurpose>
+  </refnamediv>
+  <refsection id="rs-hacf-description">
+    <title>Description</title>
+    <para><filename>ha.cf</filename> is read by
+    <citerefentry>
+      <refentrytitle>heartbeat</refentrytitle>
+      <manvolnum>8</manvolnum></citerefentry> upon node
+    start-up. It lists the communication facilities enabled between
+    nodes, enables or disables certain features, and optionally lists
+    the cluster nodes by host name.</para>
+    <para>This file can safely be made world readable, but should be
+    writable only by root.</para>
+  </refsection>
+  <refsection id="rs-hacf-req-options">
+    <title>Required options</title>
+    <para>The following options must always be present in
+    <filename>ha.cf</filename>:</para>
+  </refsection>
+</refentry>
