@@ -19,12 +19,12 @@
     </authorgroup>
   </refentryinfo>
   <refmeta>
-    <refentrytitle>@HA_HBCONF_DIR@/ha.cf</refentrytitle>
+    <refentrytitle>ha.cf</refentrytitle>
     <manvolnum>5</manvolnum>
     <refmiscinfo class="manual">Configuration Files</refmiscinfo>
   </refmeta>
   <refnamediv>
-    <refname>@HA_HBCONF_DIR@/ha.cf</refname>
+    <refname>ha.cf</refname>
     <refpurpose>Configuration file for the Heartbeat cluster messaging
     layer</refpurpose>
   </refnamediv>

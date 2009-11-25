@@ -19,12 +19,12 @@
     </authorgroup>
   </refentryinfo>
   <refmeta>
-    <refentrytitle>@HA_HBCONF_DIR@/authkeys</refentrytitle>
+    <refentrytitle>authkeys</refentrytitle>
     <manvolnum>5</manvolnum>
     <refmiscinfo class="manual">Configuration Files</refmiscinfo>
   </refmeta>
   <refnamediv>
-    <refname>@HA_HBCONF_DIR@/authkeys</refname>
+    <refname>authkeys</refname>
     <refpurpose>Authentication file for the Heartbeat cluster messaging
     layer</refpurpose>
   </refnamediv>
@@ -57,9 +57,9 @@
 <replaceable>num</replaceable> <replaceable>method</replaceable> <replaceable>secret</replaceable>
 <replaceable>num</replaceable> <replaceable>method</replaceable> <replaceable>secret</replaceable>
 ...</programlisting>
-
     <para><replaceable>num</replaceable> is a numerical identifier,
-    starting with 1.</para>
+    between 1 and 15 inclusive. It must be unique within the
+    file.</para>
     <para><replaceable>method</replaceable> is one of the available
     authentication signature methods (see below for supported
     methods).</para>
