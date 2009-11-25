@@ -2538,6 +2538,7 @@ debian/Makefile							\
 doc/Makefile							\
 	doc/startstop						\
 	doc/heartbeat.xml					\
+	doc/cl_status.xml					\
 	doc/ha.cf.xml						\
 	doc/authkeys.xml					\
 contrib/Makefile						\
