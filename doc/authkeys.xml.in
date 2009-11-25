@@ -19,18 +19,18 @@
     </authorgroup>
   </refentryinfo>
   <refmeta>
-    <refentrytitle>authkeys</refentrytitle>
+    <refentrytitle>@HA_HBCONF_DIR@/authkeys</refentrytitle>
     <manvolnum>5</manvolnum>
     <refmiscinfo class="manual">Configuration Files</refmiscinfo>
   </refmeta>
   <refnamediv>
-    <refname>authkeys</refname>
+    <refname>@HA_HBCONF_DIR@/authkeys</refname>
     <refpurpose>Authentication file for the Heartbeat cluster messaging
     layer</refpurpose>
   </refnamediv>
   <refsection id="rs-hacf-description">
     <title>Description</title>
-    <para><filename>authkeys</filename> is read by
+    <para><filename>@HA_HBCONF_DIR@/authkeys</filename> is read by
     <citerefentry>
       <refentrytitle>heartbeat</refentrytitle>
       <manvolnum>8</manvolnum></citerefentry>. It enables Heartbeat to
@@ -53,9 +53,9 @@
     </orderedlist>
     <para>The file must follow the following format:</para>
     <programlisting><option>auth</option> <replaceable>num</replaceable>
-<replaceable>num</replaceable> <option>method</option> <replaceable>secret</replaceable>
-<replaceable>num</replaceable> <option>method</option> <replaceable>secret</replaceable>
-<replaceable>num</replaceable> <option>method</option> <replaceable>secret</replaceable>
+<replaceable>num</replaceable> <replaceable>method</replaceable> <replaceable>secret</replaceable>
+<replaceable>num</replaceable> <replaceable>method</replaceable> <replaceable>secret</replaceable>
+<replaceable>num</replaceable> <replaceable>method</replaceable> <replaceable>secret</replaceable>
 ...</programlisting>
 
     <para><replaceable>num</replaceable> is a numerical identifier,
@@ -105,6 +105,6 @@
     </variablelist>
     <para>An absolutely up-to-date list of authentication methods
     supported may be retrieved by running <command>ls
-    FIXME</command>.</para>
+    <filename>@HA_PLUGIN_DIR@/HBauth/*.so</filename></command>.</para>
   </refsection>
 </refentry>

@@ -19,18 +19,18 @@
     </authorgroup>
   </refentryinfo>
   <refmeta>
-    <refentrytitle>ha.cf</refentrytitle>
+    <refentrytitle>@HA_HBCONF_DIR@/ha.cf</refentrytitle>
     <manvolnum>5</manvolnum>
     <refmiscinfo class="manual">Configuration Files</refmiscinfo>
   </refmeta>
   <refnamediv>
-    <refname>ha.cf</refname>
+    <refname>@HA_HBCONF_DIR@/ha.cf</refname>
     <refpurpose>Configuration file for the Heartbeat cluster messaging
     layer</refpurpose>
   </refnamediv>
   <refsection id="rs-hacf-description">
     <title>Description</title>
-    <para><filename>ha.cf</filename> is read by
+    <para><filename>@HA_HBCONF_DIR@/ha.cf</filename> is read by
     <citerefentry>
       <refentrytitle>heartbeat</refentrytitle>
       <manvolnum>8</manvolnum></citerefentry> upon node
@@ -184,7 +184,7 @@ bcast le0        # for Solaris systems</programlisting>
 	  <para>The compression directive sets which compression method will be used when a message is big and compression is needed.</para>
 	  <para>It could be either zlib or bz2, depending on whether
 	  you have the corresponding library in the system. You can
-	  check /usr/lib/heartbeat/plugins/HBcompress to see what
+	  check @HA_PLUGIN_DIR@/HBcompress to see what
 	  compression module is available.</para>
 	  <para>If this directive is not set, there will be no
 	  compression.</para>
