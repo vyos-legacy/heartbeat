@@ -21,12 +21,8 @@ MAINTAINERCLEANFILES    = Makefile.in
 
 docdir 			= $(datadir)/doc/packages/@HB_PKG@
 
-htmlfiles		= HardwareGuide.html	\
-			GettingStarted.html	\
-			Requirements.html	\
-			faqntips.html		\
-			heartbeat_api.html	\
-			rsync.html
+htmlfiles		= faqntips.html		\
+			heartbeat_api.html
 
 txtfiles                = $(htmlfiles:.html=.txt)
 
