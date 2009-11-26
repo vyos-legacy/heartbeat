@@ -26,7 +26,7 @@ htmlfiles		= faqntips.html		\
 
 txtfiles                = $(htmlfiles:.html=.txt)
 
-CLEANFILES              = ChangeLog $(txtfiles)
+CLEANFILES              = ChangeLog $(txtfiles) $(man_MANS)
 
 SPECSRC 		= $(top_builddir)/heartbeat-fedora.spec
 
