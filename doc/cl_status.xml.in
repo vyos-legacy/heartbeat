@@ -183,7 +183,7 @@
       </varlistentry>
     </variablelist>
   </refsection>
-  <refsection id="rs-heartbeat-seealso">
+  <refsection id="rs-clstatus-seealso">
     <title>See also</title>
     <para>
       <citerefentry><refentrytitle>heartbeat</refentrytitle><manvolnum>8</manvolnum></citerefentry>,

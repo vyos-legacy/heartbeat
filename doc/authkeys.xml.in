@@ -28,7 +28,7 @@
     <refpurpose>Authentication file for the Heartbeat cluster messaging
     layer</refpurpose>
   </refnamediv>
-  <refsection id="rs-hacf-description">
+  <refsection id="rs-authkeys-description">
     <title>Description</title>
     <para><filename>@HA_HBCONF_DIR@/authkeys</filename> is read by
     <citerefentry>
