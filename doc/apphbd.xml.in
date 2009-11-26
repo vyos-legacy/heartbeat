@@ -4,7 +4,7 @@
   <refentryinfo>
     <date>November 26, 2009</date>
     <productname>Heartbeat</productname>
-    <productnumber>3.0.2</productnumber>
+    <productnumber>@VERSION@</productnumber>
     <authorgroup>
       <author>
 	<firstname>Alan</firstname>
