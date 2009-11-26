@@ -2539,6 +2539,7 @@ doc/Makefile							\
 	doc/startstop						\
 	doc/heartbeat.xml					\
 	doc/cl_status.xml					\
+	doc/apphbd.xml						\
 	doc/hb_addnode.xml					\
 	doc/hb_delnode.xml					\
 	doc/hb_takeover.xml					\
