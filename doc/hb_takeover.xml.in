@@ -7,14 +7,22 @@
     <productnumber>3.0.2</productnumber>
     <authorgroup>
       <author>
+	<firstname>Alan</firstname>
+	<surname>Robertson</surname>
+	<contrib>hb_takeover</contrib>
+	<email>alanr@unix.sh</email>
+      </author>
+      <author>
 	<surname>Shi</surname>
 	<firstname>Guochun</firstname>
 	<contrib>man page</contrib>
+	<email>gshi@ncsa.uiuc.edu</email>
       </author>
       <author>
 	<firstname>Florian</firstname>
 	<surname>Haas</surname>
 	<contrib>man page</contrib>
+	<email>florian.haas@linbit.com</email>
       </author>
     </authorgroup>
   </refentryinfo>

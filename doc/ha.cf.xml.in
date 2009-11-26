@@ -9,12 +9,14 @@
       <author>
 	<firstname>Alan</firstname>
 	<surname>Robertson</surname>
-	<contrib>original Wiki page</contrib>
+	<contrib>heartbeat, original Wiki page</contrib>
+	<email>alanr@unix.sh</email>
       </author>
       <author>
 	<firstname>Florian</firstname>
 	<surname>Haas</surname>
 	<contrib>man page</contrib>
+	<email>florian.haas@linbit.com</email>
       </author>
     </authorgroup>
   </refentryinfo>

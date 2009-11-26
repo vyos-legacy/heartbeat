@@ -7,19 +7,28 @@
     <productnumber>3.0.2</productnumber>
     <authorgroup>
       <author>
+	<firstname>Alan</firstname>
+	<surname>Robertson</surname>
+	<contrib>cl_status</contrib>
+	<email>alanr@unix.sh</email>
+      </author>
+      <author>
 	<firstname>Juan Pedro</firstname>
 	<surname>Paredes Caballero</surname>
 	<contrib>man page</contrib>
+	<email>juampe@retemail.es</email>
       </author>
       <author>
 	<firstname>Simon</firstname>
 	<surname>Horman</surname>
 	<contrib>man page</contrib>
+	<email>horms@verge.net.au</email>
       </author>
       <author>
 	<firstname>Florian</firstname>
 	<surname>Haas</surname>
 	<contrib>man page</contrib>
+	<email>florian.haas@linbit.com</email>
       </author>
     </authorgroup>
   </refentryinfo>
