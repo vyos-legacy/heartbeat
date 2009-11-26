@@ -2539,6 +2539,8 @@ doc/Makefile							\
 	doc/startstop						\
 	doc/heartbeat.xml					\
 	doc/cl_status.xml					\
+	doc/hb_addnode.xml					\
+	doc/hb_delnode.xml					\
 	doc/ha.cf.xml						\
 	doc/authkeys.xml					\
 contrib/Makefile						\
