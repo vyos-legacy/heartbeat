@@ -34,7 +34,7 @@ OTHER_DOCS              = AUTHORS COPYING COPYING.LGPL ChangeLog README \
                                 authkeys ha.cf startstop haresources \
                                 DirectoryMap.txt apphbd.cf
 
-doc_DATA		= $(OTHER_DOCS) $(txtfiles) $(htmlfiles) 
+doc_DATA		= $(OTHER_DOCS)
 
 man_MANS		= heartbeat.8 apphbd.8 cl_status.1  \
 			 hb_standby.1 hb_takeover.1 hb_addnode.1 hb_delnode.1 \
