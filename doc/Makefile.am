@@ -31,7 +31,7 @@ CLEANFILES              = ChangeLog $(txtfiles) $(man_MANS)
 SPECSRC 		= $(top_builddir)/heartbeat-fedora.spec
 
 OTHER_DOCS              = AUTHORS COPYING COPYING.LGPL ChangeLog README \
-                                authkeys ha.cf startstop haresources \
+                                authkeys ha.cf haresources \
                                 apphbd.cf
 
 doc_DATA		= $(OTHER_DOCS)
