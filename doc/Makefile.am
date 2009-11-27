@@ -32,7 +32,7 @@ SPECSRC 		= $(top_builddir)/heartbeat-fedora.spec
 
 OTHER_DOCS              = AUTHORS COPYING COPYING.LGPL ChangeLog README \
                                 authkeys ha.cf startstop haresources \
-                                DirectoryMap.txt apphbd.cf
+                                apphbd.cf
 
 doc_DATA		= $(OTHER_DOCS)
 
