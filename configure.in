@@ -2617,7 +2617,6 @@ resources/Makefile						\
 	resources/heartbeat/IPv6addr				\
 	resources/heartbeat/LinuxSCSI				\
 	resources/heartbeat/LVM					\
-	resources/heartbeat/LVSSyncDaemonSwap			\
 	resources/heartbeat/MailTo				\
 	resources/heartbeat/OCF					\
 	resources/heartbeat/portblock				\
