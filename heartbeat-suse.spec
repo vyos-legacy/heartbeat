@@ -334,11 +334,8 @@ rm -rf $RPM_BUILD_DIR/heartbeat-%{version}
 %doc %{_mandir}/man5/authkeys.5*
 %doc %{_mandir}/man8/heartbeat.8*
 %doc %{_mandir}/man8/apphbd.8*
-%doc %{_datadir}/doc/packages/heartbeat/*.txt
-%doc %{_datadir}/doc/packages/heartbeat/*.html
 %doc %{_datadir}/doc/packages/heartbeat/README
 %doc %{_datadir}/doc/packages/heartbeat/authkeys
-%doc %{_datadir}/doc/packages/heartbeat/startstop
 %doc %{_datadir}/doc/packages/heartbeat/haresources
 %doc %{_datadir}/doc/packages/heartbeat/ChangeLog
 %doc %{_datadir}/doc/packages/heartbeat/ha.cf
