@@ -35,7 +35,6 @@ hard_SCRIPTS	=	IPv6addr	\
 			IPsrcaddr	\
 			LinuxSCSI	\
 			LVM		\
-			LVSSyncDaemonSwap \
 			MailTo		\
 			OCF		\
 			portblock	\
