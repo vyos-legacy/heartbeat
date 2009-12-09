@@ -322,7 +322,6 @@ rm -rf $RPM_BUILD_DIR/heartbeat-%{version}
 %dir %{_libdir}/heartbeat/plugins
 %dir %{_datadir}/heartbeat
 %dir %{_datadir}/doc/packages/heartbeat
-%doc %{_mandir}/man8/apphbd.8*
 %doc %{_datadir}/doc/packages/heartbeat/AUTHORS
 %doc %{_datadir}/doc/packages/heartbeat/COPYING
 %doc %{_datadir}/doc/packages/heartbeat/COPYING.LGPL
@@ -331,7 +330,10 @@ rm -rf $RPM_BUILD_DIR/heartbeat-%{version}
 %doc %{_mandir}/man1/hb_delnode.1*   
 %doc %{_mandir}/man1/hb_standby.1*   
 %doc %{_mandir}/man1/hb_takeover.1*   
+%doc %{_mandir}/man5/ha.cf.5*
+%doc %{_mandir}/man5/authkeys.5*
 %doc %{_mandir}/man8/heartbeat.8*
+%doc %{_mandir}/man8/apphbd.8*
 %doc %{_datadir}/doc/packages/heartbeat/*.txt
 %doc %{_datadir}/doc/packages/heartbeat/*.html
 %doc %{_datadir}/doc/packages/heartbeat/README

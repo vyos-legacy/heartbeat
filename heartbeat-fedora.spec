@@ -151,6 +151,8 @@ fi
 %{_mandir}/man1/hb_takeover.1*
 %{_mandir}/man1/hb_addnode.1*
 %{_mandir}/man1/hb_delnode.1*
+%{_mandir}/man5/ha.cf.5*
+%{_mandir}/man5/authkeys.5*
 %{_mandir}/man8/heartbeat.8*
 %{_mandir}/man8/apphbd.8*
 %if %{ENABLE_SNMP_SUBAGENT}
