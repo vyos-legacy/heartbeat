@@ -40,6 +40,7 @@ BuildRequires:    zlib-devel
 BuildRequires:    mailx
 BuildRequires:    which
 BuildRequires:    cluster-glue-libs-devel
+BuildRequires:    libxslt docbook-dtds docbook-style-xsl
 Requires:         PyXML
 Requires:         resource-agents
 Requires:         cluster-glue-libs

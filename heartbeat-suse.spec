@@ -45,6 +45,7 @@ Source:         heartbeat.tar.bz2
 BuildRoot:      %{_tmppath}/%{name}-%{version}-build
 Requires:       /bin/ping perl-TimeDate resource-agents
 BuildRequires:  curl-devel e2fsprogs-devel glib2-devel iputils libxml2-devel lynx python openhpi-devel
+BuildRequires:  libxslt docbook_4 docbook-xsl-stylesheets
 AutoReqProv:    on
 Requires(pre):  cluster-glue
 %if 0%{?fedora}
