@@ -39,8 +39,8 @@ BuildRequires:  libglue-devel
 
 Name:           heartbeat
 Summary:        The Heartbeat Subsystem for High-Availability Linux
-Version:        3.0.1
-Release:	1%{?dist}
+Version:        3.0.2
+Release:	0rc1%{?dist}
 License:        GPL v2 only; LGPL v2.1 or later
 Url:            http://linux-ha.org/
 Group:          Productivity/Clustering/HA
@@ -384,3 +384,7 @@ rm -rf $RPM_BUILD_DIR/heartbeat-%{version}
 %exclude %{_datadir}/heartbeat/cts
 
 %changelog
+* Fri Dec 11 2009 Florian Haas <florian.haas@linbit.com> - 3.0.2-0rc1
+- New upstream RC
+- Fix docdir for legacy distributions
+- Use _smp_mflags macro

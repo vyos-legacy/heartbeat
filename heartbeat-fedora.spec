@@ -16,8 +16,9 @@
 
 Summary:          Messaging and membership subsystem for High-Availability Linux
 Name:             heartbeat
-Version:          3.0.1
-Release:          %{?alphatag:0.}%{specversion}%{?alphatag:.%{alphatag}}%{?dist}
+Version:          3.0.2
+#Release:          %{?alphatag:0.}%{specversion}%{?alphatag:.%{alphatag}}%{?dist}
+Release:          0rc1%{?dist}
 License:          GPLv2 and LGPLv2+
 URL:              http://linux-ha.org/
 Group:            System Environment/Daemons
@@ -186,6 +187,10 @@ fi
 %{_libdir}/*.so
 
 %changelog
+* Fri Dec 11 2009 Florian Haas <florian.haas@linbit.com> - 3.0.2-0rc1
+- New upstream RC
+- Fix docdir for legacy distributions
+
 * Thu Oct 15 2009 Andrew Beekhof <andrew@beekhof.net> - 3.0.0-0.5.0daab7da36a8.hg
 - Resolve file conflict, shellfuncs is provided by resource-agents
 
