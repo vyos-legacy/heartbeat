@@ -241,7 +241,9 @@ includedir=`var "$includedir" "$exec_prefix/include"`
 oldincludedir=`var "$oldincludedir" "$exec_prefix/include"`
 infodir=`var "$infodir" "$prefix/info"`
 mandir=`var "$mandir" "$exec_prefix/man"`
-docdir=`var "$docdir" "${datadir}/doc/${HB_PKG}-${VERSION}"`
+dnl docdir is available in autoconf 2.60+, for older versions preseed
+dnl with the same value that 2.60+ uses
+docdir=`var "$docdir" "${datadir}/doc/${PACKAGE_NAME}"`
 stdocdir="${docdir}/stonith"
 libdir=`var "$libdir" "$exec_prefix/lib"`
 libexecdir=`var "$libexecdir" "$exec_prefix/libexec"`

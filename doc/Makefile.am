@@ -19,8 +19,6 @@
 #
 MAINTAINERCLEANFILES    = Makefile.in
 
-docdir 			= $(datadir)/doc/packages/@HB_PKG@
-
 htmlfiles		= faqntips.html		\
 			heartbeat_api.html
 

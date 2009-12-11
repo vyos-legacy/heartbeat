@@ -12,6 +12,8 @@
 %global           gname haclient
 %global           uname hacluster
 
+%global heartbeat_docdir %{_defaultdocdir}/%{name}-%{version}
+
 Summary:          Messaging and membership subsystem for High-Availability Linux
 Name:             heartbeat
 Version:          3.0.1
@@ -94,7 +96,15 @@ Headers and shared libraries for writing programs for Heartbeat
 %build
 ./bootstrap
 # disable-fatal-warnings flag used to disable gcc4.x warnings of 'difference in signedness'
-CFLAGS=${RPM_OPT_FLAGS} %configure  --disable-fatal-warnings --disable-static
+%if 0%{?fedora} < 11 || 0%{?centos_version} <= 5 || 0%{?rhel} <= 5
+export docdir=%{heartbeat_docdir}
+%endif
+CFLAGS=${RPM_OPT_FLAGS} %configure \
+    --disable-fatal-warnings \
+    --disable-static \
+%if 0%{?fedora} >= 11 || 0%{?centos_version} > 5 || 0%{?rhel} > 5
+    --docdir=%{heartbeat_docdir}
+%endif
 
 # get rid of rpath
 sed -i 's|^hardcode_libdir_flag_spec=.*|hardcode_libdir_flag_spec=""|g' libtool
@@ -111,7 +121,6 @@ make DESTDIR=$RPM_BUILD_ROOT install
 [ -d $RPM_BUILD_ROOT/usr/man ] && rm -rf $RPM_BUILD_ROOT/usr/man
 [ -d $RPM_BUILD_ROOT/usr/share/libtool ] && rm -rf $RPM_BUILD_ROOT/usr/share/libtool
 find $RPM_BUILD_ROOT -type f -name *.la -exec rm -f {} ';'
-mv $RPM_BUILD_ROOT/%{_datadir}/doc/packages/%{name} $RPM_BUILD_ROOT/%{_datadir}/doc/%{name}-%{version}
 rm -rf $RPM_BUILD_ROOT/%{_datadir}/heartbeat/cts
 
 %clean

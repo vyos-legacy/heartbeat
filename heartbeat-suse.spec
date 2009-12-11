@@ -26,6 +26,9 @@
 
 %define gname haclient
 %define uname hacluster
+
+%global heartbeat_docdir %{_defaultdocdir}/%{name}
+
 %if 0%{?fedora} || 0%{?centos_version} || 0%{?rhel}
 %define pkg_group System Environment/Daemons
 BuildRequires:  cluster-glue-libs-devel
@@ -198,18 +201,27 @@ CFLAGS="$CFLAGS -fgnu89-inline"
 CFLAGS="$CFLAGS -fgnu89-inline"
 %endif
 export CFLAGS
-./ConfigureMe configure --libexecdir=%{_var} --libdir=%{_libdir}\
-           --sysconfdir=%{_sysconfdir} --mandir=%{_mandir}      \
-%if %build_cmpi
-	--enable-cim-provider 					\
-	--with-cimom=openwbem 					\
-	--with-cmpi-headers=%{_includedir}/openwbem 		\
-	--with-provider-dir=/usr/%{_lib}/openwbem/cmpiproviders \
+%if 0%{?suse_version} < 1020
+export docdir=%{heartbeat_docdir}
 %endif
-	--with-group-name=%{gname} --with-ccmuser-name=%{uname}
+./ConfigureMe configure \
+    --libexecdir=%{_var} \
+    --libdir=%{_libdir} \
+    --sysconfdir=%{_sysconfdir} \
+    --mandir=%{_mandir} \
+%if 0%{?suse_version} >= 1020
+    --docdir=%{heartbeat_docdir} \
+%endif
+%if %build_cmpi
+    --enable-cim-provider \
+    --with-cimom=openwbem \
+    --with-cmpi-headers=%{_includedir}/openwbem \
+    --with-provider-dir=/usr/%{_lib}/openwbem/cmpiproviders \
+%endif
+    --with-group-name=%{gname} \
+    --with-ccmuser-name=%{uname}
 
-export MAKE="make %{?jobs:-j%jobs}"
-make %{?jobs:-j%jobs}
+make %{?_smp_mflags}
 ###########################################################
 
 %install
