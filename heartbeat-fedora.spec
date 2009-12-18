@@ -18,7 +18,7 @@ Summary:          Messaging and membership subsystem for High-Availability Linux
 Name:             heartbeat
 Version:          3.0.2
 #Release:          %{?alphatag:0.}%{specversion}%{?alphatag:.%{alphatag}}%{?dist}
-Release:          0rc1%{?dist}
+Release:          0rc2%{?dist}
 License:          GPLv2 and LGPLv2+
 URL:              http://linux-ha.org/
 Group:            System Environment/Daemons

@@ -40,7 +40,7 @@ BuildRequires:  libglue-devel
 Name:           heartbeat
 Summary:        The Heartbeat Subsystem for High-Availability Linux
 Version:        3.0.2
-Release:	0rc1%{?dist}
+Release:	0rc2%{?dist}
 License:        GPL v2 only; LGPL v2.1 or later
 Url:            http://linux-ha.org/
 Group:          Productivity/Clustering/HA
