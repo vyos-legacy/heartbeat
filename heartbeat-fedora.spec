@@ -187,6 +187,9 @@ fi
 %{_libdir}/*.so
 
 %changelog
+* Sat Dec 19 2009 Florian Haas <florian.haas@linbit.com> - 3.0.2-0rc2
+- New upstream RC
+
 * Fri Dec 11 2009 Florian Haas <florian.haas@linbit.com> - 3.0.2-0rc1
 - New upstream RC
 - Fix docdir for legacy distributions
