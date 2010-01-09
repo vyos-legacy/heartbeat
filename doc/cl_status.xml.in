@@ -173,7 +173,7 @@
 	  <option>-p</option>
 	</term>
 	<listitem>
-	  <para>List only 'ping' nodes.  Available with hbstatus
+	  <para>List only 'ping' nodes.  Available with listnodes
 	  sub-command.</para>
 	  <note>
 	    <para>Ping nodes are obsolete in Pacemaker cluster, having
@@ -186,7 +186,7 @@
 	  <option>-n</option>
 	</term>
 	<listitem>
-	  <para>List only 'normal' nodes.  Available with hbstatus
+	  <para>List only 'normal' nodes.  Available with listnodes
 	  sub-command.</para>
 	</listitem>
       </varlistentry>
