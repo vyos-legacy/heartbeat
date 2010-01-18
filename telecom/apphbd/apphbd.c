@@ -124,7 +124,7 @@ static int	watchdogfd = -1;
 #define DEFAULT_DEBUG_LEVEL	"3"
 #define DEFAULT_WDT_DEV		NULL
 #define DEFAULT_WDT_INTERVAL_MS	"1000"
-#define DEFAULT_REALTIME	"yes"
+#define APPHB_DEFAULT_REALTIME	"yes"
 #define DEFAULT_DEBUGFILE	NULL
 #define DEFAULT_LOGFILE		NULL
 
@@ -720,7 +720,7 @@ init_config(const char* cfgfile)
 	set_debug_level(DEFAULT_DEBUG_LEVEL); 
 	set_watchdog_device(DEFAULT_WDT_DEV);
 	set_watchdog_interval(DEFAULT_WDT_INTERVAL_MS);
-	set_realtime(DEFAULT_REALTIME);
+	set_realtime(APPHB_DEFAULT_REALTIME);
 
 	/* Read configure file */
 	if (cfgfile) {
