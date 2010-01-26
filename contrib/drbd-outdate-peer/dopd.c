@@ -613,7 +613,7 @@ main(int argc, char **argv)
 				dopd_dispatch_destroy);
 
 	memset(commpath, 0, 1024);
-	sprintf(commpath, HA_VARRUNDIR"/heartbeat/crm/%s", T_OUTDATER);
+	sprintf(commpath, HA_VARRUNDIR"/heartbeat/%s", T_OUTDATER);
 
 	wait_ch = dopd_channel_init(commpath);
 	if (wait_ch == NULL) {

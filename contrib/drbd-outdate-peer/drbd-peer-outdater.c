@@ -152,7 +152,7 @@ init_dopd_client_ipc_comms(const char *channel_name,
 	char commpath[1024];
 
 	memset(commpath, 0, 1024);
-	sprintf(commpath, HA_VARRUNDIR"/heartbeat/crm/%s", channel_name);
+	sprintf(commpath, HA_VARRUNDIR"/heartbeat/%s", channel_name);
 
 	attrs = g_hash_table_new(g_str_hash,g_str_equal);
 	g_hash_table_insert(attrs, path, commpath);
