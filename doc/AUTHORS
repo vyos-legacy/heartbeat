@@ -1,3 +1,7 @@
+CONTACT:
+	To contact the authors, please post to the
+	General Linux-HA mailing list <linux-ha@lists.linux-ha.org>.
+
 NOTE:	The work of everyone on this project is dearly appreciated. If you
 	are not listed here but should be, please notify us!
 
@@ -5,8 +9,9 @@ The following people have kindly helped with heartbeat development by
 providing code, documentation or testing, or fixes:
 
 	Alan Robertson <alanr@unix.sh>
-		Main architect.
-		Things other people don't want to do.
+		Author of large parts of the infrastructure.
+		Has been the Main Architect and project maintainer for a long time.
+		Is no longer actively involved with the project.
 
 Contributors, ordered by last name:
 

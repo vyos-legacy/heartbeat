@@ -2,9 +2,13 @@ This package was first debianized by Paolo Molaro <lupus@debian.org> on
 Wed, 17 Nov 1999 17:30:23 +0100.
 
 The original sources can be found at:
-	http://www.linux-ha.org/download/
+	http://www.linux-ha.org/
 
 Upstream Authors (from doc/AUTHORS):
+
+CONTACT:
+	To contact the authors, please post to the
+	General Linux-HA mailing list <linux-ha@lists.linux-ha.org>.
 
 NOTE:	The work of everyone on this project is dearly appreciated. If you
 	are not listed here but should be, please notify us!
@@ -13,8 +17,9 @@ The following people have kindly helped with heartbeat development by
 providing code, documentation or testing, or fixes:
 
 	Alan Robertson <alanr@unix.sh>
-		Main architect.
-		Things other people don't want to do.
+		Author of large parts of the infrastructure.
+		Has been the Main Architect and project maintainer for a long time.
+		Is no longer actively involved with the project.
 
 Contributors, ordered by last name:
 
@@ -23,13 +28,13 @@ Contributors, ordered by last name:
 	Andrew Beekhof <andrew@beekhof.net>
 	        Cluster Resource Manager
 		Darwin Cleanups
-	StÈphane Billiart <stephane@reefedge.com> - unicast support
+	St√©phane Billiart <stephane@reefedge.com> - unicast support
 	Gregor Binder <gbinder@sysfive.com> - "meatware" STONITH support
         Juan Pedro Paredes Caballero <juampe@retemail.es> - Debian support
 	Dusan Djordjevic <dj.dule@linux.org.yu> - documentation
 	Kevin Dwyer <kevin@pheared.net> - ipfail, bug fixes.
 	Joachim Gleissner <jg@suse.de> ssh STONITH support
-	Luis Claudio R. GonÁalves <lclaudio@conectiva.com.br>
+	Luis Claudio R. Gon√ßalves <lclaudio@conectiva.com.br>
 		nice_failback code, hb_standby code, fixes
 	Thomas Hepper <th@ant.han.de>
 		solaris and Debian support
@@ -46,7 +51,7 @@ Contributors, ordered by last name:
 	Xiaoxiang Liu <xiliu@ncsa.uiuc.edu>
 		interprocess communication library
 	Friedrich Lobenstock <fl@fl.priv.at> - SuSE compatibility fixes
-	Lars Marowsky-BrÈe <lmb@suse.de>
+	Lars Marowsky-Br√©e <lmb@suse.de>
 		LVM, ICP and ssh STONITH support, many fixes
 		SuSE package maintainer
 		STABLE_1_0 / 1.0.x release maintenance
@@ -69,7 +74,7 @@ Contributors, ordered by last name:
 	Mike Tilstra <conrad@sistina.com> - VACM support
 	Marcelo Tosatti <marcelo@conectiva.com.br>
 		API support, initial plugin support
-	IÒaki Fern·ndez Villanueva - debian support
+	I√±aki Fern√°ndez Villanueva - debian support
 	Todd Wheeling <wheeling@mclinux.com>
 		APC master switch and WTI [WT]PS-xxx support
 	Volker Wiegand <Volker.Wiegand@suse.de>
