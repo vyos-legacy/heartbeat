@@ -1,4 +1,4 @@
-# Author:       Alan Robertson <alanr@unxi.sh>
+# Author:       Alan Robertson <alanr@unix.sh>
 # Support:      linux-ha@lists.linux-ha.org
 # License:      GNU General Public License (GPL)
 # Copyright:    (C) 2004 - 2005 International Business Machines, Inc.
