@@ -2,7 +2,7 @@ This package was first debianized by Paolo Molaro <lupus@debian.org> on
 Wed, 17 Nov 1999 17:30:23 +0100.
 
 The original sources can be found at:
-	http://www.linux-ha.org/
+	http://hg.linux-ha.org/dev
 
 Upstream Authors (from doc/AUTHORS):
 
