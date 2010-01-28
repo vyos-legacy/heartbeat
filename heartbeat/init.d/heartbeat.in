@@ -134,7 +134,7 @@ fi
 
 CrmEnabled() {
   case `ha_parameter crm | tr '[A-Z]' '[a-z]'` in
-    y|yes|enable|on|true|1|manual)	true;;
+    y|yes|enable|on|true|1|manual|respawn)	true;;
     *)				false;;
   esac
 }
