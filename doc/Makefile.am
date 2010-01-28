@@ -19,8 +19,7 @@
 #
 MAINTAINERCLEANFILES    = Makefile.in
 
-htmlfiles		= faqntips.html		\
-			heartbeat_api.html
+htmlfiles		= heartbeat_api.html
 
 txtfiles                = $(htmlfiles:.html=.txt)
 

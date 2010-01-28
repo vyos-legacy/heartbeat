@@ -73,7 +73,7 @@
     </itemizedlist>
     <para>Comprehensive documentation on heartbeat is available in the
     Heartbeat User's Guide.  If this documentation is not installed on
-    your system, it can be found at http://www.linux-ha.org/.</para>
+    your system, it can be found at http://linux-ha.org/.</para>
   </refsection>
   <refsection id="rs-heartbeat-options">
     <title>Options</title>

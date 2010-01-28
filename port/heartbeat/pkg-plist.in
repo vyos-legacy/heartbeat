@@ -217,28 +217,18 @@ sbin/ldirectord
 sbin/meatclient
 sbin/stonith
 sbin/supervise-ldirectord-config
-share/doc/heartbeat-1.2.3/AUTHORS
-share/doc/heartbeat-1.2.3/COPYING
-share/doc/heartbeat-1.2.3/ChangeLog
-share/doc/heartbeat-1.2.3/DirectoryMap.txt
-share/doc/heartbeat-1.2.3/GettingStarted.html
-share/doc/heartbeat-1.2.3/GettingStarted.txt
-share/doc/heartbeat-1.2.3/HardwareGuide.html
-share/doc/heartbeat-1.2.3/HardwareGuide.txt
-share/doc/heartbeat-1.2.3/README
-share/doc/heartbeat-1.2.3/Requirements.html
-share/doc/heartbeat-1.2.3/Requirements.txt
-share/doc/heartbeat-1.2.3/apphbd.cf
-share/doc/heartbeat-1.2.3/authkeys
-share/doc/heartbeat-1.2.3/faqntips.html
-share/doc/heartbeat-1.2.3/faqntips.txt
-share/doc/heartbeat-1.2.3/ha.cf
-share/doc/heartbeat-1.2.3/haresources
-share/doc/heartbeat-1.2.3/heartbeat_api.html
-share/doc/heartbeat-1.2.3/heartbeat_api.txt
-share/doc/heartbeat-1.2.3/rsync.html
-share/doc/heartbeat-1.2.3/rsync.txt
-share/doc/heartbeat-1.2.3/startstop
+share/doc/heartbeat-@VERSION@/AUTHORS
+share/doc/heartbeat-@VERSION@/COPYING
+share/doc/heartbeat-@VERSION@/ChangeLog
+share/doc/heartbeat-@VERSION@/DirectoryMap.txt
+share/doc/heartbeat-@VERSION@/README
+share/doc/heartbeat-@VERSION@/apphbd.cf
+share/doc/heartbeat-@VERSION@/authkeys
+share/doc/heartbeat-@VERSION@/ha.cf
+share/doc/heartbeat-@VERSION@/haresources
+share/doc/heartbeat-@VERSION@/heartbeat_api.html
+share/doc/heartbeat-@VERSION@/heartbeat_api.txt
+share/doc/heartbeat-@VERSION@/startstop
 share/nls/POSIX
 share/nls/en_US.US-ASCII
 @unexec rmdir %D/var/run 2>/dev/null || true
@@ -249,7 +239,7 @@ share/nls/en_US.US-ASCII
 @unexec rmdir %D/var/lib/heartbeat 2>/dev/null || true
 @unexec rmdir %D/var/lib 2>/dev/null || true
 @unexec rmdir %D/var 2>/dev/null || true
-@dirrm share/doc/heartbeat-1.2.3
+@dirrm share/doc/heartbeat-@VERSION@
 @dirrm lib/stonith/plugins/stonith
 @dirrm lib/stonith/plugins
 @dirrm lib/stonith

@@ -1,42 +1,87 @@
-Welcome to the Linux-HA heartbeat code
-It works, and it can actually do quite a bit.
-It can do 2-node IP takeover for an unlimited number of IP interfaces.
+Linux-HA
+========
 
-It heartbeats over:
-	unadorned serial links arranged in a ring topology
-	UDP/IP broadcast heartbeats over ethernet (or similar)
-	UDP/IP multicast heartbeats over ethernet (or similar)
-	special "ping" heartbeats to routers, etc.
+  Providing Open Source High-Availability Software
+  for Linux and other Platforms since 1999
 
-After installing this package, you'll have to make some HA config files
-in /etc/ha.d.  Samples of these config files are found in the doc directory.
-These files are named:
-	ha.cf
-and	haresources
+  The Linux-HA project maintains a set of building blocks
+  for high availability cluster systems, including
+    * a cluster messaging layer (heartbeat, see below),
+    * a huge number of resource agents for a variety of applications,
+    * a plumbing library and error reporting toolkit (aka cluster-glue)
 
-The beginnings of a Hardware Installation guide can also be found under
-the doc directory as:
-	HardwareGuide.html or HardwareGuide.txt (take your pick)
+      http://linux-ha.org/wiki/Main_Page
+      http://en.wikipedia.org/wiki/Computer_cluster
+      http://linux-ha.org/wiki/Heartbeat
+      http://linux-ha.org/wiki/Resource_Agents
+      http://linux-ha.org/wiki/Cluster_Glue
 
-The beginnings of a Getting Started Guide can also be found under
-	GettingStarted.txt or GettingStarted.html (take your pick)
 
-For more info on Linux-HA, I recommend you read the Linux-HA web page.
-It can be found at:
-	http://linux-ha.org/
+Historical note
+===============
 
-The pages found there also document this software and current thinking
-about plans for the future, etc.
+  Since up to release 2.1.4 the messaging layer (Heartbeat proper),
+  the Local Resource Manager, "plumbing" infrastructure and STONITH
+  (now known as Cluster Glue), the Resource Agents, and the Cluster
+  Resource Manager (now Pacemaker) were all part of a single package
+  named heartbeat, the name was often applied to the Linux-HA
+  project as a whole.
 
-Get involved!
+  This generalization is no longer accurate, the name heartbeat
+  should thus be used for the messaging layer exclusively. 
 
-	- Install this software			(make install)
 
-	- Report bugs in it			(mailto:alanr@unix.sh)
+Heartbeat
+=========
 
-	- Enhance it,
+  Heartbeat is a daemon that provides cluster infrastructure (communication and
+  membership) services to its clients. This allows clients to know about the
+  presence (or disappearance!) of peer processes on other machines and to easily
+  exchange messages with them.
 
-	- Integrate it with other software...
+  In order to be useful to users, the Heartbeat daemon needs to be combined with
+  a cluster resource manager.  A cluster resource manager (CRM) has
+  the task of starting and stopping the services (IP addresses, web
+  servers, etc.) which the cluster will make highly available.
 
-	- Ask for enhancements...
+  Heartbeat still comes with an integrated primitive resource
+  manager, which basically is just a shell script.  This is also
+  referred to as "v1 style" or "haresources style" configuration.
+
+  The haresources mode of operation is deprecated.
+  If you miss it, please see
+  http://www.planet-ha.org/#Configuring+Heartbeat+v1+Was+So+Simple
+
+  Pacemaker is the preferred cluster resource manager for clusters
+  based on the Heartbeat infrastructure layer.
+
+
+Reference Documentation
+=======================
+
+  To get you started, for further information, reference documentation and
+  setup recommendations, refer to
+    http://linux-ha.org/wiki/Documentation
+    http://clusterlabs.org/wiki/Documentation
+
+
+Help and Support
+================
+
+  For community support, mailing lists, IRC channels, and
+  other ways to report problems and get them solved, see
+  http://linux-ha.org/wiki/Support
+
+
+See Also
+========
+
+  Csync2
+    an easy way to keep a bunch of infrequently updated files
+    in sync over groups of nodes. http://oss.linbit.com/csync2/
+
+  DRBD
+    a nicely integrated (with Pacemaker) replication solution,
+    you won't need shared disks to do HA-clustering.
+    http://www.drbd.org
 

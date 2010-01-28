@@ -1,5 +1,10 @@
 Author:  Yi Zhu.
 
+NOTE
+NOTE	Content last updated 2003, links may be broken,
+NOTE	information may be incorrect.
+NOTE
+
 linux-ha -.
           |-- cts : Cluster Testing System (Python)
           |-- include : linux-ha header files directory

@@ -84,27 +84,46 @@ typedef enum {
 
 
 /* Node Membership Events
- * (see http://wiki.linux-ha.org/CCM/MembershipCallback for more info)
  *
- *OC_EV_MS_NEW_MEMBERSHIP 
- *	CCM: membership with quorum 
+ *OC_EV_MS_NEW_MEMBERSHIP
+ *	CCM: membership with quorum
+ *	CRM/CIB quorum: true
+ *	CRM/CIB actions: update membership instance & contents
+ *	CRM actions: none.
+ *	We wait for the CRMd on that node to become active before any CRM
+ *	action is taken. The TE monitors CIB updates and detects and nodes that
+ *	unexpectedly left - starting/restarting a transition if required
  *
- *OC_EV_MS_MS_INVALID 
- *	CCM: membership without quorum 
+ *OC_EV_MS_MS_INVALID
+ *	CCM: membership without quorum
+ *	CRM/CIB quorum: false
+ *	CRM/CIB actions: update membership instance & contents
+ *	DC actions: Invoke the PolicyEngine,
+ *	to ensure the "No Quorum Policy" is observed
  *
- *OC_EV_MS_NOT_PRIMARY 
- *	CCM: old membership (not valid any longer) 
+ *OC_EV_MS_NOT_PRIMARY
+ *	CCM: old membership (not valid any longer)
+ *	CRM/CIB quorum: no change
+ *	DC actions: cancel the transition if one is in progress
  *
- *OC_EV_MS_PRIMARY_RESTORED 
- *	This event mean the cluster restores to a stable state that has the same membership as before. 
- *	It also implies it has the same quorum as before. 
- *	CCM: old membership restored (same membership as before) 
+ *OC_EV_MS_PRIMARY_RESTORED
+ *	This event mean the cluster restores to a stable state that has the
+ *	same membership as before.  It also implies it has the same quorum as
+ *	before.
+ *	CCM: old membership restored (same membership as before)
+ *	CRM/CIB quorum: no change
+ *	CRM/CIB actions: update membership instance
+ *	DC actions: Start/restart a transition now that everything is now
+ *	stable.  In theory we would have gotten a OC_EV_MS_NOT_PRIMARY before
+ *	this which would have cancelled the transition.
  *
- *OC_EV_MS_EVICTED 
- *	CCM: the client is evicted from ccm. 
+ *OC_EV_MS_EVICTED
+ *	CCM:  the client is evicted from ccm.
+ *	CRM/CIB quorum: false
+ *	CRM/CIB actions: update membership instance & contents, shut down
+ *	This should not happen if correct startup/shutdown order is observed.
  *
  */
-
 typedef enum {
 	OC_EV_MS_INVALID = OC_EV_SET_CLASS(OC_EV_MEMB_CLASS, 0),
 	OC_EV_MS_NEW_MEMBERSHIP,

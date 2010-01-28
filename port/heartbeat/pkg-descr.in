@@ -19,4 +19,4 @@ Loading System.  PILS manages both plugins (loadable objects), and
 the interfaces these plugins implement.  PILS is designed to support
 any number of plugins implementing any number of interfaces.
 
-WWW: http://linux-ha.org/
+WWW: http://linux-ha.org/wiki/Main_Page

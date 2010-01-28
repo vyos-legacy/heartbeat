@@ -317,7 +317,7 @@ auto_failback on
 #	If logging daemon is used, logfile/debugfile/logfacility in this file
 #	are not meaningful any longer. You should check the config file for logging
 #	daemon (the default is /etc/logd.cf)
-#	more infomartion can be fould in http://www.linux-ha.org/ha_2ecf_2fUseLogdDirective
+#	more infomartion can be fould in the man page.
 #	Setting use_logd to "yes" is recommended
 #	
 # use_logd yes/no

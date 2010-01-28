@@ -11,7 +11,7 @@
 PORTNAME=	heartbeat
 PORTVERSION=	@VERSION@
 CATEGORIES=	sysutils
-MASTER_SITES=	http://linux-ha.org/download/
+MASTER_SITES=	http://linux-ha.org/wiki/Download
 
 MAINTAINER=	sirgeek-ha@mrsucko.org
 COMMENT=	Subsystem for High-Availability Clustering
