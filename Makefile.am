@@ -66,11 +66,20 @@ DISTCHECK_CONFIGURE_FLAGS = --with-initdir=prefix
 rpm:		dist
 		$(RPM) $(RPMFLAGS) $(TARFILE) </dev/null;
 
-deb:		dist
-		rm -rf $(distdir)
-		tar -zxf $(TARFILE)
-		cd $(distdir) ; dpkg-buildpackage -rfakeroot -us -uc 
-		rm -rf $(distdir)
+deb:	
+	@@echo "====" ; \
+	echo "  The debian directory has been removed upon request" ; \
+	echo "  of the debian package maintainers. You probably" ; \
+	echo "  need to first grab the debian directory from" ; \
+	echo "  debian downstream." ; \
+	echo "  Maybe rather try the debian way: apt-get source heartbeat" ; \
+	echo "====" ; \
+	exit 1
+## somthing similar to this used to work some time ago...
+# rm -rf $(distdir)
+# tar -zxf $(TARFILE)
+# cd $(distdir) ; dpkg-buildpackage -rfakeroot -us -uc
+# rm -rf $(distdir)
 
 OBS_TAR	= heartbeat.tar.gz
 hg-dist:

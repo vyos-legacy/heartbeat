@@ -95,14 +95,6 @@ ConfigureLinux() {
   elif
     [ -f /etc/debian_version -a -s /etc/debian_version ]
   then
-    if [ ! -e ${pathtotop}/debian/rules ]; then
-      echo "The debian directory has been removed upon request"
-      echo "of the debian package maintainers. You probably"
-      echo "need to first grab the debian directory from"
-      echo "debian downstream."
-      echo "Maybe rather try the debian way: apt-get source heartbeat"
-      exit 1
-    fi
     distro="Debian GNU/Linux"
     PACKAGECMD="$MAKE_CMD deb"
     DFLAGS="--mandir=/usr/share/man"
