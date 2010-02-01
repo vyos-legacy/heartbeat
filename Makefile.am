@@ -53,7 +53,7 @@ hauser = 		@HA_CCMUSER@
 ## proc-ha is left out from SUBDIRS (completely obsolete)
 
 # 'buildtools' must be first in the list: tools to aid building of remainder.
-SUBDIRS	= buildtools $(LIBLTDL_DIR) debian pkg port replace include lib	\
+SUBDIRS	= buildtools $(LIBLTDL_DIR) pkg port replace include lib	\
           heartbeat membership telecom resources tools doc cts  \
           config contrib
 

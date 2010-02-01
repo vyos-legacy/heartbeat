@@ -2536,7 +2536,6 @@ cts/Makefile					        	\
 	cts/OCFIPraTest.py              	                \
 	cts/CIB.py						\
 	cts/LSBDummy						\
-debian/Makefile							\
 doc/Makefile							\
 	doc/startstop						\
 	doc/heartbeat.xml					\
