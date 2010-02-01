@@ -425,7 +425,7 @@ init_config(const char * cfgfile)
 			ha_log(LOG_INFO, "By default, cluster nodes are named"
 			" by `uname -n` and must be declared with a 'node'"
 			" directive in the ha.cf file.");
-			ha_log(LOG_INFO, "See also: " HAURL("ha.cf/NodeDirective"));
+			ha_log(LOG_INFO, "See also: " HAURL("Ha.cf#node_directive"));
 			++errcount;
 		}
 	}

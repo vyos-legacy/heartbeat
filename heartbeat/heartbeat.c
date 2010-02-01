@@ -4655,7 +4655,7 @@ mark_node_dead(struct node_info *hip)
 		/* Uh, oh... we're dead! */
 		cl_log(LOG_ERR, "No local heartbeat. Forcing restart.");
 		cl_log(LOG_INFO, "See URL: %s"
-		,	HAURL("FAQ#no_local_heartbeat"));
+		,	HAURL("FAQ#No_Local_Heartbeat"));
 
 		if (!shutdown_in_progress) {
 			cause_shutdown_restart();
@@ -5655,7 +5655,7 @@ should_drop_message(struct node_info * thisnode, const struct ha_msg *msg,
 				cl_log(LOG_INFO
 				,	"For information on cluster"
 				" partitions, See URL: %s"
-				,	HAURL("SplitBrain"));
+				,	HAURL("Split_Brain"));
 				cl_log(LOG_WARNING
 				,	"Deadtime value may be too small.");
 				cl_log(LOG_INFO
@@ -5663,7 +5663,7 @@ should_drop_message(struct node_info * thisnode, const struct ha_msg *msg,
 				" on tuning deadtime.");
 				cl_log(LOG_INFO
 				,	"URL: %s"
-				,	HAURL("FAQ#heavy_load"));
+				,	HAURL("FAQ#Heavy_Load"));
 
 				/* THIS IS RESOURCE WORK!  FIXME */
 				/* IS THIS RIGHT??? FIXME ?? */

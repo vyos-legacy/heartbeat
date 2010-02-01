@@ -402,7 +402,7 @@ fi
 
 AC_DEFINE_UNQUOTED(HA_SYSCONFDIR, "$sysconfdir", Location of system configuration files)
 
-HA_URLBASE="http://linux-ha.org/"
+HA_URLBASE="http://linux-ha.org/wiki/"
 AC_SUBST(HA_URLBASE)
 AC_DEFINE_UNQUOTED(HA_URLBASE, "$HA_URLBASE", Web site base URL)
 

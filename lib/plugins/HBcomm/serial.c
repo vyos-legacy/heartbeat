@@ -641,7 +641,7 @@ serial_write(struct hb_media* mp, void *p, int len)
 					,	mp->name);
 					PILCallLog(LOG, PIL_INFO
 					,	"See %s for details"
-					,	HAURL("FAQ#TTYtimeout"));
+					,	HAURL("FAQ#TTY_timeout"));
 				}
 			}else{
 				PILCallLog(LOG, PIL_CRIT, "TTY write failure on [%s]: %s"
