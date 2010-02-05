@@ -27,8 +27,7 @@ halibdir		= $(libdir)/@HB_PKG@
 
 havarlibdir		= $(localstatedir)/lib/@HB_PKG@
 
-apigid			= @HA_APIGID@
-# ipfailuid		= @HA_CCMUID@
+dopddir			= $(HA_VARRUNDIR)/$(HB_PKG)/dopd
 
 halib_PROGRAMS		= dopd drbd-peer-outdater
 
@@ -41,10 +40,14 @@ dopd_LDADD		= \
 drbd_peer_outdater_SOURCES	= drbd-peer-outdater.c
 drbd_peer_outdater_LDADD	= -lplumb
 
-
-
 ## additional Makefile targets
 # additional installations not covered normally
 install-exec-local:
+	$(mkinstalldirs) $(DESTDIR)$(dopddir)
+	-chgrp $(HA_APIGROUP) $(DESTDIR)/$(dopddir)
+	-chown $(HA_CCMUSER) $(DESTDIR)/$(dopddir)
+	chmod 750 $(DESTDIR)/$(dopddir)
+
 
 uninstall-local:
+	rm -fr $(DESTDIR)$(dopddir)

@@ -26,6 +26,8 @@
 
 #define OUTDATE_COMMAND		"drbdadm outdate"
 
+static char dopd_socket[]	= HA_VARRUNDIR "/heartbeat/dopd/outdater";
+
 #include <hb_api.h>
 
 /* Prototypes */

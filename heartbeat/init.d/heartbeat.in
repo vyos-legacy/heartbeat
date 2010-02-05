@@ -246,15 +246,22 @@ StartHA() {
     #	Create /dev/watchdog and load module if we should
     init_watchdog
   fi
+  # This deserves a comment... WTF?
   rm -f $RUNDIR/ppp.d/*
   if
     [ ! -d $RUNDIR/heartbeat ]
   then
-    mkdir -p $RUNDIR/heartbeat/ccm
-    mkdir -p $RUNDIR/heartbeat/crm
-    chown -R @HA_CCMUSER@:@HA_APIGROUP@ $RUNDIR/heartbeat
-    chmod -R 750 $RUNDIR/heartbeat
+    mkdir -p $RUNDIR/heartbeat
+    chmod 750 $RUNDIR/heartbeat
+    chown @HA_CCMUSER@:@HA_APIGROUP@ $RUNDIR/heartbeat
   fi
+  for d in ccm crm dopd ; do
+    D=$RUNDIR/heartbeat/$d
+    [ -d $D ] && continue
+    mkdir $D
+    chmod 750 $D
+    chown @HA_CCMUSER@:@HA_APIGROUP@ $D
+  done
   if
     [  -f $HA_DIR/ipresources -a ! -f $HA_DIR/haresources ]
   then

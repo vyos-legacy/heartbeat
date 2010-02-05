@@ -18,7 +18,7 @@ Summary:          Messaging and membership subsystem for High-Availability Linux
 Name:             heartbeat
 Version:          3.0.2
 #Release:          %{?alphatag:0.}%{specversion}%{?alphatag:.%{alphatag}}%{?dist}
-Release:          1%{?dist}
+Release:          2%{?dist}
 License:          GPLv2 and LGPLv2+
 URL:              http://linux-ha.org/
 Group:            System Environment/Daemons
@@ -154,6 +154,7 @@ fi
 %config(noreplace) %{_sysconfdir}/logrotate.d/heartbeat
 %dir %{_var}/lib/heartbeat
 %dir %{_var}/run/heartbeat
+%dir %attr (0750, %{uname}, %{gname})   %{_var}/run/heartbeat/dopd
 %attr (2755, %{uname}, %{gname}) %{_bindir}/cl_status
 %{_bindir}/cl_respawn
 %dir %attr (755, %{uname}, %{gname}) %{_var}/run/heartbeat/ccm
@@ -187,6 +188,11 @@ fi
 %{_libdir}/*.so
 
 %changelog
+* Thu Feb 04 2010 Lars Ellenberg <lars.ellenberg@linbit.com> - 3.0.2-2
+- changed dopd socket location again to its own subdirectory,
+  made sure the init script will create that directory
+  with appropriate permissions
+
 * Mon Feb 01 2010 Lars Ellenberg <lars.ellenberg@linbit.com> - 3.0.2-1
 - New upstream release
 

@@ -40,7 +40,7 @@ BuildRequires:  libglue-devel
 Name:           heartbeat
 Summary:        The Heartbeat Subsystem for High-Availability Linux
 Version:        3.0.2
-Release:	1%{?dist}
+Release:	2%{?dist}
 License:        GPL v2 only; LGPL v2.1 or later
 Url:            http://linux-ha.org/
 Group:          Productivity/Clustering/HA
@@ -329,6 +329,7 @@ rm -rf $RPM_BUILD_DIR/heartbeat-%{version}
 %{_sysconfdir}/init.d/heartbeat
 %config(noreplace) %{_sysconfdir}/logrotate.d/heartbeat
 %dir %{_var}/run/heartbeat
+%dir %attr (0750, %{uname}, %{gname})   %{_var}/run/heartbeat/dopd
 %dir %{_var}/lib/heartbeat
 %dir %attr (0755, %{uname}, %{gname})   %{_var}/run/heartbeat/ccm
 %dir %{_libdir}/heartbeat
@@ -384,6 +385,11 @@ rm -rf $RPM_BUILD_DIR/heartbeat-%{version}
 %exclude %{_datadir}/heartbeat/cts
 
 %changelog
+* Thu Feb 04 2010 Lars Ellenberg <lars.ellenberg@linbit.com> - 3.0.2-2
+- changed dopd socket location again to its own subdirectory,
+  made sure the init script will create that directory
+  with appropriate permissions
+
 * Mon Feb 01 2010 Lars Ellenberg <lars.ellenberg@linbit.com> - 3.0.2-1
 - New upstream release
 

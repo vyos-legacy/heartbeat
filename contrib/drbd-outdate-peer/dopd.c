@@ -509,7 +509,7 @@ close_api(ll_cluster_t *hb)
 }
 
 static IPC_WaitConnection *
-dopd_channel_init(char daemonsocket[])
+dopd_channel_init(void)
 {
 	IPC_WaitConnection *wait_ch;
 	mode_t mask;
@@ -517,7 +517,7 @@ dopd_channel_init(char daemonsocket[])
 	GHashTable * attrs;
 
 	attrs = g_hash_table_new(g_str_hash,g_str_equal);
-	g_hash_table_insert(attrs, path, daemonsocket);
+	g_hash_table_insert(attrs, path, dopd_socket);
 
 	mask = umask(0);
 	wait_ch = ipc_wait_conn_constructor(IPC_ANYTYPE, attrs);
@@ -541,7 +541,6 @@ main(int argc, char **argv)
 	char *bname, *parameter;
 	IPC_Channel *apiIPC;
 
-	char commpath[1024];
 	IPC_WaitConnection *wait_ch;
 
 	/* Get the name of the binary for logging purposes */
@@ -612,10 +611,7 @@ main(int argc, char **argv)
 				dopd_timeout_dispatch, (gpointer)dopd_cluster_conn,
 				dopd_dispatch_destroy);
 
-	memset(commpath, 0, 1024);
-	sprintf(commpath, HA_VARRUNDIR"/heartbeat/%s", T_OUTDATER);
-
-	wait_ch = dopd_channel_init(commpath);
+	wait_ch = dopd_channel_init();
 	if (wait_ch == NULL) {
 		cl_log(LOG_ERR, "Could not start IPC server");
 	} else {

@@ -149,22 +149,17 @@ init_dopd_client_ipc_comms(const char *channel_name,
 	void *callback_data = client_data;
 	static char  path[] = IPC_PATH_ATTR;
 
-	char commpath[1024];
-
-	memset(commpath, 0, 1024);
-	sprintf(commpath, HA_VARRUNDIR"/heartbeat/%s", channel_name);
-
 	attrs = g_hash_table_new(g_str_hash,g_str_equal);
-	g_hash_table_insert(attrs, path, commpath);
+	g_hash_table_insert(attrs, path, dopd_socket);
 
 	ch = ipc_channel_constructor(IPC_ANYTYPE, attrs);
 	g_hash_table_destroy(attrs);
 
 	if (ch == NULL) {
-		cl_log(LOG_ERR, "Could not access channel on: %s", commpath);
+		cl_log(LOG_ERR, "Could not access channel on: %s", dopd_socket);
 		return NULL;
 	} else if (ch->ops->initiate_connection(ch) != IPC_OK) {
-		cl_log(LOG_DEBUG, "Could not init comms on: %s", commpath);
+		cl_log(LOG_DEBUG, "Could not init comms on: %s", dopd_socket);
 		ch->ops->destroy(ch);
 		return NULL;
 	}
