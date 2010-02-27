@@ -246,8 +246,6 @@ StartHA() {
     #	Create /dev/watchdog and load module if we should
     init_watchdog
   fi
-  # This deserves a comment... WTF?
-  rm -f $RUNDIR/ppp.d/*
   if
     [ ! -d $RUNDIR/heartbeat ]
   then
