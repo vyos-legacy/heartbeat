@@ -246,20 +246,20 @@ StartHA() {
     #	Create /dev/watchdog and load module if we should
     init_watchdog
   fi
-  if
-    [ ! -d $RUNDIR/heartbeat ]
-  then
-    mkdir -p $RUNDIR/heartbeat
-    chmod 750 $RUNDIR/heartbeat
-    chown @HA_CCMUSER@:@HA_APIGROUP@ $RUNDIR/heartbeat
-  fi
-  for d in ccm crm dopd ; do
-    D=$RUNDIR/heartbeat/$d
-    [ -d $D ] && continue
-    mkdir $D
-    chmod 750 $D
-    chown @HA_CCMUSER@:@HA_APIGROUP@ $D
-  done
+  (
+    # $RUNDIR may be a tmpfs on some systems
+    umask 027
+    for d in heartbeat crm ; do
+      D=$RUNDIR/$d
+      mkdir $D
+      chown @HA_CCMUSER@:@HA_APIGROUP@ $D
+    done
+    for d in ccm crm dopd ; do
+      D=$RUNDIR/heartbeat/$d
+      mkdir $D
+      chown @HA_CCMUSER@:@HA_APIGROUP@ $D
+    done
+  )
   if
     [  -f $HA_DIR/ipresources -a ! -f $HA_DIR/haresources ]
   then
