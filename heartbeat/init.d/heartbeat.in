@@ -55,12 +55,12 @@ RUNDIR=@localstatedir@/run
 
 
 echo_failure() {
-    echo -e " Heartbeat failure [rc=$1]. $rc_failed"
+    echo " Heartbeat failure [rc=$1]. $rc_failed"
     return $1
 }
 
 echo_success() {
-    echo -e "$rc_done"
+    echo "$rc_done"
 }
 
 if
@@ -111,11 +111,11 @@ then
 	$HA_BIN/heartbeat -s
   }
   echo_failure() {
-      echo -e " Heartbeat failure [rc=$1]. $rc_failed"
+      echo " Heartbeat failure [rc=$1]. $rc_failed"
       return $1
   }
   echo_success() {
-      echo -e "$rc_done"
+      echo "$rc_done"
   }
 else
   . $DISTFUNCS
