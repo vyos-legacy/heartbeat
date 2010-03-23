@@ -56,7 +56,7 @@ Requires(post): /sbin/chkconfig
 Requires(preun):/sbin/chkconfig
 %endif
 %if 0%{?suse_version}
-BuildRequires:  OpenIPMI-devel bison flex gdbm-devel libnet
+BuildRequires:  OpenIPMI-devel bison flex gdbm-devel
 PreReq:         %insserv_prereq %fillup_prereq
 Requires:       logrotate
 %define SSLeay		perl-Net_SSLeay
@@ -86,22 +86,12 @@ BuildRequires:  gcc-c++
 Requires:       which
 BuildRequires:  which
 #Requires:               pygtk2 >= 2.4
-%if 0%{?fedora}
-BuildRequires:  libnet-devel
-%else
-#BuildRequires:  libnet
-%endif
 %if 0%{?fedora} > 7
 BuildRequires:  openssl-devel
 %endif
 %endif
 %if 0%{?mandriva_version}
 BuildRequires:  libbzip2-devel
-%if 0%{?mandriva_version} > 2006
-BuildRequires:  libnet1.1.0-devel
-%else
-BuildRequires:  libnet
-%endif
 %else
 # Hack to avoid needing to install a kernel on Mandriva just to build pacemaker
 Requires:       iptables

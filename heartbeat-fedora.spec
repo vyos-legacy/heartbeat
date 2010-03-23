@@ -26,7 +26,6 @@ Source0:          heartbeat.tar.bz2
 BuildRoot:        %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n) 
 BuildRequires:    glib2-devel
 BuildRequires:    iputils
-BuildRequires:    libnet-devel
 %if 0%{?fedora} || 0%{?centos} > 4 || 0%{?rhel} > 4
 BuildRequires:    libtool-ltdl-devel
 BuildRequires:    net-snmp-devel >= 5.4
