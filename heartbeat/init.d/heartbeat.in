@@ -219,12 +219,14 @@ init_watchdog_linux() {
 } # init_watchdog_linux()
 
 wait_for_lrmd() {
-	local maxwait=30
+	local maxwait=20
 	local i=0
+	echo -n "waiting for lrmd to become responsive "
 	while [ $i -lt $maxwait ]; do
 		$LRMADMIN -C > /dev/null 2>&1 &&
 			break
-		sleep 1
+		sleep 2
+		echo -n .
 		i=$(($i+1))
 	done
 	if [ $i -lt $maxwait ]; then
