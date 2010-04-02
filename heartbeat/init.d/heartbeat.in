@@ -422,8 +422,14 @@ case "$1" in
 	;;
 
   standby)
-	StandbyHA
-        RC=$?;;
+	if CrmEnabled; then
+	  echo "use 'crm_stanby -v on' instead"
+	  RC=1
+	else
+	  StandbyHA
+	  RC=$?
+	fi
+	;;
 
   status)
 	StatusHA
