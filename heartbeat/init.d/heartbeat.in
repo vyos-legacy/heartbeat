@@ -44,7 +44,8 @@
 # Default-Stop: 0 1 6
 ### END INIT INFO
 
-[ -f @INITDEFDIR@/heartbeat ] && . @INITDEFDIR@/heartbeat
+[ -r @INITDEFDIR@/heartbeat ] && . @INITDEFDIR@/heartbeat
+[ -r @INITDEFDIR@/pacemaker ] && . @INITDEFDIR@/pacemaker
 
 HA_DIR=@sysconfdir@/ha.d; export HA_DIR
 CONFIG=$HA_DIR/ha.cf
@@ -53,6 +54,7 @@ CONFIG=$HA_DIR/ha.cf
 LOCKDIR=@localstatedir@/lock/subsys
 RUNDIR=@localstatedir@/run
 
+LRMADMIN=@sbindir@/lrmadmin
 
 echo_failure() {
     echo " Heartbeat failure [rc=$1]. $rc_failed"
@@ -132,10 +134,16 @@ then
   exit 0
 fi
 
+CRM_ENABLED_RV=""
 CrmEnabled() {
+  test -n "$CRM_ENABLED_RV" && return $CRM_ENABLED_RV
   case `ha_parameter crm | tr '[A-Z]' '[a-z]'` in
-    y|yes|enable|on|true|1|manual|respawn)	true;;
-    *)				false;;
+    y|yes|enable|on|true|1|manual|respawn)
+    	CRM_ENABLED_RV=0
+	return 0 ;;
+    *)
+	CRM_ENABLED_RV=1
+	return 1 ;;
   esac
 }
 
@@ -210,6 +218,31 @@ init_watchdog_linux() {
   fi
 } # init_watchdog_linux()
 
+wait_for_lrmd() {
+	local maxwait=30
+	local i=0
+	while [ $i -lt $maxwait ]; do
+		$LRMADMIN -C > /dev/null 2>&1 &&
+			break
+		sleep 1
+		i=$(($i+1))
+	done
+	if [ $i -lt $maxwait ]; then
+		return 0
+	else
+		echo "lrmd apparently didn't start"
+		return 1
+	fi
+}
+set_lrmd_options() {
+	CrmEnabled || return
+	test -x $LRMADMIN || return
+	if [ -n "$LRMD_MAX_CHILDREN" ]; then
+		wait_for_lrmd || return
+		$LRMADMIN -p max-children $LRMD_MAX_CHILDREN
+	fi
+}
+
 
 #
 #	Start the heartbeat daemon...
@@ -271,6 +304,7 @@ StartHA() {
   if
     start_heartbeat
   then
+    set_lrmd_options
     echo_success
     return 0 
   else
