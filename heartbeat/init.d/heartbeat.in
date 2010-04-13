@@ -46,6 +46,7 @@
 
 [ -r @INITDEFDIR@/heartbeat ] && . @INITDEFDIR@/heartbeat
 [ -r @INITDEFDIR@/pacemaker ] && . @INITDEFDIR@/pacemaker
+[ -r @INITDEFDIR@/sbd ] && . @INITDEFDIR@/sbd
 
 HA_DIR=@sysconfdir@/ha.d; export HA_DIR
 CONFIG=$HA_DIR/ha.cf
@@ -55,6 +56,43 @@ LOCKDIR=@localstatedir@/lock/subsys
 RUNDIR=@localstatedir@/run
 
 LRMADMIN=@sbindir@/lrmadmin
+SBD_BIN=@sbindir@/sbd
+
+StartSBD() {
+	test -x $SBD_BIN || return
+	test -z "$SBD_DEVICE" && return
+
+	# Would be nice if sbd would
+	# cleanly handle double start internally
+	ps -eo cmd | grep "^$SBD_BIN -d" > /dev/null && return
+
+	echo -n "Starting SBD - "
+	local ERROR
+	if ! ERROR=`$SBD_BIN -d $SBD_DEVICE -D $SBD_OPTS watch 2>&1` ; then
+		echo "SBD failed to start; aborting."
+		if [ ! -z "$ERROR" ]; then
+			echo
+			echo "$ERROR"
+		fi 
+		exit 1
+	fi
+}
+
+StopSBD() {
+	test -x $SBD_BIN || return
+	test -z "$SBD_DEVICE" && return
+
+	echo -n "Stopping SBD - "
+	local ERROR
+	if ! ERROR=`$SBD_BIN -d $SBD_DEVICE -D $SBD_OPTS message LOCAL exit 2>&1` ; then
+		echo "SBD failed to stop; aborting."
+		if [ ! -z "$ERROR" ]; then
+			echo
+			echo "$ERROR"
+		fi 
+		exit 1
+	fi
+}
 
 echo_failure() {
     echo " Heartbeat failure [rc=$1]. $rc_failed"
@@ -302,6 +340,9 @@ StartHA() {
   then
     mv $HA_DIR/ipresources $HA_DIR/haresources
   fi
+  #	Start SBD, if enabled.
+  #	Start failure will be fatal (exit this script)
+  StartSBD
   #	Start heartbeat daemon
   if
     start_heartbeat
@@ -329,6 +370,7 @@ StopHA() {
   if
     $HA_BIN/heartbeat -k >/dev/null 2>&1	# Kill it
   then
+    StopSBD
     echo_success
     return 0
   else
