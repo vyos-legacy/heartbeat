@@ -17,7 +17,6 @@
 
 # norootforbuild
 
-%define build_cmpi 		0
 %define with_extra_warnings   	0
 %define without_fatal_warnings 	1
 %define start_at_boot 		0
@@ -38,9 +37,9 @@ BuildRequires:  libglue-devel
 %endif
 
 Name:           heartbeat
-Summary:        The Heartbeat Subsystem for High-Availability Linux
+Summary:        Messaging and membership subsystem for High-Availability Linux
 Version:        3.0.3
-Release:	0rc1%{?dist}
+Release:	1%{?dist}
 License:        GPL v2 only; LGPL v2.1 or later
 Url:            http://linux-ha.org/
 Group:          Productivity/Clustering/HA
@@ -97,73 +96,46 @@ BuildRequires:  libbzip2-devel
 Requires:       iptables
 %endif
 #!BuildIgnore:  -iptables
-%if %build_cmpi
-BuildRequires:  openwbem-devel
-%endif
 
 %description
-heartbeat is a sophisticated multinode resource manager for High
-Availability clusters.
+Heartbeat is a daemon that provides cluster infrastructure (communication and
+membership) services to its clients. This allows clients to know about the
+presence (or disappearance!) of peer processes on other machines and to easily
+exchange messages with them.
 
-It can failover arbitrary resources, ranging from IP addresses over NFS
-to databases that are tied in via resource scripts. The resources can
-have arbitrary dependencies for ordering or placement between them.
+Reference documentation is available online: http://www.linux-ha.org/doc/
+Extensive manual pages for system administration commands and configuration
+files are included.
 
-heartbeat contains a cluster membership layer, fencing, and local and
-clusterwide resource management functionality.
+In order to be useful to users, the Heartbeat daemon needs to be combined with
+a cluster resource manager (CRM) which has the task of starting and stopping
+the services (IP addresses, web servers, etc.) that cluster will make highly
+available.
 
-1.2/1.0 based 2-node only configurations are supported in a legacy
-mode.
+Pacemaker is the preferred cluster resource manager for clusters based on
+Heartbeat, supporting "n-node" clusters with significant capabilities for
+managing resources and dependencies.
 
-heartbeat implements the following kinds of heartbeats:
+In addition Heartbeat continues to support the legacy realease 1 style of
+2-node clustering.
 
-- Serial ports
+It implements the following kinds of heartbeats:
+        - Serial ports
+        - UDP/IP multicast (ethernet, etc)
+        - UDP/IP broadcast (ethernet, etc)
+        - UDP/IP unicast heartbeats
+        - "ping" heartbeats (for routers, switches, etc.)
 
-- UDP/IPv4 broadcast, multi-cast, and unicast
-
-- IPv4 "ping" pseudo-cluster members.
-
-%if %build_cmpi
-
-%package cmpi
-License:        GPL v2 or later; LGPL v2.1 or later
-Summary:        Heartbeat CIM Provider
-Group:          Productivity/Clustering/HA
-
-%description cmpi
-This package provides the CIM provider for managing heartbeat via
-OpenWBEM.
-
-%endif
 
 %package devel 
 License:        GPL v2 or later; LGPL v2.1 or later
-Summary:        The Heartbeat Subsystem for High-Availability Linux
+Summary:        Heartbeat development package
 Group:          Productivity/Clustering/HA
 Requires:       %{name} = %{version}-%{release}
 Requires:       libglue-devel
 
 %description devel
-heartbeat is a sophisticated multinode resource manager for High
-Availability clusters.
-
-It can failover arbitrary resources, ranging from IP addresses over NFS
-to databases that are tied in via resource scripts. The resources can
-have arbitrary dependencies for ordering or placement between them.
-
-heartbeat contains a cluster membership layer, fencing, and local and
-clusterwide resource management functionality.
-
-1.2/1.0 based 2-node only configurations are supported in a legacy
-mode.
-
-heartbeat implements the following kinds of heartbeats:
-
-- Serial ports
-
-- UDP/IPv4 broadcast, multi-cast, and unicast
-
-- IPv4 "ping" pseudo-cluster members.
+Headers and shared libraries for writing programs for Heartbeat
 
 %prep
 ###########################################################
@@ -201,12 +173,6 @@ export docdir=%{heartbeat_docdir}
     --mandir=%{_mandir} \
 %if 0%{?suse_version} >= 1020
     --docdir=%{heartbeat_docdir} \
-%endif
-%if %build_cmpi
-    --enable-cim-provider \
-    --with-cimom=openwbem \
-    --with-cmpi-headers=%{_includedir}/openwbem \
-    --with-provider-dir=/usr/%{_lib}/openwbem/cmpiproviders \
 %endif
     --with-group-name=%{gname} \
     --with-ccmuser-name=%{uname}
@@ -375,6 +341,11 @@ rm -rf $RPM_BUILD_DIR/heartbeat-%{version}
 %exclude %{_datadir}/heartbeat/cts
 
 %changelog
+* Wed Apr 14 2010 Lars Ellenberg <lars.ellenberg@linbit.com> - 3.0.3-1
+- added /var/run/* directory permission paranoia to init script
+- added SBD and lrmadmin configuration support to init script
+- drop libnet dependency
+
 * Thu Feb 04 2010 Lars Ellenberg <lars.ellenberg@linbit.com> - 3.0.2-2
 - changed dopd socket location again to its own subdirectory,
   made sure the init script will create that directory

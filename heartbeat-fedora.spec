@@ -18,7 +18,7 @@ Summary:          Messaging and membership subsystem for High-Availability Linux
 Name:             heartbeat
 Version:          3.0.3
 #Release:          %{?alphatag:0.}%{specversion}%{?alphatag:.%{alphatag}}%{?dist}
-Release:          0rc1%{?dist}
+Release:          1%{?dist}
 License:          GPLv2 and LGPLv2+
 URL:              http://linux-ha.org/
 Group:            System Environment/Daemons
@@ -53,26 +53,33 @@ Requires(preun):  /sbin/chkconfig
 Obsoletes:        heartbeat-gui < %{version}-%{release}
 
 %description
-heartbeat is a basic high-availability subsystem for Linux-HA.
-It will run scripts at initialization, and when machines go up or down.
-This version will also perform IP address takeover using gratuitous ARPs.
+Heartbeat is a daemon that provides cluster infrastructure (communication and
+membership) services to its clients. This allows clients to know about the
+presence (or disappearance!) of peer processes on other machines and to easily
+exchange messages with them.
 
-Heartbeat contains a cluster membership layer, fencing, and local and
-clusterwide resource management functionality.
+Reference documentation is available online: http://www.linux-ha.org/doc/
+Extensive manual pages for system administration commands and configuration
+files are included.
 
-When used with Pacemaker, it supports "n-node" clusters with significant 
-capabilities for managing resources and dependencies.
+In order to be useful to users, the Heartbeat daemon needs to be combined with
+a cluster resource manager (CRM) which has the task of starting and stopping
+the services (IP addresses, web servers, etc.) that cluster will make highly
+available.
 
-In addition it continues to support the older release 1 style of
+Pacemaker is the preferred cluster resource manager for clusters based on
+Heartbeat, supporting "n-node" clusters with significant capabilities for
+managing resources and dependencies.
+
+In addition Heartbeat continues to support the legacy realease 1 style of
 2-node clustering.
 
 It implements the following kinds of heartbeats:
         - Serial ports
         - UDP/IP multicast (ethernet, etc)
         - UDP/IP broadcast (ethernet, etc)
-        - UDP/IP heartbeats
+        - UDP/IP unicast heartbeats
         - "ping" heartbeats (for routers, switches, etc.)
-           (to be used for breaking ties in 2-node systems)
 
 %package libs
 Summary:          Heartbeat libraries
@@ -83,7 +90,7 @@ Requires:         heartbeat = %{version}-%{release}
 Heartbeat library package
 
 %package devel 
-Summary:        Heartbeat development package 
+Summary:        Heartbeat development package
 Group:          System Environment/Daemons
 Requires:       heartbeat = %{version}-%{release}
 
@@ -187,6 +194,11 @@ fi
 %{_libdir}/*.so
 
 %changelog
+* Wed Apr 14 2010 Lars Ellenberg <lars.ellenberg@linbit.com> - 3.0.3-1
+- added /var/run/* directory permission paranoia to init script
+- added SBD and lrmadmin configuration support to init script
+- drop libnet dependency
+
 * Thu Feb 04 2010 Lars Ellenberg <lars.ellenberg@linbit.com> - 3.0.2-2
 - changed dopd socket location again to its own subdirectory,
   made sure the init script will create that directory
