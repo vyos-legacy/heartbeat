@@ -51,6 +51,7 @@
 HA_DIR=@sysconfdir@/ha.d; export HA_DIR
 CONFIG=$HA_DIR/ha.cf
 . $HA_DIR/shellfuncs
+HA_NOARCHBIN=@HA_NOARCHDATAHBDIR@
 
 LOCKDIR=@localstatedir@/lock/subsys
 RUNDIR=@localstatedir@/run
