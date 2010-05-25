@@ -1049,56 +1049,6 @@ AM_CONDITIONAL(USE_VACM, test "$ac_cv_header_vacmclient_api_h" = yes)
 AM_CONDITIONAL(USE_DRAC3, test "$ac_cv_header_curl_curl_h" = yes -a "$ac_cv_header_libxml_xpath_h" = yes)
 AM_CONDITIONAL(USE_OPENHPI, test "$ac_cv_header_openhpi_SaHpi_h" = yes && pkg-config --atleast-version 2.6 openhpi)
 
-dnl
-dnl    SNMP checks
-dnl
-
-SNMPLIB=""
-SNMPCONFIG=""
-
-ENABLE_SNMP="yes"
-if test "x${enable_snmp}" = "xno"; then
-   ENABLE_SNMP="no"
-fi
-
-AC_CHECK_HEADERS(ucd-snmp/snmp.h,[],[],[#include <sys/types.h>
-#include <ucd-snmp/asn1.h>])
-AC_CHECK_HEADERS(net-snmp/net-snmp-config.h)
-
-if test "x${ENABLE_SNMP}" = "xno"; then
-   # nothing
-   :
-elif test "x${ac_cv_header_net_snmp_net_snmp_config_h}" = "xyes"; then
-	AC_PATH_PROGS(SNMPCONFIG, net-snmp-config)
-	if test "X${SNMPCONFIG}" = "X"; then
-		AC_MSG_RESULT(You need the net_snmp development package to continue.)
-		ENABLE_SNMP="no"
-	else
-		AC_MSG_CHECKING(for special snmp libraries)
-		SNMPLIB=`net-snmp-config --libs`
-		AC_MSG_RESULT($SNMPLIB)
-	fi
-elif test "x${ac_cv_header_ucd_snmp_snmp_h}" = "xyes"; then
-	# UCD SNMP
-	# ucd-snmp-config does not seem to exist, so just 
-	# rely on people having their LDFLAGS set to the path where
-	AC_CHECK_LIB(snmp, init_snmp, SNMPLIB="-lsnmp")
-	if test "X${SNMPLIB}" = "X"; then
-		AC_CHECK_LIB(ucdsnmp, init_snmp, SNMPLIB="-lucdsnmp")
-	fi
-	if test "X${SNMPLIB}" = "X"; then
-		ENABLE_SNMP="no"
-		AC_MSG_RESULT("Could not find ucdsnmp libary."
-			"Please make sure that libsnmp or libucdsnmp"
-			"are in your library path. Or the path to LDFLAGS")
-	fi
-else
-	ENABLE_SNMP="no"
-fi
-
-AC_SUBST(SNMPLIB)
-AM_CONDITIONAL(USE_APC_SNMP, test "$ENABLE_SNMP" = "yes")
-
 #
 #	We've had this new API for a very long time
 #
@@ -1123,12 +1073,6 @@ else
 fi
 AM_CONDITIONAL(IPMILAN_BUILD, test "X$enable_ipmilan" = "Xyes")
 
-dnl
-dnl     On many systems libcrypto is needed when linking against libsnmp.
-dnl     Check to see if it exists, and if so use it.
-dnl
-AC_CHECK_LIB(crypto, CRYPTO_free, CRYPTOLIB="-lcrypto",)
-AC_SUBST(CRYPTOLIB)
 
 dnl ***************************************************************************
 dnl Enable distro-style RPMs
@@ -1473,9 +1417,6 @@ AC_ARG_ENABLE([thread-safe],
 [  --enable-thread-safe Enable some client libraries to be thread safe.
                           [default=no]])
 
-AC_ARG_ENABLE([snmp],
-[  --enable-snmp Enable building of SNMP related functionality.
-                          [default=yes]])
 
 AC_ARG_ENABLE([ipmilan],
 [  --enable-ipmilan       enable IPMILan Stonith Plugin
@@ -1773,14 +1714,6 @@ dnl case with glib2.
 		CFLAGS="$CFLAGS -fgnu89-inline"
 	fi
 
-	if test "x${ENABLE_SNMP}" = "xyes" &&
-			echo "${SNMPLIB}" | grep netsnmp >/dev/null; then
-		inline_ver=`echo 4.3.0 | ver2num`
-		if test $GCCVER -ge $inline_ver; then
-			CFLAGS="$CFLAGS -DNETSNMP_BROKEN_INLINE"
-		fi
-	fi
-
 fi
 if test "${enable_times_kludge}" = no; then
   echo "Disabling times(2) kludge"
@@ -1936,22 +1869,6 @@ AC_ARG_WITH(
 AC_SUBST(LOGD_INITSTOPPRI)
 AC_DEFINE_UNQUOTED(LOGD_INITSTOPPRI,"$LOGD_INITSTOPPRI", init stop priority)
 
-#
-#	Name of UCD-SNMP development package
-#
-AC_ARG_WITH(
-  ucd-snmp-devel,
-    [  --with-snmp-name=name   Name of ucd snmp developemnt RPM. 
-                          [default=ucd-snmp-devel]  ],
-    [ UCDSNMPDEVEL=$withval ],
-    [ UCDSNMPDEVEL=ucd-snmp-devel ],
-  )
-if test "$ac_cv_header_ucd_snmp_snmp_h" = no; then
-	UCDSNMPDEVEL=""
-fi
-AC_SUBST(UCDSNMPDEVEL)
-AC_DEFINE_UNQUOTED(UCDSNMPDEVEL, $UCDSNMPDEVEL, 
-	Name of UCD SNMP development package)
 
 dnl ************************************************************************
 dnl checks for library functions to replace them
@@ -2579,8 +2496,6 @@ AC_MSG_RESULT([  HA group name            = "${HA_APIGROUP}"])
 AC_MSG_RESULT([  HA group id              = "${HA_APIGID}"])
 AC_MSG_RESULT([  HA user name             = "${HA_CCMUSER}"])
 AC_MSG_RESULT([  HA user user id          = "${HA_CCMUID}"])
-
-AC_MSG_RESULT([  SNMP libraries           = "${SNMPLIB}"])
 
 AC_MSG_RESULT([  Build IPMILan Plugin     = "${enable_ipmilan}"])
 
