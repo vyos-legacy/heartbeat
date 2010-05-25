@@ -603,7 +603,6 @@ AC_CHECK_LIB(c, dlopen)				dnl if dlopen is in libc...
 AC_CHECK_LIB(dl, dlopen)			dnl -ldl (for Linux)
 AC_CHECK_LIB(rt, sched_getscheduler)            dnl -lrt (for Tru64)
 AC_CHECK_LIB(gnugetopt, getopt_long)		dnl -lgnugetopt ( if available )
-AC_CHECK_LIB(pam, pam_start)			dnl -lpam (if available)
 
 #	Not sure what OSes need this... Linux and AIX don't...
 #	and AIX barfs on it...
@@ -2079,14 +2078,6 @@ dnl ************************************************************************
 dnl management and quorum daemons.
 
 AC_CHECK_HEADERS(gnutls/gnutls.h)
-AC_CHECK_HEADERS(security/pam_appl.h pam/pam_appl.h)
-
-dnl ************************************************************************
-dnl * Check for (debian style?) $sysconfdir/pam.d/common-{account,auth}
-AC_CHECK_FILE($sysconfdir/pam.d/common-account)
-AC_CHECK_FILE($sysconfdir/pam.d/common-auth)
-AM_CONDITIONAL(USE_PAM_COMMON, test -f $sysconfdir/pam.d/common-account -a \
-				    -f /etc/pam.d/common-auth)
 
 dnl GNUTLS library: Attempt to determine by 'libgnutls-config' program.
 dnl If no 'libgnutls-config', try traditional autoconf means.
