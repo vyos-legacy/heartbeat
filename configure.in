@@ -535,7 +535,6 @@ AC_SUBST(MAILCMD)
 AC_DEFINE_UNQUOTED(IFCONFIG, "$IFCONFIG", path to the ifconfig command)
 AC_PATH_PROGS(GETENT, getent)
 AC_PATH_PROGS(IP2UTIL, ip, /sbin/ip)
-AC_PATH_PROGS(XML2CONFIG, xml2-config)
 
 AC_PATH_PROGS(REBOOT, reboot, /sbin/reboot)
 AC_PATH_PROGS(POWEROFF_CMD, poweroff, /sbin/poweroff)
@@ -1027,19 +1026,6 @@ dnl
 AC_CHECK_HEADERS(vacmclient_api.h)
 AC_CHECK_HEADERS(curl/curl.h)
 AC_CHECK_HEADERS(openhpi/SaHpi.h)
-
-AC_MSG_CHECKING(for special libxml2 includes)
-if test "x$XML2CONFIG" = "x"; then
-   AC_MSG_RESULT(libxml2 config not found)
-else
-   XML2HEAD=`$XML2CONFIG --cflags`
-   AC_MSG_RESULT($XML2HEAD)
-   AC_CHECK_LIB(xml2, xmlReadMemory)
-fi
-
-CPPFLAGS="$CPPFLAGS $XML2HEAD"
-
-AC_CHECK_HEADERS(libxml/xpath.h)
 
 dnl
 dnl	Could check for the libraries, but if you have the headers,
