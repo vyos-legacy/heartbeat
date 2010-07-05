@@ -2035,11 +2035,12 @@ dnl not have CFLAGS in their environment then this should have
 dnl no effect. However if CFLAGS was exported from the user's
 dnl environment, then the new CFLAGS will also be exported
 dnl to sub processes. This causes a problem when configure
-dnl is run in the libltdl directory. Horms 16th July 2002
-dnl
-
+dnl is run in the libltdl directory.
 if export | fgrep " CFLAGS=" > /dev/null; then
-	export -n CFLAGS || true # We don't want to bomb out if this fails
+	SAVED_CFLAGS="$CFLAGS"
+	unset CFLAGS
+	CFLAGS="$SAVED_CFLAGS"
+	unset SAVED_CFLAGS
 fi
 
 if test "$GCC" = yes; then
