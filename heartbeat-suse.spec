@@ -256,9 +256,7 @@ rm -rf $RPM_BUILD_DIR/heartbeat-%{version}
 %{_libdir}/heartbeat/plugins/HBcomm
 %{_libdir}/heartbeat/plugins/HBcompress
 %{_libdir}/heartbeat/plugins/quorum
-#%{_libdir}/heartbeat/plugins/quorumd
 %{_libdir}/heartbeat/plugins/tiebreaker
-#%{_libdir}/heartbeat/quorumd
 %{_libdir}/heartbeat/heartbeat
 %{_libdir}/heartbeat/ipfail
 %{_libdir}/heartbeat/ccm
@@ -331,7 +329,6 @@ rm -rf $RPM_BUILD_DIR/heartbeat-%{version}
 %{_libdir}/libapphb*.so
 %{_libdir}/libhbclient*.so
 %{_libdir}/libccmclient*.so
-#%{_libdir}/heartbeat/quorumdtest
 %{_libdir}/heartbeat/clmtest
 %{_libdir}/heartbeat/api_test
 %{_libdir}/heartbeat/apphbtest
