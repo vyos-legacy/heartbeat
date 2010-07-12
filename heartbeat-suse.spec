@@ -46,7 +46,7 @@ Group:          Productivity/Clustering/HA
 Source:         heartbeat.tar.bz2
 BuildRoot:      %{_tmppath}/%{name}-%{version}-build
 Requires:       /bin/ping perl-TimeDate resource-agents
-BuildRequires:  curl-devel e2fsprogs-devel glib2-devel iputils libxml2-devel lynx python openhpi-devel
+BuildRequires:  e2fsprogs-devel glib2-devel iputils lynx python
 BuildRequires:  libxslt docbook_4 docbook-xsl-stylesheets
 AutoReqProv:    on
 Requires(pre):  cluster-glue
@@ -55,7 +55,7 @@ Requires(post): /sbin/chkconfig
 Requires(preun):/sbin/chkconfig
 %endif
 %if 0%{?suse_version}
-BuildRequires:  OpenIPMI-devel bison flex gdbm-devel
+BuildRequires:  bison flex gdbm-devel
 PreReq:         %insserv_prereq %fillup_prereq
 Requires:       logrotate
 %define SSLeay		perl-Net_SSLeay
