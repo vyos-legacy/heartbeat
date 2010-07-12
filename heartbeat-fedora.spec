@@ -8,7 +8,6 @@
 
 #global alphatag %{upstreamversion}.hg
 
-%global           ENABLE_SNMP_SUBAGENT 0
 %global           gname haclient
 %global           uname hacluster
 
@@ -28,13 +27,11 @@ BuildRequires:    glib2-devel
 BuildRequires:    iputils
 %if 0%{?fedora} || 0%{?centos} > 4 || 0%{?rhel} > 4
 BuildRequires:    libtool-ltdl-devel
-BuildRequires:    net-snmp-devel >= 5.4
 %endif
 BuildRequires:    bzip2-devel 
 BuildRequires:    ncurses-devel
 BuildRequires:    openssl-devel
 BuildRequires:    libtool
-BuildRequires:    libxml2-devel
 BuildRequires:    gettext
 BuildRequires:    bison
 BuildRequires:    flex
@@ -173,9 +170,6 @@ fi
 %{_mandir}/man5/authkeys.5*
 %{_mandir}/man8/heartbeat.8*
 %{_mandir}/man8/apphbd.8*
-%if %{ENABLE_SNMP_SUBAGENT}
-/LINUX-HA-MIB.mib
-%endif
 
 %files libs
 %defattr(-,root,root,-)
