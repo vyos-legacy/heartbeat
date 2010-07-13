@@ -435,7 +435,8 @@ struct llc_ops {
 #define KEY_SYSLOGFMT	"syslogmsgfmt"
 #define KEY_COREDUMP	"coredumps"
 #define KEY_COREROOTDIR	"coreroot"
-#define KEY_REL2	"crm"
+#define KEY_REL2	"crm"		/* historical alias for pacemaker */
+#define KEY_PACEMAKER	"pacemaker"
 #define KEY_AUTOJOIN	"autojoin"
 #define KEY_UUIDFROM	"uuidfrom"
 #define KEY_ENV		"env"
