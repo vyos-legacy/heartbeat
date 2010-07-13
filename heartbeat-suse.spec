@@ -55,7 +55,7 @@ Requires(post): /sbin/chkconfig
 Requires(preun):/sbin/chkconfig
 %endif
 %if 0%{?suse_version}
-BuildRequires:  bison flex gdbm-devel
+BuildRequires:  bison flex
 PreReq:         %insserv_prereq %fillup_prereq
 Requires:       logrotate
 %define SSLeay		perl-Net_SSLeay
