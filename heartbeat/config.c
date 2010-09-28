@@ -2555,9 +2555,10 @@ set_corerootdir(const char* value)
 }
 
 /*
- *  Enable all these flags when  KEY_RELEASE2 is enabled...
+ *  Enable all these flags when  KEY_PACEMAKER is enabled...
  *	apiauth lrmd   		uid=root
  *	apiauth stonithd	uid=root
+ *	apiauth stonith-ng	uid=root
  *	apiauth crmd		uid=hacluster
  *	apiauth cib		uid=hacluster
  *	respawn root		/usr/lib/heartbeat/lrmd
@@ -2596,6 +2597,9 @@ set_pcmk_support(const char* value)
 		{"apiauth", "cib 	uid=" HA_CCMUSER}
 		/* LRMd is not a heartbeat API client */
 	,	{"apiauth", "stonithd  	uid=root" }
+		/* "NG" registers as stonith-ng, but the name of the binary
+		 * is still the same: stonithd */
+	,	{"apiauth", "stonith-ng	uid=root" }
 	,	{"apiauth", "attrd   	uid=" HA_CCMUSER}
 	,	{"apiauth", "crmd   	uid=" HA_CCMUSER}
 	,	{"apiauth", "pingd   	uid=root"}
@@ -2622,6 +2626,7 @@ set_pcmk_support(const char* value)
 		{"apiauth", "cib 	uid=" HA_CCMUSER}
 		/* LRMd is not a heartbeat API client */
 	,	{"apiauth", "stonithd  	uid=root" }
+	,	{"apiauth", "stonith-ng	uid=root" }
 	,	{"apiauth", "attrd   	uid=" HA_CCMUSER}
 	,	{"apiauth", "crmd   	uid=" HA_CCMUSER}
 	,	{"apiauth", "pingd   	uid=root"}
@@ -2652,6 +2657,7 @@ set_pcmk_support(const char* value)
 	{	/* CCM apiauth already implicit elsewhere */
 		{"apiauth", "cib 	uid=" HA_CCMUSER}
 	,	{"apiauth", "stonithd  	uid=root" }
+	,	{"apiauth", "stonith-ng	uid=root" }
 	,	{"apiauth", "attrd   	uid=" HA_CCMUSER}
 	,	{"apiauth", "crmd   	uid=" HA_CCMUSER}
 
