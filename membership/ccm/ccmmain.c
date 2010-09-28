@@ -109,6 +109,18 @@ waitCh_input_dispatch(IPC_Channel *newclient, gpointer user_data)
 {
 	client_add(newclient);
 
+	/* Some ccm clients may not consume our messages fast enough,
+	 * but will have serious trouble if we kick them out for that reason.
+	 * Worse, still, if send_message() "live locks" on one client, we won't
+	 * be able to drain requests from other clients, possibly causing them
+	 * to close their connection to us, or even causing the heartbeat MCP
+	 * to kick _us_ out. Kick out the ccm! We really want to avoid that.
+	 * Chose a "generous" queue length.
+	 * And consider kicking out clients that still manage to have their
+	 * queue fill up. (TOBEDONE)
+	 */
+	newclient->ops->set_send_qlen(newclient, 1024);
+
 	G_main_add_IPC_Channel(G_PRIORITY_LOW, newclient, FALSE, 
 				clntCh_input_dispatch, newclient, 
 				clntCh_input_destroy);
