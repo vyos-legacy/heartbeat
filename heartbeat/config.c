@@ -1368,7 +1368,8 @@ add_node(const char * value, int nodetype)
 	hip->track.last_seq = NOSEQUENCE;
 	hip->track.ackseq = 0;
 	hip->weight = 100;
-	srand(time(NULL));
+	/* srand() done in init_config() already,
+	 * and probably still too many places throughout the code */
 	hip->track.ack_trigger = rand()%ACK_MSG_DIV;
 	hip->nodetype = nodetype;
 	add_nametable(hip->nodename, hip);
