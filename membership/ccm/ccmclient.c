@@ -61,27 +61,35 @@ static GHashTable  *ccm_hashclient = NULL;
 static void 
 send_message(ccm_client_t *ccm_client, ccm_ipc_t *msg)
 {
-	int send_rc = IPC_OK;
+	int send_rc;
+	int do_warn = 0;
 	struct IPC_CHANNEL *chan = ccm_client->ccm_ipc_client;
 
 	++(msg->count);
 
 	do {
-		if (chan->ops->get_chan_status(chan) == IPC_CONNECT){
-			send_rc = chan->ops->send(chan, &(msg->ipcmsg));
+		send_rc = chan->ops->send(chan, &(msg->ipcmsg));
+		if (send_rc == IPC_OK)
+			break;
+
+		if (chan->ops->get_chan_status(chan) != IPC_CONNECT) {
+			ccm_debug(LOG_WARNING,
+				"Channel is dead. Cannot send message."
+				" farside_pid=%u", chan->farside_pid);
+			break;
 		}
-		if(send_rc != IPC_OK){
-			if (chan->ops->get_chan_status(chan) != IPC_CONNECT){
-				ccm_debug(LOG_WARNING, "Channel is dead.  Cannot send message.");
-				break;
-			}else {
-				cl_shortsleep();				
-			}
+
+		if (10 == ++do_warn) {
+			cl_log(LOG_WARNING,
+				"ipc channel blocked, farside_pid=%u, reason: %s",
+				chan->farside_pid, chan->failreason);
 		}
-		
-		
+		/* FIXME this can livelock, if a ccm client does not consume
+		 * its messages!  If we want to block, why not set the channel
+		 * to blocking mode in the first place? */
+		cl_shortsleep();
 	} while(send_rc == IPC_FAIL);
-	
+
 	return;
 }
 
@@ -175,10 +183,14 @@ static void
 flush_func(gpointer key, gpointer value, gpointer user_data)
 {
 	struct IPC_CHANNEL *ipc_client = (struct IPC_CHANNEL *)key;
+	int do_warn = 0;
 	while(ipc_client->ops->is_sending_blocked(ipc_client)) {
 		/* FIXME misbehaving client can live lock whole ccm layer! */
-		ccm_debug(LOG_WARNING, "ipc channel blocked, farside_pid=%u",
+		if (10 == ++do_warn) {
+			cl_log(LOG_WARNING,
+				"ipc channel blocked, farside_pid=%u",
 				ipc_client->farside_pid);
+		}
 		cl_shortsleep();
 		if(ipc_client->ops->resume_io(ipc_client) == IPC_BROKEN) {
 			break;
