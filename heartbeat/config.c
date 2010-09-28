@@ -106,6 +106,7 @@ static int set_badpack_warn(const char*);
 static int set_coredump(const char*);
 static int set_corerootdir(const char*);
 static int set_release2mode(const char*);
+static int set_pcmk_support(const char*);
 static int set_autojoin(const char*);
 static int set_uuidfrom(const char*);
 static int ha_config_check_boolean(const char *);
@@ -162,8 +163,8 @@ struct directive {
 , {KEY_SYSLOGFMT, set_syslog_logfilefmt, TRUE, "true", "log to files in syslog format"}
 , {KEY_COREDUMP,  set_coredump, TRUE, "true", "enable Linux-HA core dumps"}
 , {KEY_COREROOTDIR,set_corerootdir, TRUE, NULL, "set root directory of core dump area"}
-, {KEY_REL2,      set_release2mode, TRUE, "false", "historical alias for '"KEY_PACEMAKER"'"}
-, {KEY_PACEMAKER, set_release2mode, TRUE, "false", "enable Pacemaker resource management"}
+, {KEY_REL2,      set_release2mode, FALSE, NULL, "historical alias for '"KEY_PACEMAKER"'"}
+, {KEY_PACEMAKER, set_pcmk_support, TRUE, "false", "enable Pacemaker resource management"}
 , {KEY_AUTOJOIN,  set_autojoin, TRUE, "none" ,	"set automatic join mode/style"}
 , {KEY_UUIDFROM,  set_uuidfrom, TRUE, "file" ,	"set the source for uuid"}
 ,{KEY_COMPRESSION,   set_compression, TRUE ,"zlib", "set compression module"}
@@ -2566,9 +2567,15 @@ set_corerootdir(const char* value)
  *	respawn hacluster       /usr/lib/heartbeat/crmd
  */
 
-
 static int
 set_release2mode(const char* value)
+{
+	/* alias KEY_REL2 to KEY_PACEMAKER */
+	return add_option(KEY_PACEMAKER, value);
+}
+
+static int
+set_pcmk_support(const char* value)
 {
 	struct do_directive {
 		const char * dname;
@@ -2691,11 +2698,11 @@ set_release2mode(const char* value)
 	DoManageResources = FALSE;
 	if (cl_file_exists(RESOURCE_CFG)){
 		cl_log(LOG_WARNING, "File %s exists.", RESOURCE_CFG);
-		cl_log(LOG_WARNING, "This file is not used because crm is enabled");
+		cl_log(LOG_WARNING, "This file is not used because "KEY_PACEMAKER" is enabled");
 	}
 	
 
-	/* Enable release 2 style cluster management */
+	/* Enable Pacemaker cluster management */
 	for (j=0; j < r2size ; ++j) {
 		int	k;
 		for (k=0; k < DIMOF(WLdirectives); ++k) {
