@@ -1279,6 +1279,9 @@ process_registerevent(IPC_Channel* chan,  gpointer user_data)
 		cl_log(LOG_DEBUG
 		,	"process_registerevent() {");
 	}
+
+	/* FIXME do we want to set a different default send_qlen,
+	 * as per some configuration directive? */
 	/* Zap! */
 	memset(client, 0, sizeof(*client));
 	client->pid = 0;
@@ -1688,10 +1691,12 @@ api_remove_client_int(client_proc_t* req, const char * reason)
 		/* Is this the client? */
 		if (client->pid == req->pid) {
 			if (ANYDEBUG) {
+				const char *id = client->iscasual
+				?	"casual" : client->client_id;
 				cl_log(LOG_DEBUG
-				,	"api_remove_client_int: removing"
+				,	"api_remove_client_int: removing '%s'"
 				" pid [%ld] reason: %s"
-				,	(long)req->pid, reason);
+				,	id, (long)req->pid, reason);
 			}
 			if (prev == NULL) {
 				client_list = client->next;

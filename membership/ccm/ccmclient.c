@@ -176,7 +176,9 @@ flush_func(gpointer key, gpointer value, gpointer user_data)
 {
 	struct IPC_CHANNEL *ipc_client = (struct IPC_CHANNEL *)key;
 	while(ipc_client->ops->is_sending_blocked(ipc_client)) {
-		ccm_debug(LOG_WARNING, "ipc channel blocked");
+		/* FIXME misbehaving client can live lock whole ccm layer! */
+		ccm_debug(LOG_WARNING, "ipc channel blocked, farside_pid=%u",
+				ipc_client->farside_pid);
 		cl_shortsleep();
 		if(ipc_client->ops->resume_io(ipc_client) == IPC_BROKEN) {
 			break;
