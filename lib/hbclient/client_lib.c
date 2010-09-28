@@ -966,6 +966,16 @@ get_nodesite(ll_cluster_t* lcl, const char *host)
 * Return the status of the given client.
 */
 
+#ifndef HAVE_CL_RAND_FROM_INTERVAL
+/* you should grab latest glue headers! */
+static inline int cl_rand_from_interval(const int a, const int b)
+{
+	/* RAND_MAX may be INT_MAX, or (b-a) may be huge. */
+	long long r = get_next_random();
+	return a + (r * (b-a) + RAND_MAX/2)/RAND_MAX;
+}
+#endif
+
 static const char *
 get_clientstatus(ll_cluster_t* lcl, const char *host
 ,		const char *clientid, int timeout)
@@ -1011,15 +1021,14 @@ get_clientstatus(ll_cluster_t* lcl, const char *host
 			ha_log(LOG_ERR, "%s: cannot add field", __FUNCTION__);
 			return NULL;
 		}
-		
-		/* We delay random time here to distribute requests from different nodes 
-		 * across time in a big cluster
-		 * in a 100-node cluster, the max deley is 10 seconds
+
+		/* We delay random time here to distribute requests from different nodes
+		 * across time in a big cluster. Scale max delay as 50ms per node,
+		 * in a 100-node cluster, the max delay is 5 seconds
 		 */
 		num_nodes = get_num_nodes(lcl);
-		max_delay =  (1.0*num_nodes /10) *1000000; /* in microsecond*/
-		srand(cl_randseed());
-		delay = (1.0* rand()/RAND_MAX)*max_delay;
+		max_delay = num_nodes * 50000;
+		delay = cl_rand_from_interval(0, max_delay);
 		if (ANYDEBUG){
 			cl_log(LOG_DEBUG, "Delaying cstatus request for %d ms", delay/1000);
 		}
