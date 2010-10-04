@@ -27,6 +27,7 @@
 #include <clplumbing/coredumps.h>
 static void dump_sending_msg(struct ha_msg* msg, const char* node);
 
+/* FIXEM dead code alert: unused?? */
 int
 ccm_send_cluster_msg(ll_cluster_t* hb, struct ha_msg* msg)
 {
@@ -44,6 +45,7 @@ ccm_send_cluster_msg(ll_cluster_t* hb, struct ha_msg* msg)
 }
 
 
+/* FIXEM dead code alert: unused?? */
 int
 ccm_send_node_msg(ll_cluster_t* hb, 
 		  struct ha_msg* msg, 
@@ -51,8 +53,8 @@ ccm_send_node_msg(ll_cluster_t* hb,
 {
 	int rc;
 	
-	dump_sending_msg(msg, NULL);
-	rc = hb->llc_ops->sendclustermsg(hb, msg);
+	dump_sending_msg(msg, node);
+	rc = hb->llc_ops->sendnodemsg(hb, msg, node);
 	if (rc != HA_OK){
 		ccm_log(LOG_ERR, "sending out message failed");
 		ccm_message_debug2(LOG_DEBUG, msg);
