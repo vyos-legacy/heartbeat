@@ -31,12 +31,6 @@
 #include "ccmmisc.h"
 
 
-
-int ccm_send_node_msg(ll_cluster_t* hb, struct ha_msg* msg,  const char* node);
-int ccm_send_cluster_msg(ll_cluster_t* hb, struct ha_msg* msg);
-
-
-
 /* PROTOTYPE */
 static void
 ccm_reset_all_join_request(ccm_info_t* info);

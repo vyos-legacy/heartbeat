@@ -25,8 +25,6 @@
 
 #include <clplumbing/cl_signal.h>
 #include <clplumbing/coredumps.h>
-int ccm_send_cluster_msg(ll_cluster_t* hb, struct ha_msg* msg);
-int ccm_send_node_msg(ll_cluster_t* hb, struct ha_msg* msg, const char* node);
 static void dump_sending_msg(struct ha_msg* msg, const char* node);
 
 int
