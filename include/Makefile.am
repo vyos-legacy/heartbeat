@@ -28,8 +28,7 @@ includedir=$(base_includedir)/heartbeat
 
 noinst_HEADERS	        = hb_api_core.h config.h lha_internal.h ha_version.h
 include_HEADERS	        = apphb.h apphb_notify.h HBauth.h HBcomm.h	\
-			  ha_msg.h heartbeat.h hb_api.h	hb_config.h	\
-			  replace_uuid.h compress.h
+			  heartbeat.h hb_api.h	hb_config.h
 
 SUBDIRS                 = ocf saf 
 
