@@ -320,11 +320,8 @@ rm -rf $RPM_BUILD_DIR/heartbeat-%{version}
 %{_includedir}/heartbeat/apphb_notify.h
 %{_includedir}/heartbeat/HBauth.h
 %{_includedir}/heartbeat/HBcomm.h
-%{_includedir}/heartbeat/ha_msg.h
-%{_includedir}/heartbeat/compress.h
 %{_includedir}/heartbeat/hb_config.h
 %{_includedir}/heartbeat/heartbeat.h
-%{_includedir}/heartbeat/replace_uuid.h
 %{_libdir}/libclm*.so
 %{_libdir}/libapphb*.so
 %{_libdir}/libhbclient*.so
