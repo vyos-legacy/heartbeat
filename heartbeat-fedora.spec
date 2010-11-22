@@ -40,6 +40,7 @@ BuildRequires:    mailx
 BuildRequires:    which
 BuildRequires:    cluster-glue-libs-devel
 BuildRequires:    libxslt docbook-dtds docbook-style-xsl
+Requires:         heartbeat-libs = %{version}-%{release}
 Requires:         PyXML
 Requires:         resource-agents
 Requires:         cluster-glue-libs
@@ -81,7 +82,6 @@ It implements the following kinds of heartbeats:
 %package libs
 Summary:          Heartbeat libraries
 Group:            System Environment/Daemons
-Requires:         heartbeat = %{version}-%{release}
 
 %description libs
 Heartbeat library package
@@ -89,7 +89,7 @@ Heartbeat library package
 %package devel 
 Summary:        Heartbeat development package
 Group:          System Environment/Daemons
-Requires:       heartbeat = %{version}-%{release}
+Requires:       heartbeat-libs = %{version}-%{release}
 
 %description devel
 Headers and shared libraries for writing programs for Heartbeat
