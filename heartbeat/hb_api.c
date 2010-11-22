@@ -1061,17 +1061,10 @@ static int
 add_client_gen(client_proc_t* client, struct ha_msg* msg)
 {
 	char buf[MAX_CLIENT_GEN];
-	
+
 	memset(buf, 0, MAX_CLIENT_GEN);
-	snprintf(buf, MAX_CLIENT_GEN, "%d", client->cligen);	
-	if (ha_msg_add(msg, F_CLIENT_GENERATION, buf) != HA_OK){
-		cl_log(LOG_ERR, "api_send_client_status: cannot add fields");
-		ha_msg_del(msg); msg=NULL;
-		return HA_FAIL;
-	}
-	
-	return HA_OK;
-	
+	snprintf(buf, MAX_CLIENT_GEN, "%d", client->cligen);
+	return ha_msg_mod(msg, F_CLIENT_GENERATION, buf);
 }
 
 
@@ -1142,10 +1135,11 @@ api_process_request(client_proc_t* fromclient, struct ha_msg * msg)
 			cl_log_message(LOG_DEBUG, msg);
 		}
 
-		/* Mikey likes it! */
 		if (add_client_gen(fromclient, msg) != HA_OK){
 			cl_log(LOG_ERR, "api_process_request: "
-			       " add client generation to ha_msg failed ");			
+			       "add client generation to ha_msg failed");
+			ha_msg_del(msg); msg=NULL;
+			return;
 		}
 
 		if (send_cluster_msg(msg) != HA_OK) {
@@ -1577,9 +1571,10 @@ api_send_client_status(client_proc_t* client, const char * status
 		ha_msg_del(msg); msg=NULL;
 		return;
 	}
-	
+
 	if (add_client_gen(client, msg) != HA_OK){
-		cl_log(LOG_ERR, "api_send_client_status: cannot add fields");
+		cl_log(LOG_ERR,
+			"api_send_client_status: cannot add client generation");
 		ha_msg_del(msg); msg=NULL;
 		return;
 	}
