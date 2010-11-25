@@ -39,7 +39,7 @@ AC_ARG_WITH(hapkgversion,
 )
 
 if test -z "$HAPKGVERSION" ; then
-   HAPKGVERSION="3.0.2"
+   HAPKGVERSION="3.0.4"
 fi
 AM_INIT_AUTOMAKE(heartbeat, $HAPKGVERSION)
 

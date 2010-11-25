@@ -38,7 +38,7 @@ BuildRequires:  libglue-devel
 
 Name:           heartbeat
 Summary:        Messaging and membership subsystem for High-Availability Linux
-Version:        3.0.3
+Version:        3.0.4
 Release:	1%{?dist}
 License:        GPL v2 only; LGPL v2.1 or later
 Url:            http://linux-ha.org/
