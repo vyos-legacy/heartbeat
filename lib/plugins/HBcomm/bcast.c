@@ -377,8 +377,10 @@ bcast_write(struct hb_media* mp, void *pkt, int len)
 
 		int		err = errno;
 		if (!mp->suppresserrs) {
-			PILCallLog(LOG, PIL_CRIT, "Unable to send bcast [%d] packet(len=%d): %s"
-			,	rc,len, strerror(err));
+			PILCallLog(LOG, PIL_CRIT
+			,	"%s: Unable to send " PIL_PLUGINTYPE_S " packet %s %s:%u len=%d [%d]: %s"
+			,	__FUNCTION__, ei->interface, inet_ntoa(ei->addr.sin_addr), ei->port
+			,	len, rc, strerror(errno));
 		}
 		
 		if (ANYDEBUG) {

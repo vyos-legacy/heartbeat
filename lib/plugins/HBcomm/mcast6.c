@@ -445,7 +445,7 @@ mcast6_write(struct hb_media* hbm, void *pkt, int len)
 	if (rc != len) {
 		if (!hbm->suppresserrs) {
 			PILCallLog(LOG, PIL_CRIT
-			,	"%s: Unable to send mcast6 packet %s[%s]:%s len=%d [%d]: %s"
+			,	"%s: Unable to send " PIL_PLUGINTYPE_S " packet %s[%s]:%s len=%d [%d]: %s"
 			,	__FUNCTION__, mcp->interface, mcp->mcast6_s, mcp->port_s
 			,	len, rc, strerror(errno));
 		}
