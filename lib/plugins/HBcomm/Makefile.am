@@ -31,6 +31,10 @@ if BUILD_TIPC_MODULE
 TIPC=tipc.la
 endif
 
+if BUILD_RDS_MODULE
+RDS=rds.la
+endif
+
 SUBDIRS                 = 
 
 INCLUDES                = -I$(top_builddir)/include -I$(top_srcdir)/include   \
@@ -45,14 +49,19 @@ AM_CFLAGS		= @CFLAGS@
 
 halibdir		= $(libdir)/@HB_PKG@
 plugindir		= $(halibdir)/plugins/HBcomm
-plugin_LTLIBRARIES	= bcast.la mcast.la mcast6.la ping.la ping6.la serial.la ucast.la \
-			  ping_group.la  $(HBAPING) $(OPENAIS) $(TIPC)
+plugin_LTLIBRARIES	= bcast.la mcast.la mcast6.la ucast.la \
+			  serial.la \
+			  ping.la ping6.la ping_group.la  \
+			  $(HBAPING) $(OPENAIS) $(TIPC) $(RDS)
 
 bcast_la_SOURCES	= bcast.c
 bcast_la_LDFLAGS	= -export-dynamic -module -avoid-version
 
 ucast_la_SOURCES	= ucast.c
 ucast_la_LDFLAGS	= -export-dynamic -module -avoid-version
+
+rds_la_SOURCES		= rds.c
+rds_la_LDFLAGS		= -export-dynamic -module -avoid-version
 
 mcast_la_SOURCES	= mcast.c
 mcast_la_LDFLAGS	= -export-dynamic -module -avoid-version 

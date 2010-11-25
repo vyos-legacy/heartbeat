@@ -1036,6 +1036,14 @@ esac
 AC_SUBST(DISTRO_STYLE_RPMS)
 
 dnl ***************************************************************************
+dnl RDS communication module
+dnl ***************************************************************************
+AC_ARG_ENABLE([rds],
+ [  --enable-rds 	Enable known-to-be-broken proof-of-concept RDS module,
+		[default=no]], [enable_rds=yes], [])
+AM_CONDITIONAL(BUILD_RDS_MODULE, test "x${enable_rds}" = "xyes")
+
+dnl ***************************************************************************
 dnl TIPC communication module
 dnl ***************************************************************************
 AC_ARG_ENABLE([tipc],
