@@ -188,6 +188,18 @@ fi
 %{_libdir}/*.so
 
 %changelog
+* Tue Nov 30 2010 Lars Ellenberg <lars.ellenberg@linbit.com> - 3.0.4-1
+- better support for Pacemaker >= 1.1
+- say Pacemaker support, not "v2", favor "pacemaker on" in ha.cf
+- fix message rexmit request logic, it could cause rexmit packet storms
+- increase ccm ipc message queue length
+- new mcast6 UDP IPv6 communication plugin
+- improve some log messages
+- drop headers which are now in glue
+- fixed/dropped some package dependencies
+- fixed/dropped some build dependencies
+- new proof-of-concept-only known-to-be-broken RDS communication plugin
+
 * Wed Apr 14 2010 Lars Ellenberg <lars.ellenberg@linbit.com> - 3.0.3-1
 - added /var/run/* directory permission paranoia to init script
 - added SBD and lrmadmin configuration support to init script
