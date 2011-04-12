@@ -5513,6 +5513,29 @@ client_status_msg_queue_cleanup(GList* list)
 	return;
 }
 
+static void
+reset_seqtrack(struct node_info *n)
+{
+	struct seqtrack *t = &n->track;
+	int i, seq;
+
+	for (i = 0; i < t->nmissing; ++i) {
+		seq = t->seqmissing[i];
+		if (seq == NOSEQUENCE)
+			continue;
+		remove_msg_rexmit(n, seq);
+		t->seqmissing[i] = NOSEQUENCE;
+	}
+
+	t->nmissing = 0;
+	t->last_rexmit_req = zero_longclock;
+	t->first_missing_seq = 0;
+	if (t->client_status_msg_queue) {
+		GList* mq = t->client_status_msg_queue;
+		client_status_msg_queue_cleanup(mq);
+		t->client_status_msg_queue = NULL;
+	}
+}
 
 /*
  *	Right now, this function is a little too simple.  There is no
@@ -5522,7 +5545,6 @@ client_status_msg_queue_cleanup(GList* list)
  *	I suspect that there are better ways to do this, but this will
  *	do for now...
  */
-#define	SEQGAP	500	/* A heuristic number */
 
 /*
  *	Should we ignore this packet, or pay attention to it?
@@ -5687,6 +5709,7 @@ should_drop_message(struct node_info * thisnode, const struct ha_msg *msg,
 				cl_log(LOG_INFO, "Heartbeat restart on node %s"
 				,	thisnode->nodename);
 			}
+			reset_seqtrack(thisnode);
 			thisnode->rmt_lastupdate = 0L;
 			thisnode->local_lastupdate = 0L;
 			thisnode->status_seqno = 0L;
@@ -5723,22 +5746,15 @@ should_drop_message(struct node_info * thisnode, const struct ha_msg *msg,
 		cl_log(LOG_WARNING, "%lu lost packet(s) for [%s] [%lu:%lu]"
 		,	nlost, thisnode->nodename, t->last_seq, seq);
 
-		if (nlost > SEQGAP) {
+		if (nlost > FLOWCONTROL_LIMIT) {
 			/* Something bad happened.  Start over */
 			/* This keeps the loop below from going a long time */
-			t->nmissing = 0;
+			reset_seqtrack(thisnode);
 			t->last_seq = seq;
 			t->last_iface = iface;
-			t->first_missing_seq = 0;
-			if ( t->client_status_msg_queue){
-				GList* mq =  t->client_status_msg_queue;
-				client_status_msg_queue_cleanup(mq);
-				t->client_status_msg_queue = NULL;
-			}
-			
 			cl_log(LOG_ERR, "lost a lot of packets!");
 			return (IsToUs ? KEEPIT : DROPIT);
-		}else{
+		}else {
 			request_msg_rexmit(thisnode, t->last_seq+1L, seq-1L);
 		}
 
@@ -5803,16 +5819,9 @@ should_drop_message(struct node_info * thisnode, const struct ha_msg *msg,
 		}
 
 		thisnode->rmt_lastupdate = newts;
-		t->nmissing = 0;
+		reset_seqtrack(thisnode);
 		t->last_seq = seq;
-		t->last_rexmit_req = zero_longclock;
 		t->last_iface = iface;
-		t->first_missing_seq = 0;
-		if (t->client_status_msg_queue){			
-			GList* mq = t->client_status_msg_queue;
-			client_status_msg_queue_cleanup(mq);
-			t->client_status_msg_queue = NULL;
-		}
 		return (IsToUs ? KEEPIT : DROPIT);
 	}
 	/* This is a DUP packet (or a really old one we lost track of) */
