@@ -3363,7 +3363,7 @@ send_ack(struct node_info* thisnode, seqno_t seq)
 
 	}else{
 		ha_msg_del(hmsg);
-		cl_log(LOG_ERR, "Cannot create " T_REXMIT " message.");
+		cl_log(LOG_ERR, "Cannot create " T_ACKMSG " message.");
 	}
 	
 	return;
