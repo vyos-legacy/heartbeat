@@ -55,6 +55,12 @@ CONFIG=$HA_DIR/ha.cf
 LOCKDIR=@localstatedir@/lock/subsys
 RUNDIR=@localstatedir@/run
 
+OCF_ROOT=@OCF_ROOT_DIR@
+# see http://developerbugs.linux-foundation.org/show_bug.cgi?id=2378
+unset HA_RSCTMP
+[ -r $OCF_ROOT/heartbeat/ocf-directories ] && . $OCF_ROOT/heartbeat/ocf-directories
+: ${HA_RSCTMP:=$RUNDIR/resource-agents}
+
 LRMADMIN=@sbindir@/lrmadmin
 SBD_BIN=@sbindir@/sbd
 
@@ -322,6 +328,8 @@ StartHA() {
   (
     # $RUNDIR may be a tmpfs on some systems
     umask 027
+    test -d "$HA_RSCTMP" || mkdir "$HA_RSCTMP"
+    chmod 1750 "$HA_RSCTMP"
     for d in heartbeat crm ; do
       D=$RUNDIR/$d
       test -d $D || mkdir $D
