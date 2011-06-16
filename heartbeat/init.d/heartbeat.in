@@ -175,7 +175,10 @@ fi
 CRM_ENABLED_RV=""
 CrmEnabled() {
   test -n "$CRM_ENABLED_RV" && return $CRM_ENABLED_RV
-  case `ha_parameter crm | tr '[A-Z]' '[a-z]'` in
+  local value
+  value=`ha_parameter pacemaker | tr '[A-Z]' '[a-z]'`
+  [ -n "$value" ] || value=`ha_parameter crm | tr '[A-Z]' '[a-z]'`
+  case $value in
     y|yes|enable|on|true|1|manual|respawn)
     	CRM_ENABLED_RV=0
 	return 0 ;;
@@ -499,11 +502,13 @@ case "$1" in
   restart)
         sleeptime=`ha_parameter deadtime`
 	StopHA
-	echo
-	echo -n "Waiting to allow resource takeover to complete:"
-	sleep $sleeptime
-	sleep 10 # allow resource takeover to complete (hopefully).
-	echo_success
+	if ! CrmEnabled ; then
+		echo
+		echo -n "Waiting to allow resource takeover to complete:"
+		sleep $sleeptime
+		sleep 10 # allow resource takeover to complete (hopefully).
+		echo_success
+	fi
 	echo
 	StartHA
 	echo
