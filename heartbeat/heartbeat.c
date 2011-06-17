@@ -5517,7 +5517,8 @@ static void
 reset_seqtrack(struct node_info *n)
 {
 	struct seqtrack *t = &n->track;
-	int i, seq;
+	seqno_t seq;
+	int i;
 
 	for (i = 0; i < t->nmissing; ++i) {
 		seq = t->seqmissing[i];
