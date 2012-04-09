@@ -133,7 +133,7 @@ dnl ===============================================
 
 extract_header_define() {
 	  AC_MSG_CHECKING(for $2 in $1)
-	  Cfile=/tmp/extract_define.$2.${$}
+	  Cfile=$srcdir/extract_define.$2.${$}
 	  printf "#include <stdio.h>\n" > ${Cfile}.c
 	  printf "#include <%s>\n" $1 >> ${Cfile}.c
 	  printf "int main(int argc, char **argv) { printf(\"%%s\", %s); return 0; }\n" $2 >> ${Cfile}.c
@@ -274,7 +274,7 @@ dnl Test to see whether library directories should be lib or lib64...
 dnl ************************************************************************
 
 AC_MSG_CHECKING(for proper library directory suffix)
-tmpdir=/tmp
+tmpdir=$srcdir
 tmpCfile=${tmpdir}/$$test.c
 tmpOutfile=${tmpdir}/$$test
 echo 'int main(int argc, char** argv) { return(1);}' >$tmpCfile
@@ -1516,7 +1516,7 @@ dnl thought and experience.
 dnl
 	cc_supports_flag() {
 	  AC_MSG_CHECKING(whether $CC supports "$@")
-	  Cfile=/tmp/foo${$}
+	  Cfile=$srcdir/foo${$}
 	  touch ${Cfile}.c
 	  $CC -c "$@" ${Cfile}.c -o ${Cfile}.o >/dev/null 2>&1
           rc=$?
