@@ -226,19 +226,26 @@ check_drbd_peer(const char *drbd_peer)
 	}
 	while((node = dopd_cluster_conn->llc_ops->nextnode(dopd_cluster_conn)) != NULL) {
 		const char *status = dopd_cluster_conn->llc_ops->node_status(dopd_cluster_conn, node);
+
+		/* Look for the peer */
+		if (strcasecmp(node, drbd_peer))
+			continue;
+
+		if (strcmp("normal", dopd_cluster_conn->llc_ops->node_type(dopd_cluster_conn, node))) {
+			cl_log(LOG_WARNING, "Cluster node: %s: status: %s is not a normal node",
+			       node, status);
+			break;
+		}
+
 		if (!strcmp(status, "dead")) {
 			cl_log(LOG_WARNING, "Cluster node: %s: status: %s",
 			       node, status);
-			return FALSE;
-		}
-
-		/* Look for the peer */
-		if (!strcmp("normal", dopd_cluster_conn->llc_ops->node_type(dopd_cluster_conn, node))
-			&& !strcasecmp(node, drbd_peer)) {
-			cl_log(LOG_DEBUG, "node %s found\n", node);
-			found = TRUE;
 			break;
 		}
+
+		cl_log(LOG_DEBUG, "node %s found with status %s\n", node, status);
+		found = TRUE;
+		break;
 	}
 	if (dopd_cluster_conn->llc_ops->end_nodewalk(dopd_cluster_conn) != HA_OK) {
 		cl_log(LOG_INFO, "Cannot end node walk");
