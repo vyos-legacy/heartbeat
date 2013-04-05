@@ -63,9 +63,6 @@ HBDOCS = doc/heartbeat_api.html
 # Pass these to configure when running "make distcheck"
 DISTCHECK_CONFIGURE_FLAGS = --with-initdir=prefix
 
-rpm:		dist
-		$(RPM) $(RPMFLAGS) $(TARFILE) </dev/null;
-
 deb:	
 	@@echo "====" ; \
 	echo "  The debian directory has been removed upon request" ; \
