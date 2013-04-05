@@ -38,8 +38,8 @@ BuildRequires:  libglue-devel
 
 Name:           heartbeat
 Summary:        Messaging and membership subsystem for High-Availability Linux
-Version:        3.0.5
-Release:	1%{?dist}
+Version:        3.0.6
+Release:	0rc1%{?dist}
 License:        GPL v2 only; LGPL v2.1 or later
 Url:            http://linux-ha.org/
 Group:          Productivity/Clustering/HA
@@ -344,6 +344,22 @@ rm -rf $RPM_BUILD_DIR/heartbeat-%{version}
 %exclude %{_datadir}/heartbeat/cts
 
 %changelog
+* Tue Oct 28 2014 Lars Ellenberg <lars.ellenberg@linbit.com> - 3.0.6-0rc1
+- fix node dead detection problems
+- fix converging of membership (ccm)
+- fix init script startup glitch (caused by changes in glue/resource-agents)
+- better support for current pacemaker versions
+- try to not miss a SIGTERM (fix problem with very fast respawn/stop cycle)
+- dopd: ignore dead ping nodes
+- cl_status improvements
+- api internals: reduce IPC round-trips to get at status information
+- uid=root is sufficient to use heartbeat api (gid=haclient remains sufficient)
+- fix /dev/null as log- or debugfile setting
+- move daemon binaries into libexecdir
+- document movement of compression plugins into cluster-glue
+- fix usage of SO_REUSEPORT in ucast sockets
+- fix compile issues with recent gcc and -Werror
+
 * Thu Jun 16 2011 Lars Ellenberg <lars.ellenberg@linbit.com> - 3.0.5-1
 - do not request retransmission of lost messages from dead members
 - fix segfault due to recursion in api_remove_client_pid
