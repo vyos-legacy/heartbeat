@@ -3128,7 +3128,25 @@ HBDoMsg_T_STATUS(const char * type, struct node_info * fromnode
 		heartbeat_ms = longclockto_ms(sub_longclock
 		(	messagetime, fromnode->local_lastupdate));
 
-		if (heartbeat_ms > config->warntime_ms) {
+		if (heartbeat_ms > config->deadtime_ms) {
+			cl_log(LOG_CRIT
+			,	"Late heartbeat: Node %s:"
+			" interval %ld ms (> deadtime)"
+			,	fromnode->nodename
+			,	heartbeat_ms);
+			/* something delayed us so badly that
+			 * check_for_timeouts() was not run in time to detect
+			 * the node as dead. Now, it turns out it was not dead
+			 * after all, anyways.
+			 * Maybe it detected us as being dead, though,
+			 * and sees us rejoining after partition.
+			 *
+			 * Can we really get away by simply tickling the ccm?
+			 */
+			if (fromnode != curnode)
+				mark_node_dead(fromnode);
+
+		} else if (heartbeat_ms > config->warntime_ms) {
 			cl_log(LOG_WARNING
 			,	"Late heartbeat: Node %s:"
 			" interval %ld ms"
