@@ -4637,6 +4637,8 @@ change_link_status(struct node_info *hip, struct link *lnk
 	ha_msg_del(lmsg); lmsg = NULL;
 }
 
+static void reset_seqtrack(struct node_info *n);
+
 /* Mark the given node dead */
 static void
 mark_node_dead(struct node_info *hip)
@@ -4668,10 +4670,7 @@ mark_node_dead(struct node_info *hip)
 	
 	hip->rmt_lastupdate = 0L;
 	hip->anypacketsyet  = 0;
-	hip->track.nmissing = 0;
-	hip->track.last_seq = NOSEQUENCE;
-	hip->track.ackseq = 0;	
-
+	reset_seqtrack(hip);
 }
 
 
@@ -5523,6 +5522,8 @@ reset_seqtrack(struct node_info *n)
 	t->nmissing = 0;
 	t->last_rexmit_req = zero_longclock;
 	t->first_missing_seq = 0;
+	t->last_seq = NOSEQUENCE;
+	t->ackseq = 0;
 	if (t->client_status_msg_queue) {
 		GList* mq = t->client_status_msg_queue;
 		client_status_msg_queue_cleanup(mq);
