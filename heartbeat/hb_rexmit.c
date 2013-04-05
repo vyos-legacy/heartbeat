@@ -243,7 +243,7 @@ schedule_rexmit_request(struct node_info* node, seqno_t seq, int delay)
 	ri->seq = seq;
 	ri->node = node;
 	
-	sourceid = Gmain_timeout_add_full(G_PRIORITY_HIGH - 1, delay, 
+	sourceid = Gmain_timeout_add_full(PRI_REXMIT, delay,
 					  send_rexmit_request, ri, NULL);
 	G_main_setall_id(sourceid, "retransmit request", config->heartbeat_ms/2, 10);
 	

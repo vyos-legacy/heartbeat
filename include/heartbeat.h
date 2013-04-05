@@ -61,6 +61,43 @@
 #undef index
 #undef time
 
+/* Dispatch priorities for various kinds of events */
+#define	PRI_SENDSTATUS		(G_PRIORITY_HIGH-5)
+#define	PRI_SENDPKT		(PRI_SENDSTATUS+1)
+#define	PRI_READPKT		(PRI_SENDPKT+1)
+#define	PRI_FIFOMSG		(PRI_READPKT+1)
+
+/* PRI_POLL is where the timeout checks on deadtime happen.
+ * Better be sure rexmit requests for lost packets
+ * from a now dead node do not preempt detecting it as being dead. */
+#define PRI_POLL		(G_PRIORITY_HIGH)
+#define PRI_REXMIT		PRI_POLL
+
+/* Actually, PRI_CHECKSIGS should be the highest priority
+ * (lowest integer value), or REXMIT or similar could prevent
+ * heartbeat from noticing SIGTERM or other.
+ *
+ * Apparently this was worked around by checking for
+ * hb_signal_pending() also from polled_input_prepare(),
+ * and calling hb_signal_process_pending() first thing
+ * from polled_input_dispatch().
+ * I'm reluctant to fix this up now, lest I break something else.
+ *
+ * I'm also not clear on why these things should have different priorities at
+ * all, and not share the same, so they get served one by one, and can not
+ * pre-empt each other.
+ */
+#define	PRI_CHECKSIGS		(G_PRIORITY_DEFAULT)
+#define	PRI_FREEMSG		(PRI_CHECKSIGS+1)
+#define	PRI_CLIENTMSG		(PRI_FREEMSG+1)
+
+#define	PRI_APIREGISTER		(G_PRIORITY_LOW)
+#define	PRI_RANDOM		(PRI_APIREGISTER+1)
+#define	PRI_AUDITCLIENT		(PRI_RANDOM+1)
+#define	PRI_WRITECACHE		(PRI_AUDITCLIENT+1)
+#define	PRI_DUMPSTATS		(PRI_WRITECACHE+20)
+
+
 /*
  * <syslog.h> might not contain LOG_PRI...
  * So, we define it ourselves, or error out if we can't...

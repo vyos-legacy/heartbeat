@@ -1577,7 +1577,7 @@ master_control_process(void)
 
 	send_local_status();
 
-	if (G_main_add_input(G_PRIORITY_HIGH, FALSE, 
+	if (G_main_add_input(PRI_POLL, FALSE,
 			     &polled_input_SourceFuncs) ==NULL){
 		cl_log(LOG_ERR, "master_control_process: G_main_add_input failed");
 	}

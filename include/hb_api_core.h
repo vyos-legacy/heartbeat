@@ -34,22 +34,6 @@
 #include <clplumbing/GSource.h>
 #include <ha_msg.h>
 
-/* Dispatch priorities for various kinds of events */
-#define	PRI_SENDSTATUS		(G_PRIORITY_HIGH-5)
-#define	PRI_SENDPKT		(PRI_SENDSTATUS+1)
-#define	PRI_READPKT		(PRI_SENDPKT+1)
-#define	PRI_FIFOMSG		(PRI_READPKT+1)
-
-#define PRI_CHECKSIGS		(G_PRIORITY_DEFAULT)
-#define PRI_FREEMSG		(PRI_CHECKSIGS+1)
-#define	PRI_CLIENTMSG		(PRI_FREEMSG+1)
-
-#define	PRI_APIREGISTER		(G_PRIORITY_LOW)
-#define	PRI_RANDOM		(PRI_APIREGISTER+1)
-#define	PRI_AUDITCLIENT		(PRI_RANDOM+1)
-#define	PRI_WRITECACHE		(PRI_AUDITCLIENT+1)
-#define	PRI_DUMPSTATS		(PRI_WRITECACHE+20)
-
 void process_registerevent(IPC_Channel* chan,  gpointer user_data);
 
 /*
