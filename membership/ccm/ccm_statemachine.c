@@ -1118,6 +1118,7 @@ ccm_all_restart(ll_cluster_t* hb, ccm_info_t* info, struct ha_msg* msg)
 	    && gl_membership_converged ){
 		gl_membership_converged = FALSE;
 		ccm_set_state(info, CCM_STATE_NONE, msg);
+		ccm_reset_all_join_request(info);
 		CCM_SET_CL(info,-1);
 		if (ccm_send_restart_msg(hb, info) != HA_OK){
 			ccm_log(LOG_ERR, "sending out restart msg failed");
