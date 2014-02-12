@@ -44,6 +44,8 @@
 # Default-Stop: 0 1 6
 ### END INIT INFO
 
+HEARTBEAT=@HA_LIBHBDIR@/heartbeat
+
 [ -r @INITDEFDIR@/heartbeat ] && . @INITDEFDIR@/heartbeat
 [ -r @INITDEFDIR@/pacemaker ] && . @INITDEFDIR@/pacemaker
 [ -r @INITDEFDIR@/sbd ] && . @INITDEFDIR@/sbd
@@ -138,7 +140,7 @@ US=`uname -n`
 # Set this to a 1 if you want to automatically load kernel modules
 USE_MODULES=@USE_MODULES@
 
-[ -x $HA_BIN/heartbeat ] || exit 0
+[ -x $HEARTBEAT ] || exit 0
 
 #
 #	Some environments like it if we use their functions...
@@ -148,7 +150,7 @@ if
 then
   # Provide our own versions of these functions
   status() {
-	$HA_BIN/heartbeat -s
+	$HEARTBEAT -s
   }
   echo_failure() {
       echo " Heartbeat failure [rc=$1]. $rc_failed"
@@ -293,7 +295,7 @@ set_lrmd_options() {
 
 start_heartbeat() {
   if
-    ERROR=`$HA_BIN/heartbeat 2>&1`
+    ERROR=`$HEARTBEAT 2>&1`
   then
     : OK
   else
@@ -375,7 +377,7 @@ StopHA() {
   echo -n "Stopping High-Availability services: "
 
   if
-    $HA_BIN/heartbeat -k >/dev/null 2>&1	# Kill it
+    $HEARTBEAT -k >/dev/null 2>&1	# Kill it
   then
     StopSBD
     echo_success
@@ -388,7 +390,7 @@ StopHA() {
 }
 
 StatusHA() {
-  $HA_BIN/heartbeat -s
+  $HEARTBEAT -s
 }
 
 StandbyHA() {
@@ -434,7 +436,7 @@ ReloadHA() {
   echo -n "Reloading High-Availability services: "
 
   if
-    $HA_BIN/heartbeat -r # Restart, and keep your resources
+    $HEARTBEAT -r # Restart, and keep your resources
   then
     echo_success
     return 0

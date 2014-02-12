@@ -137,10 +137,10 @@ extract_header_define() {
 	  printf "#include <stdio.h>\n" > ${Cfile}.c
 	  printf "#include <%s>\n" $1 >> ${Cfile}.c
 	  printf "int main(int argc, char **argv) { printf(\"%%s\", %s); return 0; }\n" $2 >> ${Cfile}.c
-	  $CC $CFLAGS ${Cfile}.c -o ${Cfile}
-	  value=`${Cfile}`
+	  value=""
+	  $CC $CFLAGS ${Cfile}.c -o ${Cfile} && value=`${Cfile}`
 	  AC_MSG_RESULT($value)
-	  printf $value
+	  printf "%s" $value
 	  rm -f ${Cfile}.c ${Cfile}
 	}
 
@@ -417,8 +417,17 @@ HA_NOARCHDATAHBDIR="$HA_DATADIR/${HB_PKG}"
 AC_SUBST(HA_NOARCHDATAHBDIR)
 AC_DEFINE_UNQUOTED(HA_NOARCHDATAHBDIR,"$HA_NOARCHDATAHBDIR", $HB_PKG noarch data directory)
 
+
 HA_LIBHBDIR=`extract_header_define $GLUE_HEADER HA_LIBHBDIR`
 AC_SUBST(HA_LIBHBDIR)
+if test x"$HA_LIBHBDIR" = x ; then
+# see rhbz#805147 and
+# https://github.com/davidvossel/pacemaker/commit/44e7ba80e2a259f3b407e2d35cf8353572c6d769
+	AC_MSG_NOTICE($GLUE_HEADER does not define HA_LIBHBDIR, using fallback)
+# FIXME we need to use libexec for daemons, lib is only for shared objects
+	HA_LIBHBDIR="$libdir/heartbeat"
+	AC_DEFINE_UNQUOTED(HA_LIBHBDIR,"$HA_LIBHBDIR", lib and daemon directory)
+fi
 
 HA_VARRUNDIR=`extract_header_define $GLUE_HEADER HA_VARRUNDIR`
 AC_SUBST(HA_VARRUNDIR)
