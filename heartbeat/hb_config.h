@@ -30,5 +30,7 @@ int   		parse_authfile(void);
 int		init_config(const char * cfgfile);
 int		StringToBaud(const char * baudstr);
 const char *	GetParameterValue(const char * name);
+const char *	get_hg_version(void);
+
 
 #endif /* _HB_CONFIG_H */

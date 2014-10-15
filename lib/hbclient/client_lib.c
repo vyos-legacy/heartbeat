@@ -286,7 +286,7 @@ hb_api_signon(struct ll_cluster* cinfo, const char * clientid)
 	struct ha_msg*	request;
 	struct ha_msg*	reply;
 	struct utsname	un;
-	int		rc;
+	int		rc = HA_FAIL;
 	const char *	result;
 	int		iscasual;
 	llc_private_t* pi;
@@ -297,6 +297,7 @@ hb_api_signon(struct ll_cluster* cinfo, const char * clientid)
 	char		cuid[20];
 	char		cgid[20];
 
+	ClearLog();
 	if (!ISOURS(cinfo)) {
 		ha_api_log(LOG_ERR, "hb_api_signon: bad cinfo");
 		return HA_FAIL;
@@ -375,7 +376,7 @@ hb_api_signon(struct ll_cluster* cinfo, const char * clientid)
 
         if (pi->chan->ops->initiate_connection(pi->chan) != IPC_OK) {
 		ha_api_log(LOG_ERR, "hb_api_signon: Can't initiate"
-		" connection  to heartbeat");
+		" connection to heartbeat");
 		ZAPMSG(request);
                 return HA_FAIL;
         }
@@ -400,43 +401,60 @@ hb_api_signon(struct ll_cluster* cinfo, const char * clientid)
 	}
 
 	/* Get the return code */
-	if ((result = ha_msg_value(reply, F_APIRESULT)) != NULL
-	&&	strcmp(result, API_OK) == 0) {
+	result = ha_msg_value(reply, F_APIRESULT);
+	if (result == NULL) {
+		ZAPMSG(reply);
+		return HA_FAIL;
+	}
+
+	if (strcmp(result, API_OK) == 0) {
 		rc = HA_OK;
 		pi->SignedOn = TRUE;
+	} else /* if (strcmp(result, API_BADREQ) == 0) */ {
+		const char* failreason = ha_msg_value(reply, F_COMMENT);
+		if (failreason){
+			ha_api_log(LOG_ERR,  "%s", failreason);
+		}
+	}
 
-		if ((tmpstr = ha_msg_value(reply, F_DEADTIME)) == NULL
-		||	sscanf(tmpstr, "%lx", (unsigned long*)&(pi->deadtime_ms)) != 1) {
-			ha_api_log(LOG_ERR
-			,	"hb_api_signon: Can't get deadtime ");
-			ZAPMSG(reply);
-			return HA_FAIL;
-		}
-		if ((tmpstr = ha_msg_value(reply, F_KEEPALIVE)) == NULL
-		||	sscanf(tmpstr, "%lx", (unsigned long*)&(pi->keepalive_ms)) != 1) {
-			ha_api_log(LOG_ERR
-			,	"hb_api_signon: Can't get keepalive time ");
-			ZAPMSG(reply);
-			return HA_FAIL;
-		}
-		if ((tmpstr = ha_msg_value(reply, F_NODENAME)) == NULL
-		||	strlen(tmpstr) >= sizeof(OurNode)) {
-			ha_api_log(LOG_ERR
-			,	"hb_api_signon: Can't get local node name");
-			ZAPMSG(reply);
-			return HA_FAIL;
-		}else{
-			strncpy(OurNode, tmpstr, sizeof(OurNode)-1);
-			OurNode[sizeof(OurNode)-1] = EOS;
-		}
-		/* Sometimes they don't use syslog logging... */
-		tmpstr = ha_msg_value(reply, F_LOGFACILITY);
-		if (tmpstr == NULL
-		||	sscanf(tmpstr, "%d", &(pi->logfacility)) != 1) {
-			pi->logfacility = -1;
-		}
+	/* Unfortunately introducing additional return values besides HA_OK and
+	 * HA_FAIL would be an api breakage, which I'd rather avoid.
+	 * Still, if we got an answer, we can at least try to parse it,
+	 * regardless of it being "API_OK" or not.
+	 * That makes it possible to distinguish failure due to no, or invalid,
+	 * responses (no heartbeat), from refusal to talk to us (auth failure
+	 * or similar) by checking e.g. for non-zero ->get_deadtime().
+	 */
+
+	if ((tmpstr = ha_msg_value(reply, F_DEADTIME)) == NULL
+	||	sscanf(tmpstr, "%lx", (unsigned long*)&(pi->deadtime_ms)) != 1) {
+		ha_api_log(LOG_ERR
+		,	"hb_api_signon: Can't get deadtime ");
+		ZAPMSG(reply);
+		return HA_FAIL;
+	}
+	if ((tmpstr = ha_msg_value(reply, F_KEEPALIVE)) == NULL
+	||	sscanf(tmpstr, "%lx", (unsigned long*)&(pi->keepalive_ms)) != 1) {
+		ha_api_log(LOG_ERR
+		,	"hb_api_signon: Can't get keepalive time ");
+		ZAPMSG(reply);
+		return HA_FAIL;
+	}
+	if ((tmpstr = ha_msg_value(reply, F_NODENAME)) == NULL
+	||	strlen(tmpstr) >= sizeof(OurNode)) {
+		ha_api_log(LOG_ERR
+		,	"hb_api_signon: Can't get local node name");
+		ZAPMSG(reply);
+		return HA_FAIL;
 	}else{
-		rc = HA_FAIL;
+		strncpy(OurNode, tmpstr, sizeof(OurNode)-1);
+		OurNode[sizeof(OurNode)-1] = EOS;
+	}
+	/* Sometimes they don't use syslog logging... */
+	tmpstr = ha_msg_value(reply, F_LOGFACILITY);
+	if (tmpstr == NULL
+	||	sscanf(tmpstr, "%d", &(pi->logfacility)) != 1) {
+		pi->logfacility = -1;
 	}
 	ZAPMSG(reply);
 

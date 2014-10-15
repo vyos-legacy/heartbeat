@@ -1258,6 +1258,7 @@ api_process_registration_msg(client_proc_t *client, struct ha_msg *msg)
 	char deadtime[64];
 	char keepalive[64];
 	char logfacility[64];
+	char hbversion[64];
 
 	/* set the client generation */
 	client->cligen = client_generation++;
@@ -1286,7 +1287,7 @@ api_process_registration_msg(client_proc_t *client, struct ha_msg *msg)
 	/*
 	 *      Create the response message
 	 */
-	if ((resp = ha_msg_new(4)) == NULL) {
+	if ((resp = ha_msg_new(10)) == NULL) {
 		cl_log(LOG_ERR, "api_process_registration_msg: out of memory/1");
 		goto del_msg;
 	}
@@ -1305,7 +1306,9 @@ api_process_registration_msg(client_proc_t *client, struct ha_msg *msg)
 	 */
 	if (!api_add_client(client, msg)) {
 		cl_log(LOG_ERR, "api_process_registration_msg: cannot add client(%s)", client->client_id);
-		failreason = "cannot add client";
+		failreason = client->removereason;
+		if (!failreason)
+			failreason = "cannot add client";
 	}
 
 	/* Make sure we can find them in the table... */
@@ -1329,7 +1332,7 @@ api_process_registration_msg(client_proc_t *client, struct ha_msg *msg)
 		failreason = "cannot create sequence snapshot table";
 	}
 	if (failreason != NULL) {
-		ha_msg_add(msg, F_COMMENT, failreason);
+		ha_msg_add(resp, F_COMMENT, failreason);
 		api_retcode = API_BADREQ;
 	}
 	if (ha_msg_mod(resp, F_APIRESULT, api_retcode) != HA_OK) {
@@ -1341,11 +1344,15 @@ api_process_registration_msg(client_proc_t *client, struct ha_msg *msg)
 	snprintf(deadtime, sizeof(deadtime), "%lx", config->deadtime_ms);
 	snprintf(keepalive, sizeof(keepalive), "%lx", config->heartbeat_ms);
 	snprintf(logfacility, sizeof(logfacility), "%d", config->log_facility);
+	snprintf(hbversion, sizeof(hbversion), "%s (%s)",
+		GetParameterValue(KEY_HBVERSION), get_hg_version());
 
 	/* Add deadtime and keepalive time to the response */
 	if ((ha_msg_add(resp, F_DEADTIME, deadtime) != HA_OK)
 	    || (ha_msg_add(resp, F_KEEPALIVE, keepalive) != HA_OK)
 	    || (ha_msg_mod(resp, F_NODENAME, localnodename) != HA_OK)
+	    || (ha_msg_mod(resp, KEY_HBVERSION, hbversion) != HA_OK)
+	    || (ha_msg_mod(resp, KEY_PACEMAKER, GetParameterValue(KEY_PACEMAKER)) != HA_OK)
 	    || (ha_msg_add(resp, F_LOGFACILITY, logfacility) != HA_OK)) {
 		cl_log(LOG_ERR, "api_process_registration_msg: cannot add field/4");
 		goto del_rsp_and_msg;
@@ -1614,6 +1621,7 @@ api_add_client(client_proc_t *client, struct ha_msg *msg)
 		pid = atoi(cpid);
 	}
 	if (pid <= 0 || (CL_KILL(pid, 0) < 0 && errno == ESRCH)) {
+		client->removereason = "bad pid";
 		cl_log(LOG_WARNING, "api_add_client: bad pid [%ld]", (long)pid);
 		return FALSE;
 	}
@@ -1689,6 +1697,7 @@ api_check_client_authorization(client_proc_t *client)
 	if (client->iscasual) {
 		gauth = g_hash_table_lookup(APIAuthorization, "anon");
 		if (gauth == NULL) {
+			client->removereason = "apiauth anon missing";
 			cl_log(LOG_ERR, "NO auth found for anonymous");
 			return FALSE;
 		}

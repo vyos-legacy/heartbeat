@@ -4727,8 +4727,6 @@ heartbeat_monitor(struct ha_msg * msg, int msgtype, const char * iface)
 	api_heartbeat_monitor(msg, msgtype, iface);
 }
 
-extern const char *get_hg_version(void);
-
 static void
 printversion(void)
 {	

@@ -135,6 +135,9 @@ class ha_msg (UserDict):
     F_APIREQ="reqtype"
     F_APIRESULT="result"
     F_COMMENT="info"
+    F_RESOURCES="rsc_hold"
+    F_PNAME="pname"
+    F_PVALUE="pvalue"
 
     #	Message types start with T_...
 
@@ -145,7 +148,6 @@ class ha_msg (UserDict):
     T_STATUS="status"
     T_NS_STATUS="NS_st"
     T_IFSTATUS="ifstat"
-
 
     #
     #   Things we need for making network-compatible strings
@@ -326,16 +328,16 @@ class ha_msg (UserDict):
 		raise ValueError("short recv expecting 8 byte header")
 	(l, magic) = struct.unpack("II", len_magic)
 	msg = s.recv(l, socket.MSG_WAITALL)
-	dbg(1, "RECEIVED MESSAGE", msg)
+	dbg(2, "RECEIVED MESSAGE", msg)
 	if len(msg) < l:
 		raise ValueError("short recv expecting %u byte payload" % l)
 	self.fromstring(msg)
-	dbg(2, "PARSED AS: ", repr(self))
+	dbg(3, "PARSED AS: ", repr(self))
 
     def tosock(self, s):
         '''Send an ha_msg to a socket, and flush it.'''
 	msg = repr(self)
-	dbg(1, "SENDING", msg)
+	dbg(2, "SENDING", msg)
 	s.sendall(struct.pack("II", len(msg), 0xabcd) + msg)
         return 1
 
@@ -364,6 +366,9 @@ class hb_api:
     NODETYPE="nodetype"
     IFLIST="iflist"
     IFSTATUS="ifstatus"
+    GETPARM="getparm"
+    GETRESOURCES="getrsc"
+
     ActiveStatus="active"
 
     OK="OK"
@@ -382,6 +387,8 @@ class hb_api:
         self.NodeCallback = None
         self.IFCallback = None
 	self.Nodes = None
+	self.hbversion = None
+	self.pacemaker = None
 	debug_level = debug
 
     def __del__(self):
@@ -392,7 +399,7 @@ class hb_api:
         This is because some of the classes this destructor needs may have
         already disappeared if you wait until the bitter end to __del__ us :-(
         '''
-        dbg(0, "Destroying hb_api object")
+        dbg(1, "Destroying hb_api object")
         self.signoff()
 
     def __api_msg(self, msgtype):
@@ -541,6 +548,10 @@ class hb_api:
             if rc == hb_api.OK :
 		self.socket = s
                 self.SignedOn=1
+		if "hbversion" in reply:
+			self.hbversion = reply["hbversion"]
+		if "pacemaker" in reply:
+			self.pacemaker = reply["pacemaker"]
                 return 1
 	    self.signoff()
             return None
@@ -694,13 +705,64 @@ class hb_api:
         except (KeyError, ValueError):
             return None
 
+    def getparm(self, pname):
+
+        '''Retrieve the value of the named parameter'''
+
+	msg = hb_api.__api_msg(self, hb_api.GETPARM)
+	msg[ha_msg.F_PNAME]=pname
+
+	msg.tosock(self.socket)
+
+        try:
+
+            reply = self.__get_reply()
+            rc =  reply[ha_msg.F_APIRESULT]
+
+            if rc == hb_api.FAILURE : return None
+
+            return reply[ha_msg.F_PVALUE]
+
+        except (KeyError, ValueError):
+	    if pname == "pacemaker":
+		return self.getparm("crm")
+            return None
+
+    def get_hbversion(self):
+	if self.hbversion == None:
+	    self.hbversion = self.getparm("hbversion")
+	return self.hbversion
+
+    def get_pacemaker(self):
+	if self.pacemaker == None:
+	    self.pacemaker = self.getparm("pacemaker")
+	return self.pacemaker
+
+    def getrsc(self):
+
+        '''Retrieve the value of the named parameter'''
+
+	msg = hb_api.__api_msg(self, hb_api.GETRESOURCES)
+
+	msg.tosock(self.socket)
+
+        try:
+            reply = self.__get_reply()
+            rc =  reply[ha_msg.F_APIRESULT]
+
+            if rc == hb_api.FAILURE : return None
+
+            return reply[ha_msg.F_RESOURCES]
+
+        except (KeyError, ValueError):
+            return None
+
     def nodetype(self, node):
 
         '''Retrieve the node-type of the given node ("normal" or "ping")'''
 
 	msg = hb_api.__api_msg(self, hb_api.NODETYPE)
 	msg[ha_msg.F_NODENAME]=node
-
 
 	msg.tosock(self.socket)
 
@@ -746,15 +808,15 @@ class hb_api:
         '''
 
         Nodes = self.nodelist()
-        for (nodename, node) in Nodes.items():
+        for (nodename, node) in Nodes.iteritems():
 	    if not 'status' in node:
 		node["status"] = self.nodestatus(nodename)
 	    if not 'type' in node:
 		node["type"] = self.nodetype(nodename)
             interfaces = self.iflist(nodename)
-            for (ifname, ifstat) in interfaces.items():
+            for (ifname, ifstat) in interfaces.iteritems():
 		if ifstat == None:
-		    ifstat = self.ifstatus(nodename, ifname)
+		   interfaces[ifname] = self.ifstatus(nodename, ifname)
             node["interfaces"] = interfaces
         return Nodes
 
@@ -764,7 +826,7 @@ class hb_api:
         '''
         if status == None: status=hb_api.ActiveStatus
         ret = []
-        for (nodename, node) in self.nodelist().items():
+        for (nodename, node) in self.nodelist().iteritems():
 	    if "status" in node:
 		nodestatus = node["status"]
 	    else:
@@ -898,13 +960,23 @@ def main(argv):
     os.setgid(haclient_gid)
 
     hb = hb_api(debug=0)
-    hb.signon()
-    dbg(0, "Now signed on to heartbeat API...")
-    dbg(0, "Asking for node and link status ...")
+    if not hb.signon():
+	print "Cannot signon to heartbeat API"
+	exit(1)
+
+    dbg(1, "Now signed on to heartbeat API...")
+    dbg(1, "Asking for node and link status ...")
 
     # this is more a "status" than a "config",
     # but ...
     config = hb.cluster_config()
+
+    print "Heartbeat Version:", hb.get_hbversion()
+    pacemaker = hb.get_pacemaker()
+    if pacemaker in ["false", "off", "no", "n", "0"]:
+	    print "Resources:", hb.getrsc()
+    else:
+	    print "Pacemaker:", pacemaker
 
     print "\nNodes in cluster:", config.keys()
     for node in config.keys():
@@ -931,4 +1003,6 @@ if __name__ == '__main__':
 	   main(sys.argv)
    except KeyboardInterrupt:
 	pass
-
+   except socket.error, e:
+	print e
+	exit(1)
