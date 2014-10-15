@@ -644,12 +644,15 @@ api_iflist(const struct ha_msg *msg, struct ha_msg *resp, client_proc_t *client,
 			continue;
 		}
 		if (ha_msg_mod(resp, F_IFNAME, node->links[j].name) != HA_OK) {
-			cl_log(LOG_ERR, "api_iflist: cannot mod field/1");
+			cl_log(LOG_ERR, "api_iflist: cannot mod ifname");
 			return I_API_IGN;
 		}
-		if (ha_msg_mod(resp, F_APIRESULT, (j == last ? API_OK : API_MORE))
-		    != HA_OK) {
-			cl_log(LOG_ERR, "api_iflist: cannot mod field/2");
+		if (ha_msg_mod(resp, F_STATUS, node->links[j].status) != HA_OK) {
+			cl_log(LOG_ERR, "api_iflist: cannot mod ifstatus");
+			return I_API_IGN;
+		}
+		if (ha_msg_mod(resp, F_APIRESULT, (j == last ? API_OK : API_MORE)) != HA_OK) {
+			cl_log(LOG_ERR, "api_iflist: cannot mod apiresult");
 			return I_API_IGN;
 		}
 		api_send_client_msg(client, resp);
@@ -666,11 +669,15 @@ api_ping_iflist(const struct ha_msg *msg, struct node_info *node, struct ha_msg 
 	for (j = 0; (lnk = &node->links[j], lnk->name); ++j) {
 		if (strcmp(lnk->name, node->nodename) == 0) {
 			if (ha_msg_mod(resp, F_IFNAME, lnk->name) != HA_OK) {
-				cl_log(LOG_ERR, "api_ping_iflist: cannot mod field/1");
+				cl_log(LOG_ERR, "api_ping_iflist: cannot mod ifname");
+				return I_API_IGN;
+			}
+			if (ha_msg_mod(resp, F_STATUS, lnk->status) != HA_OK) {
+				cl_log(LOG_ERR, "api_ping_iflist: cannot mod ifstatus");
 				return I_API_IGN;
 			}
 			if (ha_msg_mod(resp, F_APIRESULT, API_OK) != HA_OK) {
-				cl_log(LOG_ERR, "api_ping_iflist: cannot mod field/2");
+				cl_log(LOG_ERR, "api_ping_iflist: cannot mod apiresult");
 				return I_API_IGN;
 			}
 			return I_API_RET;
