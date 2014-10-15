@@ -833,6 +833,9 @@ api_get_parameter(const struct ha_msg *msg, struct ha_msg *resp, client_proc_t *
 		*failreason = "EINVAL";
 		return I_API_BADREQ;
 	}
+	/* "crm" is the deprecated alias to "pacemaker" */
+	if (!strcmp(KEY_REL2, pname))
+		pname = KEY_PACEMAKER;
 	if ((pvalue = GetParameterValue(pname)) != NULL) {
 		if (ha_msg_mod(resp, F_PVALUE, pvalue) != HA_OK) {
 			cl_log(LOG_ERR, "api_parameter: cannot add " F_PVALUE " field to message");
