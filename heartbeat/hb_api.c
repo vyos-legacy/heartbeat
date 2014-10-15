@@ -468,6 +468,32 @@ api_setsignal(const struct ha_msg *msg, struct ha_msg *resp, client_proc_t *clie
  * API_NODELIST: List the nodes in the cluster
  **********************************************************************/
 
+
+static int
+msg_mod_nodetype(struct ha_msg *resp, const int nodetype)
+{
+	const char *ntype;
+	if (nodetype == PINGNODE_I)
+		ntype = PINGNODE;
+	else if (nodetype == NORMALNODE_I)
+		ntype = NORMALNODE;
+	else
+		ntype = UNKNOWNNODE;
+
+	return ha_msg_mod(resp, F_NODETYPE, ntype);
+}
+
+static int
+msg_mod_nodestatus(struct ha_msg *resp, const struct node_info *node)
+{
+	const char *status = NULL;
+	if (node->saved_status_msg)
+		status = ha_msg_value(node->saved_status_msg, F_STATUS);
+	if (!status)
+		status = node->status;
+	return ha_msg_mod(resp, F_STATUS, status);
+}
+
 static int
 api_nodelist(const struct ha_msg *msg, struct ha_msg *resp, client_proc_t *client, const char **failreason)
 {
@@ -475,13 +501,22 @@ api_nodelist(const struct ha_msg *msg, struct ha_msg *resp, client_proc_t *clien
 	int last = config->nodecount - 1;
 
 	for (j = 0; j <= last; ++j) {
-		if (ha_msg_mod(resp, F_NODENAME, config->nodes[j].nodename) != HA_OK) {
-			cl_log(LOG_ERR, "api_nodelist: cannot mod field/5");
+		struct node_info *node = &config->nodes[j];
+		if (ha_msg_mod(resp, F_NODENAME, node->nodename) != HA_OK) {
+			cl_log(LOG_ERR, "api_nodelist: cannot mod nodename");
 			return I_API_IGN;
 		}
-		if (ha_msg_mod(resp, F_APIRESULT, (j == last ? API_OK : API_MORE))
-		    != HA_OK) {
-			cl_log(LOG_ERR, "api_nodelist: cannot mod field/6");
+		/* Also add node type and status. */
+		if (msg_mod_nodetype(resp, node->nodetype) != HA_OK) {
+			cl_log(LOG_ERR, "api_nodelist: cannot mod nodetype");
+			return I_API_IGN;
+		}
+		if (msg_mod_nodestatus(resp, node) != HA_OK) {
+			cl_log(LOG_ERR, "api_nodelist: cannot mod status");
+			return I_API_IGN;
+		}
+		if (ha_msg_mod(resp, F_APIRESULT, (j == last ? API_OK : API_MORE)) != HA_OK) {
+			cl_log(LOG_ERR, "api_nodelist: cannot mod apiresult");
 			return I_API_IGN;
 		}
 		api_send_client_msg(client, resp);
@@ -498,19 +533,14 @@ api_nodestatus(const struct ha_msg *msg, struct ha_msg *resp, client_proc_t *cli
 {
 	const char *cnode;
 	struct node_info *node;
-	const char *savedstat;
 
 	if ((cnode = ha_msg_value(msg, F_NODENAME)) == NULL || (node = lookup_node(cnode)) == NULL) {
 		*failreason = "EINVAL";
 		return I_API_BADREQ;
 	}
-	if (ha_msg_add(resp, F_STATUS, node->status) != HA_OK) {
-		cl_log(LOG_ERR, "api_nodestatus: cannot add field");
+	if (msg_mod_nodestatus(resp, node) != HA_OK) {
+		cl_log(LOG_ERR, "api_nodestatus: cannot mod status");
 		return I_API_IGN;
-	}
-	/* Give them the "real" (non-delayed) status */
-	if (node->saved_status_msg && (savedstat = ha_msg_value(node->saved_status_msg, F_STATUS))) {
-		ha_msg_mod(resp, F_STATUS, savedstat);
 	}
 	return I_API_RET;
 }
@@ -567,26 +597,13 @@ api_nodetype(const struct ha_msg *msg, struct ha_msg *resp, client_proc_t *clien
 {
 	const char *cnode;
 	struct node_info *node;
-	const char *ntype;
 
 	if ((cnode = ha_msg_value(msg, F_NODENAME)) == NULL || (node = lookup_node(cnode)) == NULL) {
 		*failreason = "EINVAL";
 		return I_API_BADREQ;
 	}
-	switch (node->nodetype) {
-	case PINGNODE_I:
-		ntype = PINGNODE;
-		break;
-	case NORMALNODE_I:
-		ntype = NORMALNODE;
-		break;
-	default:
-		ntype = UNKNOWNNODE;
-		break;
-	}
-
-	if (ha_msg_add(resp, F_NODETYPE, ntype) != HA_OK) {
-		cl_log(LOG_ERR, "api_nodetype: cannot add field");
+	if (msg_mod_nodetype(resp, node->nodetype) != HA_OK) {
+		cl_log(LOG_ERR, "api_nodetype: cannot mod nodetype");
 		return I_API_IGN;
 	}
 	return I_API_RET;
