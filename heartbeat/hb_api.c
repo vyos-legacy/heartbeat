@@ -22,6 +22,11 @@
  *
  */
 /*
+ * This comment is very much aged, as the rest of the heartbeat code.
+ * The api is using a socket now.  There is no more "fifo directory", there is
+ * only one single "control" fifo left, which may still be necessary for
+ * certain shell scripts.
+ *
  *	A little about the API FIFO structure...
  *
  *	We have two kinds of API clients:  casual and named

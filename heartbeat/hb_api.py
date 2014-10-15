@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 
 '''Heartbeat related classes.
 
@@ -33,6 +33,46 @@ Licensed under the GNU GPL.
 import types, string, os, sys
 from UserDict import UserDict
 import select
+import socket
+import struct
+import grp
+
+global debug_level
+debug_level = 0
+def dbg(level, *args):
+	if level > debug_level:
+		return
+	print >> sys.stderr, "<%d>%s" % (level, " ".join(args))
+
+'''
+	"module" simple regex based netstring
+	We don't need an arbitrary buffer based netstring parser,
+	we only ever decode complete netstring messages of limitted size.
+'''
+
+import re
+def netstring_encode(s):
+    return "%i:%s," % (len(s), s)
+
+def _netstring_decode(s):
+	while len(s):
+		m = re.match(r"(\d+):", s)
+		if not m:
+			raise ValueError("invalid size digit: expected '\d+:', but got '%c'" % s[0])
+
+		l = len(m.group(0))
+		n = int(m.group(1))
+		if len(s) < n + l:
+			raise ValueError("truncated input: expected %u bytes, only %u available" % (n, len(s)))
+		if s[n+l] != ',':
+			raise ValueError("invalid input: expected ',' terminator, but got '%c'" % s[n+l])
+		v = s[l:n+l]
+		s = s[n+l+1:]
+		yield v
+
+
+def netstring_decode(data):
+	return list(_netstring_decode(data))
 
 class ha_msg (UserDict): 
 
@@ -85,6 +125,7 @@ class ha_msg (UserDict):
     F_NODE="node"
     F_TO="dest"
     F_FROMID="from_id"
+    F_FILTERMASK="fmask"
     F_IFNAME="ifname"
     F_NODENAME="node"
     F_TOID="to_id"
@@ -100,6 +141,9 @@ class ha_msg (UserDict):
     T_APIRESP="hbapi-resp"
     T_TESTREQ="cltest-req"
     T_TESTRSP="cltest-rsp"
+    T_STATUS="status"
+    T_NS_STATUS="NS_st"
+    T_IFSTATUS="ifstat"
 
 
     #
@@ -109,6 +153,9 @@ class ha_msg (UserDict):
     max_reprlen = 1024	# Maximum length string for an ha_msg
     startstr=">>>\n"
     endstr="<<<\n"
+    endstr0="<<<\n\0"	# Bug to bug compatibility :-/
+    start_netstr="###\n"
+    end_netstr="%%%\n"
     __str__ = UserDict.__repr__	 # use default __str__ function
 
 
@@ -154,9 +201,9 @@ class ha_msg (UserDict):
             # How about a file?
             elif isinstance(arg, types.FileType):
     		self.fromfile(arg)
-
-            elif isinstance(arg, types.FileType):
-    		self.fromfile(arg)
+	    # or a socket?
+	    elif isinstance(arg, socket.SocketType):
+		self.fromsock(arg)
             else: 
 	      raise ValueError("bad type in update")
 
@@ -199,20 +246,54 @@ class ha_msg (UserDict):
            (like comes from heartbeat or __repr__())
         '''
 
+	if  (s[:len(ha_msg.start_netstr)] == ha_msg.start_netstr
+	and  s[-len(ha_msg.end_netstr):] == ha_msg.end_netstr) :
+		return self.from_netstring(s[len(ha_msg.start_netstr):-len(ha_msg.end_netstr)])
+
 	#
 	# It should start w/ha_msg.startstr, and end w/ha_msg.endstr
 	#
 	if  (s[:len(ha_msg.startstr)] != ha_msg.startstr
-	or   s[-len(ha_msg.endstr):] != ha_msg.endstr) :
+	or   (s[-len(ha_msg.endstr):] != ha_msg.endstr and
+	      s[-len(ha_msg.endstr0):] != ha_msg.endstr0)) :
 		raise ValueError("message format error")
+
+
         #
         # Split up the string into lines, and process each
 	# line as a name=value pair
         #
-	strings = string.split(s, '\n')[1:-2]
+	strings = s.split('\n')[1:-2]
         for astring in strings:
             # Update-from-list is handy here...
-	    self.update(string.split(astring, '='))
+	    # FT_STRING, standard plain text string field
+	    # in the "classic" (not netstring) message format,
+	    # this is sent as, you guessed right, plain text string,
+	    # no leading "(type)" indicator.
+	    if astring[0] != "(":
+		self.update(astring.split('=', 1))
+	    # else: 
+	    #   (1) FT_BINARY
+	    #   (2) FT_STRUCT
+	    #   (3) FT_LIST
+	    #   (4) FT_COMPRESS
+	    #   (5) FT_UNCOMPRESS
+	    #   IGNORE THESE FOR NOW.
+
+    def from_netstring(self, s):
+	l = netstring_decode(s)
+	for astring in iter(l):
+	    if astring[:3] == "(0)":
+		# FT_STRING, standard plain text string field
+		self.update(astring[3:].split("=", 1))
+	    # else: 
+	    #   (1) FT_BINARY
+	    #   (2) FT_STRUCT
+	    #   (3) FT_LIST
+	    #   (4) FT_COMPRESS
+	    #   (5) FT_UNCOMPRESS
+	    #   IGNORE THESE FOR NOW.
+	    #	self.update(astring.split("=", 1))
 
     def fromfile(self, f):
 
@@ -234,12 +315,27 @@ class ha_msg (UserDict):
             line = f.readline()
             if line == "" : raise ValueError("EOF")
             delimfound = (line == ha_msg.endstr)
-	    if not delimfound: self.update(string.split(line[:-1], '='))
+	    if not delimfound: self.update(line[:-1].split('=', 1))
 
-    def tofile(self, f):
-        '''Write an ha_msg to a file, and flush it.'''
-	f.write(repr(self))
-	f.flush()
+    def fromsock(self, s):
+	len_magic = ''
+	len_magic = s.recv(8, socket.MSG_WAITALL)
+	if len(len_magic) < 8:
+		# should not happen, would have raised socket.error already
+		raise ValueError("short recv expecting 8 byte header")
+	(l, magic) = struct.unpack("II", len_magic)
+	msg = s.recv(l, socket.MSG_WAITALL)
+	dbg(1, "RECEIVED MESSAGE", msg)
+	if len(msg) < l:
+		raise ValueError("short recv expecting %u byte payload" % l)
+	self.fromstring(msg)
+	dbg(2, "PARSED AS: ", repr(self))
+
+    def tosock(self, s):
+        '''Send an ha_msg to a socket, and flush it.'''
+	msg = repr(self)
+	dbg(1, "SENDING", msg)
+	s.sendall(struct.pack("II", len(msg), 0xabcd) + msg)
         return 1
 
 class hb_api:
@@ -255,7 +351,6 @@ class hb_api:
 #	go along with them, since they shouldn't happen.
 #
 
-    FIFO_BASE_DIR = "/var/lib/heartbeat/"
 #
 #	Various constants that are part of the heartbeat API
 #
@@ -274,17 +369,17 @@ class hb_api:
     BADREQ="badreq"
     MORE="ok/more"
     _pid=os.getpid()
-    API_REGFIFO     = FIFO_BASE_DIR + "register"
-    NAMEDCLIENTDIR  = FIFO_BASE_DIR + "api"
-    CASUALCLIENTDIR = FIFO_BASE_DIR + "casual"
 
-    def __init__(self):
+    def __init__(self, debug=0):
+	global debug_level
         self.SignedOn=0
+        self.socket = None
         self.iscasual=1
         self.MsgQ = []
         self.Callbacks = {}
         self.NodeCallback = None
         self.IFCallback = None
+	debug_level = debug
 
     def __del__(self):
         '''hb_api class destructor.
@@ -294,7 +389,7 @@ class hb_api:
         This is because some of the classes this destructor needs may have
         already disappeared if you wait until the bitter end to __del__ us :-(
         '''
-        print "Destroying hb_api object"
+        dbg(0, "Destroying hb_api object")
         self.signoff()
 
     def __api_msg(self, msgtype):
@@ -305,7 +400,7 @@ class hb_api:
            { ha_msg.F_TYPE   : ha_msg.T_APIREQ,
              ha_msg.F_APIREQ : msgtype,
              ha_msg.F_PID    : repr(hb_api._pid),
-             ha_msg.F_FROMID : self.OurClientID
+             ha_msg.F_FROMID : self.OurClientID,
            })
 
     def __get_reply(self):
@@ -313,9 +408,8 @@ class hb_api:
         '''Return the reply to the current API request'''
 
         try:
-
             while 1:
-                reply = ha_msg(self.ReplyFIFO)
+                reply = ha_msg(self.socket)
                 if reply[ha_msg.F_TYPE] == ha_msg.T_APIRESP:
                     return reply
                 # Not an API reply.  Queue it up for later...
@@ -333,15 +427,17 @@ class hb_api:
         msgtype = msg[ha_msg.F_TYPE]
 
         if self.NodeCallback and (msgtype == ha_msg.T_STATUS
-        or                        msgtype == T_NS_STATUS):
+        or                        msgtype == ha_msg.T_NS_STATUS):
             node=msg[ha_msg.F_ORIG]
-            self.NodeCallback[0](node, self.NodeCallback[1])
+	    stat=msg[ha_msg.F_STATUS]
+            self.NodeCallback[0](node, stat, self.NodeCallback[1])
             return 1
 
         if self.IFCallback and msgtype == ha_msg.T_IFSTATUS:
-            node=msg[ha_msg.F_ORIG]
+            node=msg[ha_msg.F_NODE]
+	    iface=msg[ha_msg.F_IFNAME]
             stat=msg[ha_msg.F_STATUS]
-            self.IFCallback[0](node, stat, self.IFCallback[1])
+            self.IFCallback[0](node, iface, stat, self.IFCallback[1])
             return 1
 
         if self.Callbacks.has_key(msgtype):
@@ -351,23 +447,31 @@ class hb_api:
 
         return None
 
-    def __read_hb_msg(self, blocking):
+    def __read_hb_msg(self, blocking, timeout=0):
 
         '''Return the next message from heartbeat.'''
 
         if len(self.MsgQ) > 0:
             return self.MsgQ.pop(0)
 
-        if not blocking and not self.msgready():
+	if timeout and not self.msgready(timeout=timeout):
+	    return None
+	elif not blocking and not self.msgready(timeout=0):
             return None
 
+        # ok, if msgready returned True,
+	# but we only have a partial message in the socket buffer,
+	# and the socket has its default timeout of "None",
+	# we will still potentially block "forever"...
+	# but half-delivered messages "should not happen"...
+
         try:
-            return ha_msg(self.ReplyFIFO)
+            return ha_msg(self.socket)
         except (ValueError):
             return None
 
-        
-    def readmsg(self, blocking):
+
+    def readmsg(self, blocking=False, timeout=0):
 
         '''Return the next message to the caller for which there were no active
            callbacks.  Call the callbacks for those messages which might
@@ -377,10 +481,10 @@ class hb_api:
         '''
 
         while(1):
-            rc=self.__read_hb_msg(blocking)
+            rc=self.__read_hb_msg(blocking=blocking, timeout=timeout)
 
             if rc == None: return None
-            
+
             if not self.__CallbackCall(rc):
                 return rc
 
@@ -388,11 +492,16 @@ class hb_api:
 
         '''Sign off of the heartbeat API.'''
 
-        if self.SignedOn:
+        if self.socket:
             msg = self.__api_msg(hb_api.SIGNOFF)
-	    msg.tofile(self.MsgFIFO)
+	    try:
+		    msg.tosock(self.socket)
+		    self.socket.close()
+	    except socket.error, e:
+		    # may already be closed by the remote side
+		    pass
+	    self.socket = None
         self.SignedOn=0
-
 
     def signon(self, service=None):
 
@@ -404,43 +513,21 @@ class hb_api:
         else:
             self.OurClientID = service
             self.iscasual = 0
-        msg = self.__api_msg(hb_api.SIGNON)
 
-        # Compute FIFO directory
+        self.OurNode = os.uname()[1].lower()
 
-        if self.iscasual:
-            self.FIFOdir = hb_api.CASUALCLIENTDIR
-        else:
-            self.FIFOdir = hb_api.NAMEDCLIENTDIR
-
-        self.ReqFIFOName = self.FIFOdir + os.sep + self.OurClientID + ".req"
-        self.ReplyFIFOName = self.FIFOdir + os.sep + self.OurClientID + ".rsp"
-        self.OurNode = lower(os.uname()[1])
-           
-        #
-        # For named clients, lock the request/response fifos
-	# (FIXME!!)
-        #
-        if self.iscasual:
-            # Make the registration, request FIFOs
-            os.mkfifo(self.ReqFIFOName, 0600)
-            os.mkfifo(self.ReplyFIFOName, 0600)
-        #
-        # Open the reply FIFO with fdopen...
-	#	(this keeps it from hanging)
-
-	fd = os.open(self.ReplyFIFOName, os.O_RDWR)
-        self.ReplyFIFO = os.fdopen(fd, "r")
-        
 	msg = hb_api.__api_msg(self, hb_api.SIGNON)
+	msg.update({
+	 "uid" : "%u" % os.getuid(),
+	 "gid" : "%u" % os.getgid() })
 
-        # Open the registration FIFO
-        RegFIFO = open(hb_api.API_REGFIFO, "w");
+	s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+	s.connect("/var/run/heartbeat/register");
 
         # Send the registration request
-	msg.tofile(RegFIFO)
-	RegFIFO.close()
-        
+	msg.tosock(s)
+	self.socket = s
+
         try:
             # Read the reply
             reply = self.__get_reply()
@@ -449,12 +536,14 @@ class hb_api:
             rc =  reply[ha_msg.F_APIRESULT]
 
             if rc == hb_api.OK :
+		self.socket = s
                 self.SignedOn=1
-                self.MsgFIFO = open(self.ReqFIFOName, "w")
                 return 1
+	    self.signoff()
             return None
 
-        except (KeyError,ValueError):
+        except (KeyError,ValueError,TypeError):
+	    self.signoff()
             return None
 
     def setfilter(self, fmask):
@@ -466,7 +555,7 @@ class hb_api:
 
         msg = hb_api.__api_msg(self, hb_api.SETFILTER)
         msg[ha_msg.F_FILTERMASK] = "%x" % fmask
-	msg.tofile(self.MsgFIFO)
+	msg.tosock(self.socket)
 
         try:
             reply = self.__get_reply()
@@ -486,7 +575,7 @@ class hb_api:
         msg = hb_api.__api_msg(self, hb_api.SETSIGNAL)
         msg[ha_msg.F_SIGNAL] = "%d" % signal
 
-	msg.tofile(self.MsgFIFO)
+	msg.tosock(self.socket)
 
         try:
             reply = self.__get_reply()
@@ -507,7 +596,7 @@ class hb_api:
         Nodes = []
 	msg = hb_api.__api_msg(self, hb_api.NODELIST)
 
-	msg.tofile(self.MsgFIFO)
+	msg.tosock(self.socket)
 
         try:
             while 1:
@@ -536,7 +625,7 @@ class hb_api:
 	msg = hb_api.__api_msg(self, hb_api.IFLIST)
         msg[ha_msg.F_NODENAME] = node
 
-	msg.tofile(self.MsgFIFO)
+	msg.tosock(self.socket)
 
         try:
             while 1:
@@ -545,7 +634,13 @@ class hb_api:
                 if rc != hb_api.OK and rc != hb_api.MORE :
                     return None
 
-                Interfaces.append(reply[ha_msg.F_IFNAME])
+		intf = reply[ha_msg.F_IFNAME]
+		# Don't put duplicates in the list.
+		# This would happen for example if you have
+		# multiple ucast statements (one for each node)
+		# on the same interface
+		if not intf in Interfaces:
+			Interfaces.append(intf)
 
                 if rc == hb_api.OK :
                    return Interfaces
@@ -565,7 +660,7 @@ class hb_api:
 	msg[ha_msg.F_NODENAME]=node
 
 
-	msg.tofile(self.MsgFIFO)
+	msg.tosock(self.socket)
 
         try:
 
@@ -573,7 +668,7 @@ class hb_api:
             rc =  reply[ha_msg.F_APIRESULT]
 
             if rc == hb_api.FAILURE : return None
-  
+
             return reply[ha_msg.F_STATUS]
 
         except (KeyError, ValueError):
@@ -587,7 +682,7 @@ class hb_api:
 	msg[ha_msg.F_NODENAME]=node
 	msg[ha_msg.F_IFNAME]=interface
 
-	msg.tofile(self.MsgFIFO)
+	msg.tosock(self.socket)
 
         try:
 
@@ -595,7 +690,7 @@ class hb_api:
             rc =  reply[ha_msg.F_APIRESULT]
 
             if rc == hb_api.FAILURE : return None
-  
+
             return reply[ha_msg.F_STATUS]
 
         except (KeyError, ValueError):
@@ -636,12 +731,12 @@ class hb_api:
 
         if not self.SignedOn: return None
 
-        return self.ReplyFIFO.fileno()
+        return self.socket.fileno()
 
     def fileno(self):
         return self.get_inputfd()
 
-    def msgready(self):
+    def msgready(self, timeout=0):
 
         '''Returns TRUE if a message is waiting to be read.'''
 
@@ -649,8 +744,8 @@ class hb_api:
             return 1
 
         ifd = self.get_inputfd()
- 
-        inp, out, exc = select.select([ifd,], [], [], 0)
+
+        inp, out, exc = select.select([ifd,], [], [], timeout)
 
         if len(inp) > 0 : return 1
         return None
@@ -660,11 +755,11 @@ class hb_api:
         '''Send a message to all cluster members.
 
          This is not allowed for casual clients.'''
-        if not self.SignedOn or self.iscasual: return None
+        # if not self.SignedOn or self.iscasual: return None
 
         msg =ha_msg(origmsg)
         msg[ha_msg.F_ORIG] = self.OurNode
-	return msg.tofile(self.MsgFIFO)
+	return msg.tosock(self.socket)
 
     def sendnodemsg(self, origmsg, node):
 
@@ -677,11 +772,11 @@ class hb_api:
         msg[ha_msg.F_ORIG] = self.OurNode
         msg[ha_msg.F_TO] = node
 
-	return msg.tofile(self.MsgFIFO)
+	return msg.tosock(self.socket)
 
 
     def set_msg_callback(self, msgtype, callback, data):
-     
+
         '''Define a callback for a specific message type.
            It returns the previous (callback,data) for
            that particular message type.
@@ -700,7 +795,7 @@ class hb_api:
         self.Callbacks[msgtype] = (callback, data)
         return ret
 
-    def set_nstatus_callback(self, callback, data):
+    def set_nstatus_callback(self, callback, data = None):
 
         '''Define a callback for node status changes.
            It returns the previous (callback,data) for
@@ -711,12 +806,12 @@ class hb_api:
         if callback == None:
             self.NodeCallback = None
             return ret
-           
+
         self.NodeCallback = (callback, data)
         return ret
 
 
-    def set_ifstatus_callback(self, callback, data):
+    def set_ifstatus_callback(self, callback, data = None):
 
         '''Define a callback for interface status changes.
            It returns the previous (callback,data) for
@@ -727,32 +822,62 @@ class hb_api:
         if callback == None:
             self.IFCallback = None
             return ret
-           
+
         self.IFCallback = (callback, data)
         return ret
 
+def nodestatus(node, stat, data):
+	try:
+		prev = data[node]["status"]
+        except (KeyError,ValueError):
+		prev = "?"
+	print "*** NODE STATUS CHANGE: %s now %s, was %s" % (node, stat, prev)
+	data[node]["status"] = stat
+
+def ifstatus(node, iface, stat, data):
+	try:
+		prev = data[node]["interfaces"][iface]
+        except (KeyError,ValueError):
+		prev = "?"
+	print "*** INTERFACE STATUS CHANGE: %s to %s now %s, was %s" % (iface, node, stat, prev)
+	data[node]["interfaces"][iface] = stat
 
 #
 #   A little test code...
 #
-if __name__ == '__main__':
+def main():
+    haclient_gid = grp.getgrnam("haclient")[2]
+    os.setgid(haclient_gid)
 
-    hb = hb_api()
+    hb = hb_api(debug=0)
     hb.signon()
-    print "Now signed on to heartbeat API..."
-    print "Nodes in cluster:", hb.nodelist()
+    dbg(0, "Now signed on to heartbeat API...")
+    dbg(0, "Asking for node and link status ...")
 
-    for node in hb.nodelist():
-        print "\nStatus of %s: %s" %  (node,  hb.nodestatus(node))
-        print "\tInterfaces to %s: %s" % (node, hb.iflist(node))
-        for intf in hb.iflist(node):
-            print "\tInterface %s: %s" % (intf, hb.ifstatus(node, intf))
-
-    print "\nCluster Config:"
+    # this is more a "status" than a "config",
+    # but ...
     config = hb.cluster_config()
-    print config
 
-    print "\n"
-    print config["localhost"]["interfaces"]["localhost"], ":-)"
-    print config["kathyamy"]["interfaces"]["/dev/ttyS0"]
+    print "\nNodes in cluster:", config.keys()
+    for node in config.keys():
+	 state = config[node]["status"]
+         print "\nStatus of %s: %s" %  (node,  state)
+	 iflist = config[node]["interfaces"].keys()
+         print "\tInterfaces to %s: %s" % (node, iflist)
+         for intf in iflist:
+             state = config[node]["interfaces"][intf]
+             print "\tInterface %s to %s: %s" % (intf, node, state)
+
+
+    dbg(0, "\nListening for node or link status changes...\n")
+    hb.set_nstatus_callback(nodestatus, config)
+    hb.set_ifstatus_callback(ifstatus, config)
+    while 1:
+	hb.readmsg(1)
+
+if __name__ == '__main__':
+   try:
+	   main()
+   except KeyboardInterrupt:
+	pass
 

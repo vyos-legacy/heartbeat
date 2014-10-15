@@ -96,7 +96,7 @@ class RequestMsg (ha_msg):
                     return replies, [], extras
             else:
               return replies, nodes.keys(), extras
-        
+
     def sendall(self, api, timeout, participants=None):
 
         '''Send the request packet to every node.
@@ -198,7 +198,7 @@ class TestMappings(UserDict):
             raise ValueError("Non-callable TestMappings 'function'")
 
         self.data[key]=value
-   
+
     def __call__(self, msg, dummyarg):
 
         '''Process the request that goes with the given message.
@@ -226,6 +226,13 @@ class CTSReply(ReplyMsg):
     '''A CTS reply message.'''
     RequestType  = ha_msg.T_TESTREQ
     ResponseType = ha_msg.T_TESTRSP
+
+
+
+
+def client_stat_callback(msg, data):
+	print msg, data
+
 #
 #   A little test code...
 #
@@ -234,7 +241,7 @@ class CTSReply(ReplyMsg):
 #   pingreply is called when a ping "request" is received
 #
 if __name__ == '__main__':
-
+  try:
     class PingRequest(CTSRequest):
 
         '''A Ping request message'''
@@ -252,9 +259,11 @@ if __name__ == '__main__':
 
         '''Construct and send a ping reply message.'''
 
+	print "PINGPINGPINGPINGPING from %s" % pingmsg[ha_msg.F_ORIG]
         reply=CTSReply(pingmsg, api.OK)
         reply.send(api)
-        
+	PingRequest().sendall(api, 0)
+
     #	Function to perform a Bad Request reply...
     def BadReq(badmsg, api, arg):
 
@@ -264,8 +273,10 @@ if __name__ == '__main__':
         reply[ha_msg.F_COMMENT]=arg
         reply.send(api)
 
-    hb = hb_api()
-    hb.signon()
+    hb = hb_api(debug=0)
+    if not hb.signon("ping"):
+	    print >> sys.stderr, "Unable to signon with heartbeat"
+	    sys.exit(1)
 
     #	Set up response functions to automatically reply to pings when
     #	they arrive.
@@ -277,14 +288,23 @@ if __name__ == '__main__':
     # Set up our function to respond to CTSRequest packets
 
     hb.set_msg_callback(ha_msg.T_TESTREQ, testmap, None)
+    hb.set_msg_callback("hbapi-clstat", client_stat_callback, None)
 
     print hb.cluster_config()
 
     req = PingRequest()  # Same as CTSRequest("ping")
-    print req.sendnode(hb, "kathyamy", 5)
+    print req.sendnode(hb, "kathyamy", 1)
 
     spam = SpamRequest()  # Same as CTSRequest("spam")
-    print spam.sendnode(hb, "kathyamy", 5)
+    print spam.sendnode(hb, "kathyamy", 1)
 
-    print req.sendall(hb, 5)
+    print req.sendall(hb, 1)
+
+    # Wait for some more messages.  As long as all dispatched messages are
+    # handled by callbacks, and no timeout occurs, this can process an
+    # arbitrary number of messages.
+    while 1:
+	    hb.readmsg(timeout=5)
+
+  except:
     hb.signoff()
