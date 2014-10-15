@@ -38,6 +38,7 @@
 #include <syslog.h>
 #include <glib.h>
 #include <clplumbing/cl_log.h>
+#include <clplumbing/cl_misc.h>
 #include <hb_api.h>
 
 
@@ -186,7 +187,7 @@ typedef struct {
 static const size_t CMDS_MAX_LENGTH = 16;
 static gboolean FOR_HUMAN_READ = FALSE;
 static const cmd_t cmds[] = {
-	{ "hbstatus",      hbstatus, 	  "m" ,		FALSE},
+	{ "hbstatus",      hbstatus, 	  "mv",		FALSE},
 	{ "listnodes",     listnodes, 	  "mpn",	TRUE},
 	{ "nodestatus",    nodestatus, 	  "m",		TRUE},
 	{ "nodeweight",    nodeweight, 	  "m",		TRUE},
@@ -196,7 +197,7 @@ static const cmd_t cmds[] = {
 	{ "hblinkstatus",  hblinkstatus,  "m",		TRUE },
 	{ "clientstatus",  clientstatus,  "m",		TRUE },
 	{ "rscstatus",     rscstatus, 	  "m",		TRUE}, 
-	{ "hbparameter",   hbparameter,	  "mp:,		TRUE"},
+	{ "hbparameter",   hbparameter,	  "mp:",	TRUE},
 	{ "test",	   test,	  NULL,		TRUE},
 	{ NULL, NULL, NULL },
 };
@@ -332,17 +333,101 @@ main(int argc, char ** argv)
 	return ret_value;
 }
 
+static int is_pacemaker_enabled(ll_cluster_t *hb, char **result)
+{
+	char * pacemaker;
+	gboolean enabled;
+
+	pacemaker = hb->llc_ops->get_parameter(hb, KEY_PACEMAKER);
+	/* in the unlikely case that this cl_status binary is run against an
+	 * older heartbeat */
+	if (!pacemaker)
+		pacemaker = hb->llc_ops->get_parameter(hb, KEY_REL2);
+	/* "pacemaker" setting may be the various "boolean" fixed strings
+	 * (see cl_str_to_boolean), or a certain set of special strings.
+	 * The boolean strings will return HA_OK, and enabled will be a valid
+	 * boolean value.
+	 * The "special" strings return HA_FAIL, as they are not recognized by
+	 * cl_str_to_boolean. But all of them count as "pacemaker enabled".
+	 */
+	if (cl_str_to_boolean(pacemaker, &enabled) != HA_OK)
+		enabled = TRUE;
+	if (result)
+		*result = pacemaker;
+	else
+		free(pacemaker);
+	return enabled;
+}
+
 static int 
 hbstatus(ll_cluster_t *hb, int argc, char ** argv, const char * optstr)
 {
+	char *hbversion = NULL;
+	char *pacemaker = NULL;
+	int option_char;
+	gboolean VERBOSE = FALSE;
+	gboolean pacemaker_enabled;
+
+	do {
+		option_char = getopt(argc-1, argv+1, optstr);
+		if (option_char == -1)
+			break;
+		switch (option_char) {
+			case 'm':
+				FOR_HUMAN_READ = TRUE;
+				break;
+			case 'v':
+				VERBOSE = TRUE;
+				break;
+		}
+	} while (1);
+
 	/* Is it ok to judge if heartbeat is running via signon status? */
-	if ( HB_SIGNON == TRUE ) {
+	if ( HB_SIGNON == FALSE ) {
+		const char *failreason = hb->llc_ops->errmsg(hb);
+		int rc;
+		if (hb->llc_ops->get_deadtime(hb) == 0) {
+			/* hard coded string for backwards compatibility reason */
+			printf("Heartbeat is stopped on this machine.\n");
+			rc = 1;
+		} else {
+			printf("Heartbeat is apparently running on this machine, but refuses my connection\n");
+			rc = 0;
+		}
+		if (VERBOSE && failreason && failreason[0])
+			printf("(%s)\n", failreason);
+		return rc;
+	}
+
+	if (!VERBOSE) {
+		/* hard coded string for backwards compatibility reason */
 		printf("Heartbeat is running on this machine.\n");
 		return 0;
-	} else {
-		printf("Heartbeat is stopped on this machine.\n");
-		return 1;
 	}
+
+	/* VERBOSE, successful signon */
+	hbversion = hb->llc_ops->get_parameter(hb, KEY_HBVERSION);
+	pacemaker_enabled = is_pacemaker_enabled(hb, &pacemaker);
+	if ( FOR_HUMAN_READ ) {
+		if (hbversion)
+			printf("Heartbeat version %s\n", hbversion);
+		else
+			printf("Heartbeat is running on this machine.\n");
+		if (pacemaker_enabled)
+			printf("Resources controlled by Pacemaker.\n");
+		else
+			printf("Resources controlled by \"haresources\"\n");
+	} else {
+		printf("version\t\t%s\n", hbversion ?: "unknown");
+		if (!pacemaker_enabled)
+			printf("managed by\t\"haresources\"\n");
+		else
+			printf("managed by\tpacemaker\t(%s)\n", pacemaker);
+	}
+	free(hbversion);
+	free(pacemaker);
+
+	return 0;
 }
 
 static int 
@@ -686,6 +771,11 @@ rscstatus(ll_cluster_t *hb, int argc, char ** argv, const char * optstr)
 		/* There are option errors */
 		return PARAMETER_ERROR;
 	};
+
+	if (is_pacemaker_enabled(hb, NULL)) {
+		cl_log(LOG_ERR, "Cannot get cluster resource status of a pacemaker cluster; try crm_mon");
+		return NORMAL_FAIL;
+	}
 
 	rstatus = hb->llc_ops->get_resources(hb);
 	if ( rstatus == NULL ) {

@@ -129,6 +129,8 @@ typedef struct llc_private {
 	long			deadtime_ms;	/* heartbeat's deadtime */
 	long			keepalive_ms;	/* HB's keepalive time*/
 	int			logfacility;	/* HB's logging facility */
+	char			*hbversion;	/* cached hbversion at signon */
+	char			*pcmk_mode;	/* cached pacemaker at signon */
 	struct stringlist*	nextnode;	/* Next node for walknode */
 	struct stringlist*	nextif;		/* Next interface for walkif*/
 	/* Messages to be read after current call completes */
@@ -456,6 +458,18 @@ hb_api_signon(struct ll_cluster* cinfo, const char * clientid)
 	||	sscanf(tmpstr, "%d", &(pi->logfacility)) != 1) {
 		pi->logfacility = -1;
 	}
+
+	/* If we talk to this version of heartbeat,
+	 * there should be "hbversion" and "pacemaker" fields
+	 * in the reply. Cache them. */
+	tmpstr = ha_msg_value(reply, KEY_HBVERSION);
+	free(pi->hbversion);
+	pi->hbversion = tmpstr ? strdup(tmpstr) : NULL;
+
+	tmpstr = ha_msg_value(reply, KEY_PACEMAKER);
+	free(pi->pcmk_mode);
+	pi->pcmk_mode = tmpstr ? strdup(tmpstr) : NULL;
+
 	ZAPMSG(reply);
 
 	return rc;
@@ -539,6 +553,8 @@ hb_api_delete(struct ll_cluster* ci)
 	zap_msg_queue(pi);
 
 	/* Free up the private information */
+	free(pi->hbversion);
+	free(pi->pcmk_mode);
 	memset(pi, 0, sizeof(*pi));
 	free(pi);
 
@@ -1233,6 +1249,12 @@ get_parameter(ll_cluster_t* lcl, const char* pname)
 		return NULL;
 	}
 
+	/* special case values cached at signon. */
+	if (!strcmp(pname, KEY_HBVERSION) && pi->hbversion)
+		return strdup(pi->hbversion);
+	if (!strcmp(pname, KEY_PACEMAKER) && pi->pcmk_mode)
+		return strdup(pi->pcmk_mode);
+
 	if ((request = hb_api_boilerplate(API_GETPARM)) == NULL) {
 		return NULL;
 	}
@@ -1771,6 +1793,7 @@ read_cstatus_respond_msg(llc_private_t* pi, int timeout)
 		}
 	}
 
+	ha_api_log(LOG_ERR,  "No timely response.");
 	/* Timeout or caught a signal */
 	return NULL;
 }
