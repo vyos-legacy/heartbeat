@@ -128,6 +128,7 @@ class ha_msg (UserDict):
     F_FILTERMASK="fmask"
     F_IFNAME="ifname"
     F_NODENAME="node"
+    F_NODETYPE="nodetype"
     F_TOID="to_id"
     F_PID="pid"
     F_STATUS="st"
@@ -360,6 +361,7 @@ class hb_api:
     SETSIGNAL="setsignal"
     NODELIST="nodelist"
     NODESTATUS="nodestatus"
+    NODETYPE="nodetype"
     IFLIST="iflist"
     IFSTATUS="ifstatus"
     ActiveStatus="active"
@@ -379,6 +381,7 @@ class hb_api:
         self.Callbacks = {}
         self.NodeCallback = None
         self.IFCallback = None
+	self.Nodes = None
 	debug_level = debug
 
     def __del__(self):
@@ -589,11 +592,15 @@ class hb_api:
         except (KeyError, ValueError):
             return None
 
-    def nodelist(self):
+    def nodelist(self, usecache=False):
 
         '''Retrieve the list of nodes in the cluster'''
 
-        Nodes = []
+	if usecache and self.Nodes != None:
+	    return self.Nodes
+
+	self.Nodes = None
+	Nodes = {}
 	msg = hb_api.__api_msg(self, hb_api.NODELIST)
 
 	msg.tosock(self.socket)
@@ -605,9 +612,17 @@ class hb_api:
                 if rc != hb_api.OK and rc != hb_api.MORE:
                     return None
 
-                Nodes.append(reply[ha_msg.F_NODENAME])
+		nodename = reply[ha_msg.F_NODENAME]
+		node = { "name" : nodename }
+		if ha_msg.F_NODETYPE in reply:
+		    node['type'] = reply[ha_msg.F_NODETYPE]
+		if ha_msg.F_STATUS in reply:
+		    node['status'] = reply[ha_msg.F_STATUS]
+
+                Nodes[nodename] = node
 
                 if rc == hb_api.OK :
+		   self.Nodes = Nodes
                    return Nodes
                 elif rc == hb_api.MORE:
                    continue
@@ -621,7 +636,7 @@ class hb_api:
 
         '''Retrieve the list of interfaces to the given node'''
 
-        Interfaces = []
+        Interfaces = {}
 	msg = hb_api.__api_msg(self, hb_api.IFLIST)
         msg[ha_msg.F_NODENAME] = node
 
@@ -634,13 +649,18 @@ class hb_api:
                 if rc != hb_api.OK and rc != hb_api.MORE :
                     return None
 
-		intf = reply[ha_msg.F_IFNAME]
+		ifname = reply[ha_msg.F_IFNAME]
+		if ha_msg.F_STATUS in reply:
+		    ifstat = reply[ha_msg.F_STATUS]
+		else:
+		    ifstat = None
+
 		# Don't put duplicates in the list.
 		# This would happen for example if you have
 		# multiple ucast statements (one for each node)
 		# on the same interface
-		if not intf in Interfaces:
-			Interfaces.append(intf)
+		if not ifname in Interfaces:
+		    Interfaces[ifname] = ifstat
 
                 if rc == hb_api.OK :
                    return Interfaces
@@ -674,6 +694,28 @@ class hb_api:
         except (KeyError, ValueError):
             return None
 
+    def nodetype(self, node):
+
+        '''Retrieve the node-type of the given node ("normal" or "ping")'''
+
+	msg = hb_api.__api_msg(self, hb_api.NODETYPE)
+	msg[ha_msg.F_NODENAME]=node
+
+
+	msg.tosock(self.socket)
+
+        try:
+
+            reply = self.__get_reply()
+            rc =  reply[ha_msg.F_APIRESULT]
+
+            if rc == hb_api.FAILURE : return None
+
+            return reply[ha_msg.F_NODETYPE]
+
+        except (KeyError, ValueError):
+            return None
+
     def ifstatus(self, node, interface):
 
         '''Retrieve the status of the given interface on the given node'''
@@ -703,16 +745,18 @@ class hb_api:
         It could probably give a better structured return value.
         '''
 
-        ret = {}
-        for node in self.nodelist():
-            nstat = {}
-            nstat["status"] = self.nodestatus(node)
-            interfaces={}
-            for intf in self.iflist(node):
-                interfaces[intf] =  self.ifstatus(node, intf)
-            nstat["interfaces"] = interfaces
-            ret[node] = nstat
-        return ret
+        Nodes = self.nodelist()
+        for (nodename, node) in Nodes.items():
+	    if not 'status' in node:
+		node["status"] = self.nodestatus(nodename)
+	    if not 'type' in node:
+		node["type"] = self.nodetype(nodename)
+            interfaces = self.iflist(nodename)
+            for (ifname, ifstat) in interfaces.items():
+		if ifstat == None:
+		    ifstat = self.ifstatus(nodename, ifname)
+            node["interfaces"] = interfaces
+        return Nodes
 
     def nodes_with_status(self, status=None):
         '''Return the list of nodes with the given status.  Default status is
@@ -720,9 +764,13 @@ class hb_api:
         '''
         if status == None: status=hb_api.ActiveStatus
         ret = []
-        for node in self.nodelist():
-            if self.nodestatus(node) == status:
-                ret.append(node)
+        for (nodename, node) in self.nodelist().items():
+	    if "status" in node:
+		nodestatus = node["status"]
+	    else:
+		nodestatus = self.nodestatus(nodename)
+            if nodestatus == status:
+                ret.append(nodename)
         return ret
 
     def get_inputfd(self):
@@ -845,7 +893,7 @@ def ifstatus(node, iface, stat, data):
 #
 #   A little test code...
 #
-def main():
+def main(argv):
     haclient_gid = grp.getgrnam("haclient")[2]
     os.setgid(haclient_gid)
 
@@ -860,14 +908,17 @@ def main():
 
     print "\nNodes in cluster:", config.keys()
     for node in config.keys():
+	 type = config[node]["type"]
 	 state = config[node]["status"]
-         print "\nStatus of %s: %s" %  (node,  state)
+         print "\nStatus of %s node %s: %s" %  (type, node, state)
 	 iflist = config[node]["interfaces"].keys()
          print "\tInterfaces to %s: %s" % (node, iflist)
          for intf in iflist:
              state = config[node]["interfaces"][intf]
              print "\tInterface %s to %s: %s" % (intf, node, state)
 
+    if not '--monitor' in argv:
+	return
 
     dbg(0, "\nListening for node or link status changes...\n")
     hb.set_nstatus_callback(nodestatus, config)
@@ -877,7 +928,7 @@ def main():
 
 if __name__ == '__main__':
    try:
-	   main()
+	   main(sys.argv)
    except KeyboardInterrupt:
 	pass
 
