@@ -91,268 +91,192 @@
 #include "hb_signal.h"
 
 /* Definitions of API query handlers */
-static int api_ping_iflist(const struct ha_msg* msg, struct node_info * node
-,	struct ha_msg* resp
-,	client_proc_t* client, const char** failreason);
+static int api_ping_iflist(const struct ha_msg *msg, struct node_info *node, struct ha_msg *resp, client_proc_t *client, const char **failreason);
+static int api_signoff(const struct ha_msg *msg, struct ha_msg *resp, client_proc_t *client, const char **failreason);
+static int api_setfilter(const struct ha_msg *msg, struct ha_msg *resp, client_proc_t *client, const char **failreason);
+static int api_setsignal(const struct ha_msg *msg, struct ha_msg *resp, client_proc_t *client, const char **failreason);
+static int api_nodelist(const struct ha_msg *msg, struct ha_msg *resp, client_proc_t *client, const char **failreason);
+static int api_nodestatus(const struct ha_msg *msg, struct ha_msg *resp, client_proc_t *client, const char **failreason);
+static int api_nodeweight(const struct ha_msg *msg, struct ha_msg *resp, client_proc_t *client, const char **failreason);
+static int api_nodesite(const struct ha_msg *msg, struct ha_msg *resp, client_proc_t *client, const char **failreason);
+static int api_nodetype(const struct ha_msg *msg, struct ha_msg *resp, client_proc_t *client, const char **failreason);
+static int api_ifstatus(const struct ha_msg *msg, struct ha_msg *resp, client_proc_t *client, const char **failreason);
+static int api_iflist(const struct ha_msg *msg, struct ha_msg *resp, client_proc_t *client, const char **failreason);
+static int api_clientstatus(const struct ha_msg *msg, struct ha_msg *resp, client_proc_t *client, const char **failreason);
+static int api_num_nodes(const struct ha_msg *msg, struct ha_msg *resp, client_proc_t *client, const char **failreason);
+static int api_get_parameter(const struct ha_msg *msg, struct ha_msg *resp, client_proc_t *client, const char **failreason);
+static int api_get_resources(const struct ha_msg *msg, struct ha_msg *resp, client_proc_t *client, const char **failreason);
+static int api_get_uuid(const struct ha_msg *msg, struct ha_msg *resp, client_proc_t *client, const char **failreason);
+static int api_get_nodename(const struct ha_msg *msg, struct ha_msg *resp, client_proc_t *client, const char **failreason);
+static int api_set_sendqlen(const struct ha_msg *msg, struct ha_msg *resp, client_proc_t *client, const char **failreason);
+gboolean ProcessAnAPIRequest(client_proc_t *client);
 
-
-static int api_signoff (const struct ha_msg* msg, struct ha_msg* resp
-,	client_proc_t* client, const char **failreason);
-
-static int api_setfilter (const struct ha_msg* msg, struct ha_msg* resp
-,	client_proc_t* client, const char **failreason);
-
-static int api_setsignal (const struct ha_msg* msg, struct ha_msg* resp
-,	client_proc_t* client, const char** failreason);
-
-static int api_nodelist (const struct ha_msg* msg, struct ha_msg* resp
-,	client_proc_t* client, const char** failreason);
-
-static int api_nodestatus (const struct ha_msg* msg, struct ha_msg* resp
-,	client_proc_t* client, const char** failreason);
-
-static int api_nodeweight (const struct ha_msg* msg, struct ha_msg* resp
-,	client_proc_t* client, const char** failreason);
-
-static int api_nodesite (const struct ha_msg* msg, struct ha_msg* resp
-,	client_proc_t* client, const char** failreason);
-
-static int api_nodetype (const struct ha_msg* msg, struct ha_msg* resp
-,	client_proc_t* client, const char** failreason);
-
-static int api_ifstatus (const struct ha_msg* msg, struct ha_msg* resp
-,	client_proc_t* client, const char** failreason);
-
-static int api_iflist (const struct ha_msg* msg, struct ha_msg* resp
-,	client_proc_t* client, const char** failreason);
-
-static int api_clientstatus (const struct ha_msg* msg, struct ha_msg* resp
-,	client_proc_t* client, const char** failreason);
-
-static int
-api_num_nodes(const struct ha_msg* msg, struct ha_msg* resp
-	      ,	client_proc_t* client, const char** failreason);
-
-static int api_get_parameter (const struct ha_msg* msg, struct ha_msg* resp
-,	client_proc_t* client, const char** failreason);
-
-static int api_get_resources (const struct ha_msg* msg, struct ha_msg* resp
-,	client_proc_t* client, const char** failreason);
-
-static int api_get_uuid (const struct ha_msg* msg, struct ha_msg* resp
-,	client_proc_t* client, const char** failreason);
-
-static int api_get_nodename (const struct ha_msg* msg, struct ha_msg* resp
-,	client_proc_t* client, const char** failreason);
-static int
-api_set_sendqlen(const struct ha_msg* msg, struct ha_msg* resp,
-		 client_proc_t* client, const char** failreason);
-
-gboolean ProcessAnAPIRequest(client_proc_t* client);
-
-struct api_query_handler query_handler_list [] = {
-	{ API_SIGNOFF, api_signoff },
-	{ API_SETFILTER, api_setfilter },
-	{ API_SETSIGNAL, api_setsignal },
-	{ API_NODELIST, api_nodelist },
-	{ API_NODESTATUS, api_nodestatus },
-	{ API_NODEWEIGHT, api_nodeweight },
-	{ API_NODESITE, api_nodesite },
-	{ API_NODETYPE, api_nodetype },
-	{ API_IFSTATUS, api_ifstatus },
-	{ API_IFLIST, api_iflist },
-	{ API_CLIENTSTATUS, api_clientstatus },
-	{ API_NUMNODES, api_num_nodes},
-	{ API_GETPARM, api_get_parameter},
-	{ API_GETRESOURCES, api_get_resources},
-	{ API_GETUUID, api_get_uuid},
-	{ API_GETNAME, api_get_nodename},
-	{ API_SET_SENDQLEN, api_set_sendqlen}	
+struct api_query_handler query_handler_list[] = {
+	{API_SIGNOFF, api_signoff},
+	{API_SETFILTER, api_setfilter},
+	{API_SETSIGNAL, api_setsignal},
+	{API_NODELIST, api_nodelist},
+	{API_NODESTATUS, api_nodestatus},
+	{API_NODEWEIGHT, api_nodeweight},
+	{API_NODESITE, api_nodesite},
+	{API_NODETYPE, api_nodetype},
+	{API_IFSTATUS, api_ifstatus},
+	{API_IFLIST, api_iflist},
+	{API_CLIENTSTATUS, api_clientstatus},
+	{API_NUMNODES, api_num_nodes},
+	{API_GETPARM, api_get_parameter},
+	{API_GETRESOURCES, api_get_resources},
+	{API_GETUUID, api_get_uuid},
+	{API_GETNAME, api_get_nodename},
+	{API_SET_SENDQLEN, api_set_sendqlen}
 };
 
-extern int	UseOurOwnPoll;
-int		debug_client_count = 0;
-int		total_client_count = 0;
-client_proc_t*	client_list = NULL;	/* List of all our API clients */
+extern int UseOurOwnPoll;
+int debug_client_count = 0;
+int total_client_count = 0;
+client_proc_t *client_list = NULL;	/* List of all our API clients */
 			/* TRUE when any client output still pending */
 extern struct node_info *curnode;
 
-static unsigned long	client_generation = 0; 
+static unsigned long client_generation = 0;
 #define MAX_CLIENT_GEN 64
 
-static void	api_process_request(client_proc_t* client, struct ha_msg *msg);
-static void	api_send_client_msg(client_proc_t* client, struct ha_msg *msg);
-static void	api_send_client_status(client_proc_t* client
-,	const char * status, const char *	reason);
-static void	api_remove_client_int(client_proc_t* client, const char * rsn);
-static int	api_add_client(client_proc_t* chan, struct ha_msg* msg);
-static void	G_remove_client(gpointer Client);
-static gboolean	APIclients_input_dispatch(IPC_Channel* chan, gpointer udata);
-static void	api_process_registration_msg(client_proc_t*, struct ha_msg *);
-static gboolean	api_check_client_authorization(client_proc_t* client);
-static int	create_seq_snapshot_table(GHashTable** ptable) ;
-static void	destroy_seq_snapshot_table(GHashTable* table);
-extern GHashTable*	APIAuthorization;
+static void api_process_request(client_proc_t *client, struct ha_msg *msg);
+static void api_send_client_msg(client_proc_t *client, struct ha_msg *msg);
+static void api_send_client_status(client_proc_t *client, const char *status, const char *reason);
+static void api_remove_client_int(client_proc_t *client, const char *rsn);
+static int api_add_client(client_proc_t *chan, struct ha_msg *msg);
+static void G_remove_client(gpointer Client);
+static gboolean APIclients_input_dispatch(IPC_Channel *chan, gpointer udata);
+static void api_process_registration_msg(client_proc_t *, struct ha_msg *);
+static gboolean api_check_client_authorization(client_proc_t *client);
+static int create_seq_snapshot_table(GHashTable **ptable);
+static void destroy_seq_snapshot_table(GHashTable *table);
+extern GHashTable *APIAuthorization;
 
-struct seq_snapshot{
-	seqno_t		generation;
-	seqno_t		last_seq;
+struct seq_snapshot {
+	seqno_t generation;
+	seqno_t last_seq;
 };
 
-
-
 static int
-should_msg_sendto_client(client_proc_t* client, struct ha_msg* msg)
+should_msg_sendto_client(client_proc_t *client, struct ha_msg *msg)
 {
-	GHashTable* table;
-	struct node_info *	thisnode = NULL;	
-	const char *		from;
-	cl_uuid_t		fromuuid;
-	struct seq_snapshot*	snapshot;
-	const char *		cseq;
-	const char *		cgen;
-	seqno_t			seq;
-	seqno_t			gen;
-	int			ret = 0;
-	const char*		type;
-	struct seqtrack *	t;
+	GHashTable *table;
+	struct node_info *thisnode = NULL;
+	const char *from;
+	cl_uuid_t fromuuid;
+	struct seq_snapshot *snapshot;
+	const char *cseq;
+	const char *cgen;
+	seqno_t seq;
+	seqno_t gen;
+	int ret = 0;
+	const char *type;
+	struct seqtrack *t;
 
-	if (!client || !msg){
-		cl_log(LOG_ERR, "should_msg_sendto_client:"
-		       " invalid arguemts");
+	if (!client || !msg) {
+		cl_log(LOG_ERR, "should_msg_sendto_client: invalid arguemts");
 		return FALSE;
 	}
-	
-	
 
 	from = ha_msg_value(msg, F_ORIG);
 	cseq = ha_msg_value(msg, F_SEQ);
 	cgen = ha_msg_value(msg, F_HBGENERATION);
-	
-	if (!from || !cseq || !cgen){
+
+	if (!from || !cseq || !cgen) {
 		/* some local generated status messages,
 		 * e.g. node dead status message,
-		 * return yes
-		 */
+		 * return yes */
 		return TRUE;
 	}
-	
+
 	if (sscanf(cseq, "%lx", &seq) <= 0 || sscanf(cgen, "%lx", &gen) <= 0) {
-		cl_log(LOG_ERR, "should_msg_sendto_client:"
-		       "wrong seq/gen format");
+		cl_log(LOG_ERR, "should_msg_sendto_client: wrong seq/gen format");
 		return FALSE;
 	}
-	
-	if (seq < 0 || gen < 0){
-		cl_log(LOG_ERR, "should_msg_sendto_client:"
-		       "wrong seq/gen number");
+
+	if (seq < 0 || gen < 0) {
+		cl_log(LOG_ERR, "should_msg_sendto_client: wrong seq/gen number");
 		return FALSE;
 	}
-	
+
 	cl_get_uuid(msg, F_ORIGUUID, &fromuuid);
 	thisnode = lookup_tables(from, &fromuuid);
-	if ( thisnode == NULL){
-		cl_log(LOG_ERR, "should_msg_sendto_client:"
-		       "node not found in table");
+	if (thisnode == NULL) {
+		cl_log(LOG_ERR, "should_msg_sendto_client: node not found in table");
 		return FALSE;
 	}
 
 	t = &thisnode->track;
 
-	/*if uuid is not found, then it always passes the first restriction*/
-	if ( cl_uuid_is_null(&fromuuid)
-	     || (table = client->seq_snapshot_table)== NULL
-	     || (snapshot= (struct seq_snapshot*)
-		 g_hash_table_lookup(table, &fromuuid)) == NULL){
+	/* if uuid is not found, then it always passes the first restriction */
+	if (cl_uuid_is_null(&fromuuid)
+	    || (table = client->seq_snapshot_table) == NULL
+	    || (snapshot = (struct seq_snapshot *) g_hash_table_lookup(table, &fromuuid)) == NULL) {
 		goto nextstep;
 	}
-		
-	ret = gen > snapshot->generation ||
-		(gen == snapshot->generation && seq >= snapshot->last_seq);
-	
 
-	/*check if there is any retransmission going on
-	  if not, we can delete this item
-	*/
+	ret = gen > snapshot->generation || (gen == snapshot->generation && seq >= snapshot->last_seq);
 
-	if (t->nmissing == 0){
-		
-		if (ANYDEBUG){
-			cl_log(LOG_DEBUG,
-			       "Removing one entry in seq snapshot hash table"
-			       "for node %s", thisnode->nodename);
+	/* check if there is any retransmission going on if not, we can delete this item */
+	if (t->nmissing == 0) {
+		if (ANYDEBUG) {
+			cl_log(LOG_DEBUG, "Removing one entry in seq snapshot hash table for node %s", thisnode->nodename);
 		}
-		
-		if(!g_hash_table_remove(table, &fromuuid)){
-			cl_log(LOG_ERR,"should_msg_sendto_client:"
-			       "g_hash_table_remove failed");
+		if (!g_hash_table_remove(table, &fromuuid)) {
+			cl_log(LOG_ERR, "should_msg_sendto_client: g_hash_table_remove failed");
 			return FALSE;
 		}
 		free(snapshot);
-		
-		
-		if ( g_hash_table_size(table) ==0){
-			if (ANYDEBUG){
-				cl_log(LOG_DEBUG,
-				       "destroying the seq snapshot hash table");
-			}
 
+		if (g_hash_table_size(table) == 0) {
+			if (ANYDEBUG) {
+				cl_log(LOG_DEBUG, "destroying the seq snapshot hash table");
+			}
 			g_hash_table_destroy(table);
 			client->seq_snapshot_table = NULL;
 		}
-	}		
-	
-	if ( ret == 0  ){
+	}
+
+	if (ret == 0) {
 		/* hmmmm.... this message is dropped */
 		cl_log(LOG_WARNING, "message is dropped ");
 		cl_log_message(LOG_WARNING, msg);
 		return FALSE;
 	}
-	
- nextstep:
-        /* We only worry about the ordering of certain types of messages
+
+nextstep:
+	/* We only worry about the ordering of certain types of messages
 	 * and then only when they arrive out of order.
 	 * Basically we implement a barrier at the receipt of each
 	 * message of this type.
 	 */
-	if( (type = ha_msg_value(msg, F_TYPE)) == NULL){
+	if ((type = ha_msg_value(msg, F_TYPE)) == NULL) {
 		cl_log(LOG_ERR, "no type field found");
 		return FALSE;
 	}
-	
-	if ( strcmp(type, T_APICLISTAT) != 0 || t->nmissing == 0){		
+
+	if (strcmp(type, T_APICLISTAT) != 0 || t->nmissing == 0) {
 		return TRUE;
 	}
-	
 
-	if ( seq > t->first_missing_seq ){
-		/*We cannot deliver the message now,
-		  queue it*/		
-		
-		struct ha_msg* copymsg = ha_msg_copy(msg);
-		
-		if (!copymsg){
+	if (seq > t->first_missing_seq) {
+		/* We cannot deliver the message now, queue it */
+		struct ha_msg *copymsg = ha_msg_copy(msg);
+		if (!copymsg) {
 			cl_log(LOG_ERR, "msg copy failed");
 			return FALSE;
 		}
-		
-		t->client_status_msg_queue = 
-			g_list_append(t->client_status_msg_queue,
-				      copymsg);
-		if (ANYDEBUG){
-			cl_log(LOG_DEBUG,"one entry added to "
-			       "client_status_msg_queue"
-			       "for node %s", thisnode->nodename);
+		t->client_status_msg_queue = g_list_append(t->client_status_msg_queue, copymsg);
+		if (ANYDEBUG) {
+			cl_log(LOG_DEBUG, "one entry added to client_status_msg_queue for node %s", thisnode->nodename);
 		}
 		return FALSE;
 	}
-	
 
-	
 	return TRUE;
 }
-
-
 
 /*
  *	One client pointer per input FIFO.  It's indexed by file descriptor, so
@@ -373,22 +297,20 @@ should_msg_sendto_client(client_proc_t* client, struct ha_msg* msg)
 void
 api_heartbeat_monitor(struct ha_msg *msg, int msgtype, const char *iface)
 {
-	const char*	clientid;
-	client_proc_t*	client;
-	client_proc_t*	nextclient;
-	
+	const char *clientid;
+	client_proc_t *client;
+	client_proc_t *nextclient;
 
 	/* This kicks out most messages, since debug clients are rare */
 
-	if ((msgtype&DEBUGTREATMENTS) != 0 && debug_client_count <= 0) {
+	if ((msgtype & DEBUGTREATMENTS) != 0 && debug_client_count <= 0) {
 		return;
 	}
 
 	/* Verify that we understand what kind of message we've got here */
 
 	if ((msgtype & ALLTREATMENTS) != msgtype || msgtype == 0) {
-		cl_log(LOG_ERR, "heartbeat_monitor: unknown msgtype [%d]"
-		,	msgtype);
+		cl_log(LOG_ERR, "heartbeat_monitor: unknown msgtype [%d]", msgtype);
 		return;
 	}
 
@@ -396,49 +318,42 @@ api_heartbeat_monitor(struct ha_msg *msg, int msgtype, const char *iface)
 
 	clientid = ha_msg_value(msg, F_TOID);
 
-	for (client=client_list; client != NULL; client=nextclient) {
+	for (client = client_list; client != NULL; client = nextclient) {
 		/*
 		 * "client" might be removed by api_send_client_msg()
 		 * so, we'd better fetch the next client now!
 		 */
-		nextclient=client->next;
-	
+		nextclient = client->next;
+
 		/* Is this message addressed to us? */
-		if (clientid != NULL
-		&&	strcmp(clientid, client->client_id) != 0) {
+		if (clientid != NULL && strcmp(clientid, client->client_id) != 0) {
 			continue;
 		}
 		if (client->chan->ch_status != IPC_CONNECT) {
 			continue;
 		}
 
-		/* Is this one of the types of messages we're interested in?*/
-		
-		if ((msgtype & client->desired_types) != 0) {		       	
-			
-			if (should_msg_sendto_client(client, msg)){				
-				api_send_client_msg(client, msg);				
-			}else {
-				/*This happens when join/leave messages is
-				 *received but there are messages before 
-				 *that are missing. The join/leave messages
-				 *will be queued and not delivered until all
-				 *messages before them are received and 
-				 *delivered. 
+		/* Is this one of the types of messages we're interested in? */
+
+		if ((msgtype & client->desired_types) != 0) {
+			if (should_msg_sendto_client(client, msg)) {
+				api_send_client_msg(client, msg);
+			} else {
+				/* This happens when join/leave messages is
+				 * received but there are messages before 
+				 * that are missing. The join/leave messages
+				 * will be queued and not delivered until all
+				 * messages before them are received and 
+				 * delivered. 
 				 */
-				
-				/*do nothing*/
+
+				/* do nothing */
 			}
-			
 			if (client->removereason && !client->isindispatch) {
-				if (ANYDEBUG){
-					cl_log(LOG_DEBUG
-					,	"%s: client is %s"
-					,	__FUNCTION__
-					,	client->client_id);
+				if (ANYDEBUG) {
+					cl_log(LOG_DEBUG, "%s: client is %s", __FUNCTION__, client->client_id);
 				}
-				api_remove_client_pid(client->pid
-				,	client->removereason);
+				api_remove_client_pid(client->pid, client->removereason);
 			}
 		}
 
@@ -448,6 +363,7 @@ api_heartbeat_monitor(struct ha_msg *msg, int msgtype, const char *iface)
 		}
 	}
 }
+
 /*
  *	Periodically clean up after dead clients...
  *	In case we somehow miss them...
@@ -455,55 +371,49 @@ api_heartbeat_monitor(struct ha_msg *msg, int msgtype, const char *iface)
 gboolean
 api_audit_clients(gpointer p)
 {
-	client_proc_t*	client;
-	client_proc_t*	nextclient;
+	client_proc_t *client;
+	client_proc_t *nextclient;
 
-	for (client=client_list; client != NULL; client=nextclient) {
-		nextclient=client->next;
+	for (client = client_list; client != NULL; client = nextclient) {
+		nextclient = client->next;
 
 		if (CL_KILL(client->pid, 0) < 0 && errno == ESRCH) {
-			cl_log(LOG_INFO, "api_audit_clients: client %ld died"
-			,	(long) client->pid);
+			cl_log(LOG_INFO, "api_audit_clients: client %ld died", (long)client->pid);
 			client->removereason = NULL;
 			api_remove_client_pid(client->pid, "died-audit");
-			client=NULL;
+			client = NULL;
 		}
 	}
 	return TRUE;
 }
 
-
 /**********************************************************************
  * API_SETFILTER: Set the types of messages we want to see
  **********************************************************************/
 static int
-api_setfilter(const struct ha_msg* msg, struct ha_msg* resp
-,	client_proc_t* client, const char **failreason)
-{                                                            
-	const char *	cfmask;
-	unsigned	mask;
+api_setfilter(const struct ha_msg *msg, struct ha_msg *resp, client_proc_t *client, const char **failreason)
+{
+	const char *cfmask;
+	unsigned mask;
 /*
  *	Record the types of messages desired by this client
  *		(desired_types)
  */
 	if ((cfmask = ha_msg_value(msg, F_FILTERMASK)) == NULL
-	||	(sscanf(cfmask, "%x", &mask) != 1)
-	||	(mask&ALLTREATMENTS) == 0) {
+	    || (sscanf(cfmask, "%x", &mask) != 1)
+	    || (mask & ALLTREATMENTS) == 0) {
 		*failreason = "EINVAL";
 		return I_API_BADREQ;
 	}
 
-	if ((client->desired_types  & DEBUGTREATMENTS)== 0
-	&&	(mask&DEBUGTREATMENTS) != 0) {
-
+	if ((client->desired_types & DEBUGTREATMENTS) == 0 && (mask & DEBUGTREATMENTS) != 0) {
 		/* Only allowed to root and to our uid */
 		if (client->uid != 0 && client->uid != getuid()) {
 			*failreason = "EPERM";
 			return I_API_BADREQ;
 		}
 		++debug_client_count;
-	}else if ((client->desired_types & DEBUGTREATMENTS) != 0
-	&&	(mask & DEBUGTREATMENTS) == 0) {
+	} else if ((client->desired_types & DEBUGTREATMENTS) != 0 && (mask & DEBUGTREATMENTS) == 0) {
 		--debug_client_count;
 	}
 	client->desired_types = mask;
@@ -515,21 +425,19 @@ api_setfilter(const struct ha_msg* msg, struct ha_msg* resp
  **********************************************************************/
 
 static int
-api_signoff(const struct ha_msg* msg, struct ha_msg* resp
-,	client_proc_t* client, const char **failreason) 
-{ 
-		/* We send them no reply */
-		if (ANYDEBUG) {
-			cl_log(LOG_DEBUG, "Signing client %ld off"
-			,	(long) client->pid);
-		}
-		if (client->seq_snapshot_table){
-			destroy_seq_snapshot_table(client->seq_snapshot_table);
-			client->seq_snapshot_table = NULL;
-		}
-		
-		client->removereason = API_SIGNOFF;
-		return I_API_IGN;
+api_signoff(const struct ha_msg *msg, struct ha_msg *resp, client_proc_t *client, const char **failreason)
+{
+	/* We send them no reply */
+	if (ANYDEBUG) {
+		cl_log(LOG_DEBUG, "Signing client %ld off", (long)client->pid);
+	}
+	if (client->seq_snapshot_table) {
+		destroy_seq_snapshot_table(client->seq_snapshot_table);
+		client->seq_snapshot_table = NULL;
+	}
+
+	client->removereason = API_SIGNOFF;
+	return I_API_IGN;
 }
 
 /**********************************************************************
@@ -537,26 +445,23 @@ api_signoff(const struct ha_msg* msg, struct ha_msg* resp
  **********************************************************************/
 
 static int
-api_setsignal(const struct ha_msg* msg, struct ha_msg* resp
-,	client_proc_t* client, const char** failreason)
+api_setsignal(const struct ha_msg *msg, struct ha_msg *resp, client_proc_t *client, const char **failreason)
 {
-		const char *	csignal;
-		unsigned	oursig;
+	const char *csignal;
+	unsigned oursig;
 
-		if ((csignal = ha_msg_value(msg, F_SIGNAL)) == NULL
-		||	(sscanf(csignal, "%u", &oursig) != 1)) {
-			return I_API_BADREQ;
-		}
-		/* Validate the signal number in the message ... */
-		if (oursig < 0 || oursig == SIGKILL || oursig == SIGSTOP
-		||	oursig >= 32) {
-			/* These can't be caught (or is a bad signal). */
-			*failreason = "EINVAL";
-			return I_API_BADREQ;
-		}
+	if ((csignal = ha_msg_value(msg, F_SIGNAL)) == NULL || (sscanf(csignal, "%u", &oursig) != 1)) {
+		return I_API_BADREQ;
+	}
+	/* Validate the signal number in the message ... */
+	if (oursig < 0 || oursig == SIGKILL || oursig == SIGSTOP || oursig >= 32) {
+		/* These can't be caught (or is a bad signal). */
+		*failreason = "EINVAL";
+		return I_API_BADREQ;
+	}
 
-		client->signal = oursig;
-		return I_API_RET;
+	client->signal = oursig;
+	return I_API_RET;
 }
 
 /***********************************************************************
@@ -564,31 +469,24 @@ api_setsignal(const struct ha_msg* msg, struct ha_msg* resp
  **********************************************************************/
 
 static int
-api_nodelist(const struct ha_msg* msg, struct ha_msg* resp
-,	client_proc_t* client, const char** failreason)
+api_nodelist(const struct ha_msg *msg, struct ha_msg *resp, client_proc_t *client, const char **failreason)
 {
-		int	j;
-		int	last = config->nodecount-1;
+	int j;
+	int last = config->nodecount - 1;
 
-		for (j=0; j <= last; ++j) {
-			if (ha_msg_mod(resp, F_NODENAME
-			,	config->nodes[j].nodename) != HA_OK) {
-				cl_log(LOG_ERR
-				,	"api_nodelist: "
-				"cannot mod field/5");
-				return I_API_IGN;
-			}
-			if (ha_msg_mod(resp, F_APIRESULT
-			,	(j == last ? API_OK : API_MORE))
-			!=	HA_OK) {
-				cl_log(LOG_ERR
-				,	"api_nodelist: "
-				"cannot mod field/6");
-				return I_API_IGN;
-			}
-			api_send_client_msg(client, resp);
+	for (j = 0; j <= last; ++j) {
+		if (ha_msg_mod(resp, F_NODENAME, config->nodes[j].nodename) != HA_OK) {
+			cl_log(LOG_ERR, "api_nodelist: cannot mod field/5");
+			return I_API_IGN;
 		}
-		return I_API_IGN;
+		if (ha_msg_mod(resp, F_APIRESULT, (j == last ? API_OK : API_MORE))
+		    != HA_OK) {
+			cl_log(LOG_ERR, "api_nodelist: cannot mod field/6");
+			return I_API_IGN;
+		}
+		api_send_client_msg(client, resp);
+	}
+	return I_API_IGN;
 }
 
 /**********************************************************************
@@ -596,30 +494,25 @@ api_nodelist(const struct ha_msg* msg, struct ha_msg* resp
  *********************************************************************/
 
 static int
-api_nodestatus(const struct ha_msg* msg, struct ha_msg* resp
-,	client_proc_t* client, const char** failreason)
+api_nodestatus(const struct ha_msg *msg, struct ha_msg *resp, client_proc_t *client, const char **failreason)
 {
-		const char *		cnode;
-		struct node_info *	node;
-		const char *		savedstat;
+	const char *cnode;
+	struct node_info *node;
+	const char *savedstat;
 
-		if ((cnode = ha_msg_value(msg, F_NODENAME)) == NULL
-		|| (node = lookup_node(cnode)) == NULL) {
-			*failreason = "EINVAL";
-			return I_API_BADREQ;
-		}
-		if (ha_msg_add(resp, F_STATUS, node->status) != HA_OK) {
-			cl_log(LOG_ERR
-			,	"api_nodestatus: cannot add field");
-			return I_API_IGN;
-		}
-		/* Give them the "real" (non-delayed) status */
-		if (node->saved_status_msg
-		&&	(savedstat
-		=	ha_msg_value(node->saved_status_msg, F_STATUS))) {
-			ha_msg_mod(resp, F_STATUS, savedstat);
-		}
-		return I_API_RET;
+	if ((cnode = ha_msg_value(msg, F_NODENAME)) == NULL || (node = lookup_node(cnode)) == NULL) {
+		*failreason = "EINVAL";
+		return I_API_BADREQ;
+	}
+	if (ha_msg_add(resp, F_STATUS, node->status) != HA_OK) {
+		cl_log(LOG_ERR, "api_nodestatus: cannot add field");
+		return I_API_IGN;
+	}
+	/* Give them the "real" (non-delayed) status */
+	if (node->saved_status_msg && (savedstat = ha_msg_value(node->saved_status_msg, F_STATUS))) {
+		ha_msg_mod(resp, F_STATUS, savedstat);
+	}
+	return I_API_RET;
 }
 
 /**********************************************************************
@@ -627,21 +520,18 @@ api_nodestatus(const struct ha_msg* msg, struct ha_msg* resp
  *********************************************************************/
 
 static int
-api_nodeweight(const struct ha_msg* msg, struct ha_msg* resp
-,	client_proc_t* client, const char** failreason)
+api_nodeweight(const struct ha_msg *msg, struct ha_msg *resp, client_proc_t *client, const char **failreason)
 {
-	const char *		cnode;
-	struct node_info *	node;
+	const char *cnode;
+	struct node_info *node;
 
-	if ((cnode = ha_msg_value(msg, F_NODENAME)) == NULL
-	|| (node = lookup_node(cnode)) == NULL) {
+	if ((cnode = ha_msg_value(msg, F_NODENAME)) == NULL || (node = lookup_node(cnode)) == NULL) {
 		*failreason = "EINVAL";
 		return I_API_BADREQ;
 	}
-	
+
 	if (ha_msg_add_int(resp, F_WEIGHT, node->weight) != HA_OK) {
-		cl_log(LOG_ERR
-		,	"api_nodeweight: cannot add field");
+		cl_log(LOG_ERR, "api_nodeweight: cannot add field");
 		return I_API_IGN;
 	}
 	return I_API_RET;
@@ -652,20 +542,17 @@ api_nodeweight(const struct ha_msg* msg, struct ha_msg* resp
  *********************************************************************/
 
 static int
-api_nodesite(const struct ha_msg* msg, struct ha_msg* resp
-,	client_proc_t* client, const char** failreason)
+api_nodesite(const struct ha_msg *msg, struct ha_msg *resp, client_proc_t *client, const char **failreason)
 {
-	const char *		cnode;
-	struct node_info *	node;
+	const char *cnode;
+	struct node_info *node;
 
-	if ((cnode = ha_msg_value(msg, F_NODENAME)) == NULL
-	|| (node = lookup_node(cnode)) == NULL) {
+	if ((cnode = ha_msg_value(msg, F_NODENAME)) == NULL || (node = lookup_node(cnode)) == NULL) {
 		*failreason = "EINVAL";
 		return I_API_BADREQ;
 	}
 	if (ha_msg_add(resp, F_SITE, node->site) != HA_OK) {
-		cl_log(LOG_ERR
-		,	"api_nodesite: cannot add field");
+		cl_log(LOG_ERR, "api_nodesite: cannot add field");
 		return I_API_IGN;
 	}
 	return I_API_RET;
@@ -676,30 +563,30 @@ api_nodesite(const struct ha_msg* msg, struct ha_msg* resp
  *********************************************************************/
 
 static int
-api_nodetype(const struct ha_msg* msg, struct ha_msg* resp
-,	client_proc_t* client, const char** failreason)
+api_nodetype(const struct ha_msg *msg, struct ha_msg *resp, client_proc_t *client, const char **failreason)
 {
-	const char *		cnode;
-	struct node_info *	node;
-	const char *		ntype;
+	const char *cnode;
+	struct node_info *node;
+	const char *ntype;
 
-	if ((cnode = ha_msg_value(msg, F_NODENAME)) == NULL
-	|| (node = lookup_node(cnode)) == NULL) {
+	if ((cnode = ha_msg_value(msg, F_NODENAME)) == NULL || (node = lookup_node(cnode)) == NULL) {
 		*failreason = "EINVAL";
 		return I_API_BADREQ;
 	}
 	switch (node->nodetype) {
-		case PINGNODE_I:	ntype = PINGNODE;
-					break;
-		case NORMALNODE_I:	ntype = NORMALNODE;
-					break;
-		default:		ntype = UNKNOWNNODE;
-					break;
+	case PINGNODE_I:
+		ntype = PINGNODE;
+		break;
+	case NORMALNODE_I:
+		ntype = NORMALNODE;
+		break;
+	default:
+		ntype = UNKNOWNNODE;
+		break;
 	}
-			
+
 	if (ha_msg_add(resp, F_NODETYPE, ntype) != HA_OK) {
-		cl_log(LOG_ERR
-		,	"api_nodetype: cannot add field");
+		cl_log(LOG_ERR, "api_nodetype: cannot add field");
 		return I_API_IGN;
 	}
 	return I_API_RET;
@@ -710,79 +597,63 @@ api_nodetype(const struct ha_msg* msg, struct ha_msg* resp
  *********************************************************************/
 
 static int
-api_iflist(const struct ha_msg* msg, struct ha_msg* resp
-,	client_proc_t* client, const char** failreason)
+api_iflist(const struct ha_msg *msg, struct ha_msg *resp, client_proc_t *client, const char **failreason)
 {
-		struct link * lnk;
-		int	j;
-		int	last = config->nodecount-1;
-		const char *		cnode;
-		struct node_info *	node;
+	struct link *lnk;
+	int j;
+	int last = config->nodecount - 1;
+	const char *cnode;
+	struct node_info *node;
 
-		if ((cnode = ha_msg_value(msg, F_NODENAME)) == NULL
-		||	(node = lookup_node(cnode)) == NULL) {
-			*failreason = "EINVAL";
-			return I_API_BADREQ;
-		}
-		if (node->nodetype == PINGNODE_I) {
-			return api_ping_iflist
-			(	msg, node, resp ,client, failreason);
-		}
+	if ((cnode = ha_msg_value(msg, F_NODENAME)) == NULL || (node = lookup_node(cnode)) == NULL) {
+		*failreason = "EINVAL";
+		return I_API_BADREQ;
+	}
+	if (node->nodetype == PINGNODE_I) {
+		return api_ping_iflist(msg, node, resp, client, failreason);
+	}
 
-		/* Find last link... */
- 		for(j=0; (lnk = &node->links[j], lnk->name); ++j) {
-			last = j;
-                }
-		/* Don't report on ping links */
-		if (node->links[last].isping) {
-			--last;
-		}
+	/* Find last link... */
+	for (j = 0; (lnk = &node->links[j], lnk->name); ++j) {
+		last = j;
+	}
+	/* Don't report on ping links */
+	if (node->links[last].isping) {
+		--last;
+	}
 
-		for (j=0; j <= last; ++j) {
-			if (node->links[j].isping) {
-				continue;
-			}
-			if (ha_msg_mod(resp, F_IFNAME
-			,	node->links[j].name) != HA_OK) {
-				cl_log(LOG_ERR
-				,	"api_iflist: "
-				"cannot mod field/1");
-				return I_API_IGN;
-			}
-			if (ha_msg_mod(resp, F_APIRESULT
-			,	(j == last ? API_OK : API_MORE))
-			!=	HA_OK) {
-				cl_log(LOG_ERR
-				,	"api_iflist: "
-				"cannot mod field/2");
-				return I_API_IGN;
-			}
-			api_send_client_msg(client, resp);
+	for (j = 0; j <= last; ++j) {
+		if (node->links[j].isping) {
+			continue;
 		}
+		if (ha_msg_mod(resp, F_IFNAME, node->links[j].name) != HA_OK) {
+			cl_log(LOG_ERR, "api_iflist: cannot mod field/1");
+			return I_API_IGN;
+		}
+		if (ha_msg_mod(resp, F_APIRESULT, (j == last ? API_OK : API_MORE))
+		    != HA_OK) {
+			cl_log(LOG_ERR, "api_iflist: cannot mod field/2");
+			return I_API_IGN;
+		}
+		api_send_client_msg(client, resp);
+	}
 	return I_API_IGN;
 }
 
 static int
-api_ping_iflist(const struct ha_msg* msg, struct node_info * node
-,	struct ha_msg* resp
-,	client_proc_t* client, const char** failreason)
+api_ping_iflist(const struct ha_msg *msg, struct node_info *node, struct ha_msg *resp, client_proc_t *client, const char **failreason)
 {
-	int	j;
-	struct link * lnk;
+	int j;
+	struct link *lnk;
 
- 	for(j=0; (lnk = &node->links[j], lnk->name); ++j) {
+	for (j = 0; (lnk = &node->links[j], lnk->name); ++j) {
 		if (strcmp(lnk->name, node->nodename) == 0) {
-			if (ha_msg_mod(resp, F_IFNAME
-			,	lnk->name) != HA_OK) {
-				cl_log(LOG_ERR
-				,	"api_ping_iflist: "
-				"cannot mod field/1");
+			if (ha_msg_mod(resp, F_IFNAME, lnk->name) != HA_OK) {
+				cl_log(LOG_ERR, "api_ping_iflist: cannot mod field/1");
 				return I_API_IGN;
 			}
-			if (ha_msg_mod(resp, F_APIRESULT, API_OK)!= HA_OK) {
-				cl_log(LOG_ERR
-				,	"api_ping_iflist: "
-				"cannot mod field/2");
+			if (ha_msg_mod(resp, F_APIRESULT, API_OK) != HA_OK) {
+				cl_log(LOG_ERR, "api_ping_iflist: cannot mod field/2");
 				return I_API_IGN;
 			}
 			return I_API_RET;
@@ -797,27 +668,23 @@ api_ping_iflist(const struct ha_msg* msg, struct node_info * node
  *********************************************************************/
 
 static int
-api_ifstatus(const struct ha_msg* msg, struct ha_msg* resp
-,	client_proc_t* client, const char** failreason)
+api_ifstatus(const struct ha_msg *msg, struct ha_msg *resp, client_proc_t *client, const char **failreason)
 {
-	const char *		cnode;
-	struct node_info *	node;
-	const char *		ciface;
-	struct link *		iface;
+	const char *cnode;
+	struct node_info *node;
+	const char *ciface;
+	struct link *iface;
 
 	if ((cnode = ha_msg_value(msg, F_NODENAME)) == NULL
-	||	(node = lookup_node(cnode)) == NULL
-	||	(ciface = ha_msg_value(msg, F_IFNAME)) == NULL
-	||	(iface = lookup_iface(node, ciface)) == NULL) {
+	    || (node = lookup_node(cnode)) == NULL
+	    || (ciface = ha_msg_value(msg, F_IFNAME)) == NULL
+	    || (iface = lookup_iface(node, ciface)) == NULL) {
 		*failreason = "EINVAL";
 		return I_API_BADREQ;
 	}
-	if (ha_msg_mod(resp, F_STATUS,	iface->status) != HA_OK) {
-		cl_log(LOG_ERR
-		,	"api_ifstatus: cannot add field/1");
-		cl_log(LOG_ERR
-		,	"name: %s, value: %s (if=%s)"
-		,	F_STATUS, iface->status, ciface);
+	if (ha_msg_mod(resp, F_STATUS, iface->status) != HA_OK) {
+		cl_log(LOG_ERR, "api_ifstatus: cannot add field/1");
+		cl_log(LOG_ERR, "name: %s, value: %s (if=%s)", F_STATUS, iface->status, ciface);
 		return I_API_IGN;
 	}
 	return I_API_RET;
@@ -828,25 +695,24 @@ api_ifstatus(const struct ha_msg* msg, struct ha_msg* resp
  *********************************************************************/
 
 static int
-api_clientstatus(const struct ha_msg* msg, struct ha_msg* resp
-,	client_proc_t* client, const char** failreason)
+api_clientstatus(const struct ha_msg *msg, struct ha_msg *resp, client_proc_t *client, const char **failreason)
 {
-	const char *		cnode;
-	const char *		cname;
-	const char *		our_clientid;
-	struct node_info *	node;
-	struct ha_msg *		m;
-	int			ret = HA_FAIL;
+	const char *cnode;
+	const char *cname;
+	const char *our_clientid;
+	struct node_info *node;
+	struct ha_msg *m;
+	int ret = HA_FAIL;
 
 	if ((cnode = ha_msg_value(msg, F_NODENAME)) == NULL
-	|| (cname = ha_msg_value(msg, F_CLIENTNAME)) == NULL
-	|| (our_clientid = ha_msg_value(msg, F_FROMID)) == NULL
-	|| (node = lookup_node(cnode)) == NULL) {
+	    || (cname = ha_msg_value(msg, F_CLIENTNAME)) == NULL
+	    || (our_clientid = ha_msg_value(msg, F_FROMID)) == NULL
+	    || (node = lookup_node(cnode)) == NULL) {
 		*failreason = "EINVAL";
 		return I_API_BADREQ;
 	}
 	if (ha_msg_add(resp, F_SUBTYPE, T_RCSTATUS) != HA_OK) {
-		ha_log(LOG_ERR,	"api_clientstatus: cannot add field");
+		ha_log(LOG_ERR, "api_clientstatus: cannot add field");
 		*failreason = "ENOMEM";
 		return I_API_BADREQ;
 	}
@@ -859,7 +725,7 @@ api_clientstatus(const struct ha_msg* msg, struct ha_msg* resp
 			ret = ha_msg_add(resp, F_CLIENTSTATUS, OFFLINESTATUS);
 
 		if (ret != HA_OK) {
-			ha_log(LOG_ERR,	"api_clientstatus: cannot add field");
+			ha_log(LOG_ERR, "api_clientstatus: cannot add field");
 			*failreason = "ENOMEM";
 			return I_API_BADREQ;
 		}
@@ -868,17 +734,17 @@ api_clientstatus(const struct ha_msg* msg, struct ha_msg* resp
 
 	if (strcmp(node->status, ACTIVESTATUS) != 0) {
 		if (ha_msg_add(resp, F_CLIENTSTATUS, OFFLINESTATUS) != HA_OK) {
-			ha_log(LOG_ERR,	"api_clientstatus: cannot add field");
+			ha_log(LOG_ERR, "api_clientstatus: cannot add field");
 			*failreason = "ENOMEM";
 			return I_API_BADREQ;
 		}
 		return I_API_RET;
 	}
 	if ((m = ha_msg_new(0)) == NULL
-	||	ha_msg_add(m, F_TYPE, T_QCSTATUS) != HA_OK
-	||	ha_msg_add(m, F_TO, cnode) != HA_OK
-	||	ha_msg_add(m, F_CLIENTNAME, cname) != HA_OK
-	|| 	ha_msg_add(m, F_FROMID, our_clientid) != HA_OK) {
+	    || ha_msg_add(m, F_TYPE, T_QCSTATUS) != HA_OK
+	    || ha_msg_add(m, F_TO, cnode) != HA_OK
+	    || ha_msg_add(m, F_CLIENTNAME, cname) != HA_OK
+	    || ha_msg_add(m, F_FROMID, our_clientid) != HA_OK) {
 
 		ha_log(LOG_ERR, "api_clientstatus: cannot add field");
 		*failreason = "ENOMEM";
@@ -895,47 +761,44 @@ api_clientstatus(const struct ha_msg* msg, struct ha_msg* resp
 	 */
 	return I_API_IGN;
 }
+
 /**********************************************************************
  * API_NUM_NODES: Return the number of normal nodes
  *********************************************************************/
 
 static int
-api_num_nodes(const struct ha_msg* msg, struct ha_msg* resp
-	      ,	client_proc_t* client, const char** failreason)
+api_num_nodes(const struct ha_msg *msg, struct ha_msg *resp, client_proc_t *client, const char **failreason)
 {
 	int ret;
 	int num_nodes = 0;
 	int i;
 
-	for( i = 0; i < config->nodecount; i++){
-		if (config->nodes[i].nodetype == NORMALNODE_I){
+	for (i = 0; i < config->nodecount; i++) {
+		if (config->nodes[i].nodetype == NORMALNODE_I) {
 			num_nodes++;
 		}
 	}
 
 	ret = ha_msg_add_int(resp, F_NUMNODES, num_nodes);
-	if (ret != HA_OK){
-		cl_log(LOG_ERR, "%s: adding num_nodes field failed",
-		       __FUNCTION__);
-		*failreason= "adding msg field failed";
+	if (ret != HA_OK) {
+		cl_log(LOG_ERR, "%s: adding num_nodes field failed", __FUNCTION__);
+		*failreason = "adding msg field failed";
 		return I_API_BADREQ;
 	}
-	
+
 	return I_API_RET;
 
 }
-
 
 /**********************************************************************
  * API_GET_PARAMETER: Return the value of the given parameter...
  *********************************************************************/
 
 static int
-api_get_parameter (const struct ha_msg* msg, struct ha_msg* resp
-,	client_proc_t* client, const char** failreason)
+api_get_parameter(const struct ha_msg *msg, struct ha_msg *resp, client_proc_t *client, const char **failreason)
 {
-	const char *		pname;
-	const char *		pvalue;
+	const char *pname;
+	const char *pvalue;
 
 	if ((pname = ha_msg_value(msg, F_PNAME)) == NULL) {
 		*failreason = "EINVAL";
@@ -943,123 +806,103 @@ api_get_parameter (const struct ha_msg* msg, struct ha_msg* resp
 	}
 	if ((pvalue = GetParameterValue(pname)) != NULL) {
 		if (ha_msg_mod(resp, F_PVALUE, pvalue) != HA_OK) {
-			cl_log(LOG_ERR
-			,	"api_parameter: cannot add "
-			F_PVALUE " field to message");
+			cl_log(LOG_ERR, "api_parameter: cannot add " F_PVALUE " field to message");
 		}
 	}
 	return I_API_RET;
 }
+
 static int
-api_get_resources (const struct ha_msg* msg, struct ha_msg* resp
-,	client_proc_t* client, const char** failreason)
+api_get_resources(const struct ha_msg *msg, struct ha_msg *resp, client_proc_t *client, const char **failreason)
 {
-	const char *		ret;
+	const char *ret;
 
 	if (!DoManageResources) {
-		*failreason = "Resource is managed by crm."
-			"Use crm tool to query resource";
+		*failreason = "Resource is managed by crm. Use crm tool to query resource";
 		return I_API_BADREQ;
 	}
 
 	ret = hb_rsc_resource_state();
 	if (ha_msg_mod(resp, F_RESOURCES, ret) != HA_OK) {
-		cl_log(LOG_ERR
-		,	"api_get_resources: cannot add " F_RESOURCES
-		" field to message");
+		cl_log(LOG_ERR, "api_get_resources: cannot add " F_RESOURCES " field to message");
 	}
 	return I_API_RET;
 }
 
-
 static int
-api_get_uuid (const struct ha_msg* msg, struct ha_msg* resp,
-	      client_proc_t* client, const char** failreason)
+api_get_uuid(const struct ha_msg *msg, struct ha_msg *resp, client_proc_t *client, const char **failreason)
 {
-	const char*	query_nodename;
-	cl_uuid_t	uuid;
-	
-	if ((query_nodename = ha_msg_value(msg, F_QUERYNAME))== NULL){
+	const char *query_nodename;
+	cl_uuid_t uuid;
+
+	if ((query_nodename = ha_msg_value(msg, F_QUERYNAME)) == NULL) {
 		*failreason = "no query node name found";
 		return I_API_BADREQ;
 	}
-	
-	if (nodename2uuid(query_nodename, &uuid) != HA_OK){
+
+	if (nodename2uuid(query_nodename, &uuid) != HA_OK) {
 		return I_API_RET;
 	}
-	
-	if (cl_msg_moduuid(resp, F_QUERYUUID, 
-			   &uuid) != HA_OK){
-		cl_log(LOG_ERR, "api_get_uuid: cannnot add"
-		       F_QUERYUUID " field to message");
+
+	if (cl_msg_moduuid(resp, F_QUERYUUID, &uuid) != HA_OK) {
+		cl_log(LOG_ERR, "api_get_uuid: cannnot add" F_QUERYUUID " field to message");
 		return I_API_RET;
 	}
-	
+
 	return I_API_RET;
 }
 
-
 static int
-api_get_nodename(const struct ha_msg* msg, struct ha_msg* resp,
-		 client_proc_t* client, const char** failreason)
+api_get_nodename(const struct ha_msg *msg, struct ha_msg *resp, client_proc_t *client, const char **failreason)
 {
-	const char*	nodename;
-	cl_uuid_t	query_uuid;
+	const char *nodename;
+	cl_uuid_t query_uuid;
 
-	if (cl_get_uuid(msg, F_QUERYUUID, &query_uuid) != HA_OK){
+	if (cl_get_uuid(msg, F_QUERYUUID, &query_uuid) != HA_OK) {
 		*failreason = "no query node name found";
 		return I_API_BADREQ;
 	}
-	
-	if ((nodename = uuid2nodename(&query_uuid)) == NULL){
-		cl_log(LOG_ERR, "api_get_nodename: nodename not found"
-		       " in map table");
+
+	if ((nodename = uuid2nodename(&query_uuid)) == NULL) {
+		cl_log(LOG_ERR, "api_get_nodename: nodename not found in map table");
 		return I_API_RET;
 	}
-	
-	if (ha_msg_mod(resp, F_QUERYNAME, 
-		       nodename) != HA_OK){
-		cl_log(LOG_ERR, "api_get_nodename: cannnot add"
-		       F_QUERYNAME " field to message");
+
+	if (ha_msg_mod(resp, F_QUERYNAME, nodename) != HA_OK) {
+		cl_log(LOG_ERR, "api_get_nodename: cannnot add" F_QUERYNAME " field to message");
 		return I_API_RET;
 	}
-	
-	return I_API_RET;	
-	
+
+	return I_API_RET;
+
 }
 
-
 static int
-api_set_sendqlen(const struct ha_msg* msg, struct ha_msg* resp,
-		 client_proc_t* client, const char** failreason)
+api_set_sendqlen(const struct ha_msg *msg, struct ha_msg *resp, client_proc_t *client, const char **failreason)
 {
 	int length;
 	int ret = ha_msg_value_int(msg, F_SENDQLEN, &length);
-	
 
-	if (ret != HA_OK){
+	if (ret != HA_OK) {
 		cl_log(LOG_ERR, "api_set_sendqlen: getting field F_SENDQLEN failed");
-		return I_API_IGN;	
-	}
-
-	if (length <= 0){
-		cl_log(LOG_ERR, "api_set_sendqlen: invalid length value(%d)", 
-		       length);
 		return I_API_IGN;
 	}
 
-	cl_log(LOG_INFO, "the send queue length from heartbeat to client %s "
-	       "is set to %d",  client->client_id, length);
-	
-	client->chan->ops->set_send_qlen(client->chan,length); 
+	if (length <= 0) {
+		cl_log(LOG_ERR, "api_set_sendqlen: invalid length value(%d)", length);
+		return I_API_IGN;
+	}
 
+	cl_log(LOG_INFO, "the send queue length from heartbeat to client %s is set to %d", client->client_id, length);
+
+	client->chan->ops->set_send_qlen(client->chan, length);
 
 	return I_API_IGN;
-	
+
 }
 
 static int
-add_client_gen(client_proc_t* client, struct ha_msg* msg)
+add_client_gen(client_proc_t *client, struct ha_msg *msg)
 {
 	char buf[MAX_CLIENT_GEN];
 
@@ -1068,21 +911,19 @@ add_client_gen(client_proc_t* client, struct ha_msg* msg)
 	return ha_msg_mod(msg, F_CLIENT_GENERATION, buf);
 }
 
-
-
 /*
  * Process an API request message from one of our clients
  */
 static void
-api_process_request(client_proc_t* fromclient, struct ha_msg * msg)
+api_process_request(client_proc_t *fromclient, struct ha_msg *msg)
 {
-	const char *	msgtype;
-	const char *	reqtype;
-	const char *	fromid;
-	const char *	pid;
-	client_proc_t*	client;
-	struct ha_msg *	resp = NULL;
-	const char *	failreason = NULL;
+	const char *msgtype;
+	const char *reqtype;
+	const char *fromid;
+	const char *pid;
+	client_proc_t *client;
+	struct ha_msg *resp = NULL;
+	const char *failreason = NULL;
 	int x;
 
 	if (msg == NULL || (msgtype = ha_msg_value(msg, F_TYPE)) == NULL) {
@@ -1096,17 +937,15 @@ api_process_request(client_proc_t* fromclient, struct ha_msg * msg)
 		/* Only named clients can send out packets to clients */
 
 		if (fromclient->iscasual) {
-			cl_log(LOG_INFO, "api_process_request: "
-			"general message from casual client!");
+			cl_log(LOG_INFO, "api_process_request: general message from casual client!");
 			/* Bad Client! */
 			fromclient->removereason = "badclient";
 			goto freeandexit;
 		}
 
-		/* We put their client ID info in the packet as the F_FROMID*/
-		if (ha_msg_mod(msg, F_FROMID, fromclient->client_id) !=HA_OK){
-			cl_log(LOG_ERR, "api_process_request: "
-			"cannot add F_FROMID field");
+		/* We put their client ID info in the packet as the F_FROMID */
+		if (ha_msg_mod(msg, F_FROMID, fromclient->client_id) != HA_OK) {
+			cl_log(LOG_ERR, "api_process_request: cannot add F_FROMID field");
 			goto freeandexit;
 		}
 		/* Is this too restrictive? */
@@ -1123,29 +962,27 @@ api_process_request(client_proc_t* fromclient, struct ha_msg * msg)
 		 * API, and not talk crosstalk through the core heartbeat
 		 * messaging service, and compromise interface safety for
 		 * every application using the API.
- 		 * (ALR - 17 January 2004)
+		 * (ALR - 17 January 2004)
 		 */
 
- 		if (ha_msg_mod(msg, F_TOID, fromclient->client_id) != HA_OK) {
- 			cl_log(LOG_ERR, "api_process_request: "
- 			"cannot add F_TOID field");
- 			goto freeandexit;
- 		}
+		if (ha_msg_mod(msg, F_TOID, fromclient->client_id) != HA_OK) {
+			cl_log(LOG_ERR, "api_process_request: cannot add F_TOID field");
+			goto freeandexit;
+		}
 		if (DEBUGDETAILS) {
 			cl_log(LOG_DEBUG, "Sending API message to cluster...");
 			cl_log_message(LOG_DEBUG, msg);
 		}
 
-		if (add_client_gen(fromclient, msg) != HA_OK){
-			cl_log(LOG_ERR, "api_process_request: "
-			       "add client generation to ha_msg failed");
-			ha_msg_del(msg); msg=NULL;
+		if (add_client_gen(fromclient, msg) != HA_OK) {
+			cl_log(LOG_ERR, "api_process_request: add client generation to ha_msg failed");
+			ha_msg_del(msg);
+			msg = NULL;
 			return;
 		}
 
 		if (send_cluster_msg(msg) != HA_OK) {
-			cl_log(LOG_ERR, "api_process_request: "
-			"cannot forward message to cluster");
+			cl_log(LOG_ERR, "api_process_request: cannot forward message to cluster");
 		}
 		msg = NULL;
 		return;
@@ -1158,8 +995,7 @@ api_process_request(client_proc_t* fromclient, struct ha_msg * msg)
 	reqtype = ha_msg_value(msg, F_APIREQ);
 
 	if ((fromid == NULL && pid == NULL) || reqtype == NULL) {
-		cl_log(LOG_ERR, "api_process_request: no fromid/pid/reqtype"
-		" in message.");
+		cl_log(LOG_ERR, "api_process_request: no fromid/pid/reqtype in message.");
 		goto freeandexit;
 	}
 
@@ -1182,7 +1018,6 @@ api_process_request(client_proc_t* fromclient, struct ha_msg * msg)
 		goto freeandexitresp;
 	}
 
-
 	if ((client = find_client(fromid, pid)) == NULL) {
 		cl_log(LOG_ERR, "api_process_request: msg from non-client");
 		goto freeandexitresp;
@@ -1191,30 +1026,24 @@ api_process_request(client_proc_t* fromclient, struct ha_msg * msg)
 	/* See if they correctly stated their client id information... */
 	if (client != fromclient) {
 		cl_log(LOG_ERR, "Client mismatch! (impersonation?)");
-		cl_log(LOG_INFO, "pids (%ld vs %ld), Client IDs (%s vs %s)"
-		,	(long) client->pid
-		,	(long) fromclient->pid
-		,	client->client_id
-		,	fromclient->client_id);
+		cl_log(LOG_INFO, "pids (%ld vs %ld), Client IDs (%s vs %s)", (long)client->pid, (long)fromclient->pid, client->client_id,
+		       fromclient->client_id);
 		goto freeandexitresp;
 	}
 
-	for(x = 0 ; x < DIMOF(query_handler_list); x++) { 
+	for (x = 0; x < DIMOF(query_handler_list); x++) {
 
 		int ret;
 
-		if(strcmp(reqtype, query_handler_list[x].queryname) == 0) {
-			ret = query_handler_list[x].handler(msg, resp, client
-						, &failreason);
-			switch(ret) {
+		if (strcmp(reqtype, query_handler_list[x].queryname) == 0) {
+			ret = query_handler_list[x].handler(msg, resp, client, &failreason);
+			switch (ret) {
 			case I_API_IGN:
 				goto freeandexitresp;
 			case I_API_RET:
 				if (ha_msg_mod(resp, F_APIRESULT, API_OK)
-				!=	HA_OK) {
-					cl_log(LOG_ERR
-					,	"api_process_request:"
-					" cannot add field/8.1");
+				    != HA_OK) {
+					cl_log(LOG_ERR, "api_process_request: cannot add field/8.1");
 					goto freeandexitresp;
 				}
 				api_send_client_msg(client, resp);
@@ -1226,7 +1055,6 @@ api_process_request(client_proc_t* fromclient, struct ha_msg * msg)
 		}
 	}
 
-
 	/********************************************************************
 	 * Unknown request type...
 	 ********************************************************************/
@@ -1234,45 +1062,41 @@ api_process_request(client_proc_t* fromclient, struct ha_msg * msg)
 
 	/* Common error return handling */
 bad_req:
-	cl_log(LOG_ERR, "api_process_request: bad request [%s]"
-	,	reqtype);
+	cl_log(LOG_ERR, "api_process_request: bad request [%s]", reqtype);
 	cl_log_message(LOG_ERR, msg);
 	if (ha_msg_add(resp, F_APIRESULT, API_BADREQ) != HA_OK) {
-		cl_log(LOG_ERR
-		,	"api_process_request: cannot add field/11");
+		cl_log(LOG_ERR, "api_process_request: cannot add field/11");
 		goto freeandexitresp;
 	}
 	if (failreason) {
-		if (ha_msg_add(resp, F_COMMENT,	failreason) != HA_OK) {
-			cl_log(LOG_ERR
-			,	"api_process_request: cannot add failreason");
+		if (ha_msg_add(resp, F_COMMENT, failreason) != HA_OK) {
+			cl_log(LOG_ERR, "api_process_request: cannot add failreason");
 		}
 	}
 	api_send_client_msg(client, resp);
 freeandexitresp:
 	ha_msg_del(resp);
-	resp=NULL;
+	resp = NULL;
 freeandexit:
 	if (msg != NULL) {
-		ha_msg_del(msg); msg=NULL;
+		ha_msg_del(msg);
+		msg = NULL;
 	}
 }
 
 /* Process a registration request from a potential client */
 void
-process_registerevent(IPC_Channel* chan,  gpointer user_data)
+process_registerevent(IPC_Channel *chan, gpointer user_data)
 {
-	client_proc_t*	client;
+	client_proc_t *client;
 
 	if ((client = MALLOCT(client_proc_t)) == NULL) {
-		cl_log(LOG_ERR
-		,	"unable to add client [no memory]");
+		cl_log(LOG_ERR, "unable to add client [no memory]");
 		chan->ops->destroy(chan);
 		return;
 	}
 	if (ANYDEBUG) {
-		cl_log(LOG_DEBUG
-		,	"process_registerevent() {");
+		cl_log(LOG_DEBUG, "process_registerevent() {");
 	}
 
 	/* FIXME do we want to set a different default send_qlen,
@@ -1283,153 +1107,134 @@ process_registerevent(IPC_Channel* chan,  gpointer user_data)
 	client->desired_types = DEFAULTREATMENT;
 	client->signal = 0;
 	client->chan = chan;
-	client->gsource = G_main_add_IPC_Channel(PRI_CLIENTMSG
-	,	chan, FALSE
-	,	APIclients_input_dispatch
-	,	client, G_remove_client);
-	G_main_setdescription((GSource*)client->gsource, "API client");
-	G_main_setmaxdispatchdelay((GSource*)client->gsource, config->heartbeat_ms);
-	G_main_setmaxdispatchtime((GSource*)client->gsource, 100);
+	client->gsource = G_main_add_IPC_Channel(PRI_CLIENTMSG, chan, FALSE, APIclients_input_dispatch, client, G_remove_client);
+	G_main_setdescription((GSource *)client->gsource, "API client");
+	G_main_setmaxdispatchdelay((GSource *)client->gsource, config->heartbeat_ms);
+	G_main_setmaxdispatchtime((GSource *)client->gsource, 100);
 	if (ANYDEBUG) {
-		cl_log(LOG_DEBUG
-		,	"client->gsource = 0x%lx"
-		,	(unsigned long)client->gsource);
+		cl_log(LOG_DEBUG, "client->gsource = 0x%lx", (unsigned long)client->gsource);
 	}
 
 	client->next = client_list;
 	client_list = client;
 	total_client_count++;
 	if (ANYDEBUG) {
-		cl_log(LOG_DEBUG
-		,	"}/*process_registerevent*/;");
+		cl_log(LOG_DEBUG, "}/*process_registerevent*/;");
 	}
 }
 
-static void     
+static void
 destroy_pair(gpointer key, gpointer value, gpointer user_data)
 {
-	if(value){
+	if (value) {
 		free(value);
 	}
 }
+
 static void
-destroy_seq_snapshot_table(GHashTable* table) 
+destroy_seq_snapshot_table(GHashTable *table)
 {
-	if (ANYDEBUG){
-		cl_log(LOG_DEBUG,
-		       "Destroying seq snapshot hash table");
+	if (ANYDEBUG) {
+		cl_log(LOG_DEBUG, "Destroying seq snapshot hash table");
 	}
 
-	if(table){
+	if (table) {
 		g_hash_table_foreach(table, destroy_pair, NULL);
 		g_hash_table_destroy(table);
 	}
-	return ;
+	return;
 }
+
 static int
-create_seq_snapshot_table(GHashTable** ptable) 
+create_seq_snapshot_table(GHashTable **ptable)
 {
-	GHashTable*		table = NULL;
-	int			i;
-	
-	if ( !ptable){
-		cl_log(LOG_ERR, "create_seq_snapshot_table: "
-		       "nvalid arguments");
-		return HA_FAIL;		
+	GHashTable *table = NULL;
+	int i;
+
+	if (!ptable) {
+		cl_log(LOG_ERR, "create_seq_snapshot_table: nvalid arguments");
+		return HA_FAIL;
 	}
-	
+
 	*ptable = NULL;
-	for (i = 0 ; i < config->nodecount; i++){
-	
-		struct node_info*	node = &config->nodes[i];
-		struct seqtrack*	t = &node->track;
+	for (i = 0; i < config->nodecount; i++) {
 
+		struct node_info *node = &config->nodes[i];
+		struct seqtrack *t = &node->track;
 
-		if (cl_uuid_is_null(&node->uuid)){
+		if (cl_uuid_is_null(&node->uuid)) {
 			continue;
 		}
 
-		if (t->nmissing > 0){
-			struct seq_snapshot* snapshot;
-			
-			snapshot = (struct seq_snapshot*) 
-				malloc(sizeof(struct seq_snapshot));
-			
-			if (snapshot == NULL){
-				cl_log(LOG_ERR, "allocating memory for"
-				       " seq_snapshot failed");
+		if (t->nmissing > 0) {
+			struct seq_snapshot *snapshot;
+
+			snapshot = (struct seq_snapshot *)
+			    malloc(sizeof(struct seq_snapshot));
+
+			if (snapshot == NULL) {
+				cl_log(LOG_ERR, "allocating memory for seq_snapshot failed");
 				return HA_FAIL;
 			}
-		
+
 			snapshot->last_seq = t->last_seq;
 			snapshot->generation = t->generation;
 
-			if (table == NULL){
-				if (ANYDEBUG){
-					cl_log(LOG_DEBUG,
-					       "Creating seq snapshot hash table");
+			if (table == NULL) {
+				if (ANYDEBUG) {
+					cl_log(LOG_DEBUG, "Creating seq snapshot hash table");
 				}
 				table = g_hash_table_new(uuid_hash, uuid_equal);
-				if (table == NULL){
-					cl_log(LOG_ERR, "creating hashtable for"
-					       " seq_snapshot failed");
+				if (table == NULL) {
+					cl_log(LOG_ERR, "creating hashtable for seq_snapshot failed");
 					return HA_FAIL;
 				}
 			}
-			if (ANYDEBUG){
-				cl_log(LOG_DEBUG,
-				       "Creating one entry in seq snapshot hash table"
-				       "for node %s", node->nodename);
+			if (ANYDEBUG) {
+				cl_log(LOG_DEBUG, "Creating one entry in seq snapshot hash table for node %s", node->nodename);
 			}
-			
+
 			g_hash_table_insert(table, &node->uuid, snapshot);
-			
-		}else{
-			if (ANYDEBUG){
-				cl_log(LOG_DEBUG,
-				       "create_seq_snapshot_table:"
-				       "no missing packets found for "
-				       "node %s", node->nodename);
-			}	
+
+		} else {
+			if (ANYDEBUG) {
+				cl_log(LOG_DEBUG, "create_seq_snapshot_table: no missing packets found for node %s", node->nodename);
+			}
 		}
 	}
-	
+
 	*ptable = table;
-	
+
 	return HA_OK;
-}	
-
-
-
+}
 
 /*
  *	Register a new client.
  */
 static void
-api_process_registration_msg(client_proc_t* client, struct ha_msg * msg)
+api_process_registration_msg(client_proc_t *client, struct ha_msg *msg)
 {
-	const char *	msgtype;
-	const char *	reqtype;
-	const char *	fromid;
-	const char *	pid;
-	struct ha_msg *	resp = NULL;
-	client_proc_t*	fcli = NULL;
-	const char *	failreason = NULL;
-	const char *	api_retcode = API_OK;
-	
-	char		deadtime[64];
-	char		keepalive[64];
-	char		logfacility[64];
+	const char *msgtype;
+	const char *reqtype;
+	const char *fromid;
+	const char *pid;
+	struct ha_msg *resp = NULL;
+	client_proc_t *fcli = NULL;
+	const char *failreason = NULL;
+	const char *api_retcode = API_OK;
 
+	char deadtime[64];
+	char keepalive[64];
+	char logfacility[64];
 
-	/*set the client generation*/
-	client->cligen =  client_generation++;
+	/* set the client generation */
+	client->cligen = client_generation++;
 
 	if (msg == NULL
-	||	(msgtype = ha_msg_value(msg, F_TYPE)) == NULL
-	||	(reqtype = ha_msg_value(msg, F_APIREQ)) == NULL
-	||	strcmp(msgtype, T_APIREQ) != 0
-	||	strcmp(reqtype, API_SIGNON) != 0)  {
+	    || (msgtype = ha_msg_value(msg, F_TYPE)) == NULL
+	    || (reqtype = ha_msg_value(msg, F_APIREQ)) == NULL
+	    || strcmp(msgtype, T_APIREQ) != 0
+	    || strcmp(reqtype, API_SIGNON) != 0) {
 		cl_log(LOG_ERR, "api_process_registration_msg: bad message");
 		cl_log_message(LOG_ERR, msg);
 		goto del_msg;
@@ -1438,56 +1243,46 @@ api_process_registration_msg(client_proc_t* client, struct ha_msg * msg)
 	pid = ha_msg_value(msg, F_PID);
 
 	if (fromid == NULL && pid == NULL) {
-		cl_log(LOG_ERR
-		,	"api_process_registration_msg: no fromid in msg");
+		cl_log(LOG_ERR, "api_process_registration_msg: no fromid in msg");
 		goto del_msg;
 	}
 	if (DEBUGDETAILS) {
-		cl_log(LOG_DEBUG
-		,	"api_process_registration_msg(%s, %s, %s)"
-		,	msgtype, pid, (fromid==NULL ?"nullfrom" : fromid));
+		cl_log(LOG_DEBUG, "api_process_registration_msg(%s, %s, %s)",
+			msgtype, pid, (fromid == NULL ? "nullfrom" : fromid));
 	}
 
 	/*
-	 *	Create the response message
+	 *      Create the response message
 	 */
 	if ((resp = ha_msg_new(4)) == NULL) {
-		cl_log(LOG_ERR
-		,	"api_process_registration_msg: out of memory/1");
+		cl_log(LOG_ERR, "api_process_registration_msg: out of memory/1");
 		goto del_msg;
 	}
 	if (ha_msg_add(resp, F_TYPE, T_APIRESP) != HA_OK) {
-		cl_log(LOG_ERR
-		,	"api_process_registration_msg: cannot add field/2");
+		cl_log(LOG_ERR, "api_process_registration_msg: cannot add field/2");
 		goto del_rsp_and_msg;
 	}
 	if (ha_msg_add(resp, F_APIREQ, reqtype) != HA_OK) {
-		cl_log(LOG_ERR
-		,	"api_process_registration_msg: cannot add field/3");
+		cl_log(LOG_ERR, "api_process_registration_msg: cannot add field/3");
 		goto del_rsp_and_msg;
 	}
 
 	client->pid = atoi(pid);
 	/*
-	 *	Sign 'em up.
+	 *      Sign 'em up.
 	 */
 	if (!api_add_client(client, msg)) {
-		cl_log(LOG_ERR
-		,	"api_process_registration_msg: cannot add client(%s)"
-		,	client->client_id);
+		cl_log(LOG_ERR, "api_process_registration_msg: cannot add client(%s)", client->client_id);
 		failreason = "cannot add client";
 	}
 
 	/* Make sure we can find them in the table... */
-	if (failreason == NULL
-	&&	(fcli = find_client(fromid, pid)) == NULL) {
-		cl_log(LOG_ERR
-		,	"api_process_registration_msg: cannot find client");
+	if (failreason == NULL && (fcli = find_client(fromid, pid)) == NULL) {
+		cl_log(LOG_ERR, "api_process_registration_msg: cannot find client");
 		failreason = "cannot locate client";
 	}
 	if (failreason == NULL && fcli != client) {
-		cl_log(LOG_ERR
-		,	"api_process_registration_msg: found wrong client");
+		cl_log(LOG_ERR, "api_process_registration_msg: found wrong client");
 		failreason = "found wrong client";
 	}
 
@@ -1495,12 +1290,10 @@ api_process_registration_msg(client_proc_t* client, struct ha_msg * msg)
 	 * Now create a table to record sequence/generation number
 	 * for each node if necessary
 	 */
-	
+
 	client->seq_snapshot_table = NULL;
-	if (failreason == NULL
-	&&	create_seq_snapshot_table(&client->seq_snapshot_table) != HA_OK){
-		cl_log(LOG_ERR, "api_process_registration_msg"
-		":  creating seq snapshot table failed");
+	if (failreason == NULL && create_seq_snapshot_table(&client->seq_snapshot_table) != HA_OK) {
+		cl_log(LOG_ERR, "api_process_registration_msg: creating seq snapshot table failed");
 		failreason = "cannot create sequence snapshot table";
 	}
 	if (failreason != NULL) {
@@ -1508,8 +1301,7 @@ api_process_registration_msg(client_proc_t* client, struct ha_msg * msg)
 		api_retcode = API_BADREQ;
 	}
 	if (ha_msg_mod(resp, F_APIRESULT, api_retcode) != HA_OK) {
-		cl_log(LOG_ERR
-		,	"api_process_registration_msg: cannot add field/4");
+		cl_log(LOG_ERR, "api_process_registration_msg: cannot add field/4");
 		goto del_rsp_and_msg;
 		return;
 	}
@@ -1519,36 +1311,34 @@ api_process_registration_msg(client_proc_t* client, struct ha_msg * msg)
 	snprintf(logfacility, sizeof(logfacility), "%d", config->log_facility);
 
 	/* Add deadtime and keepalive time to the response */
-	if (	(ha_msg_add(resp, F_DEADTIME, deadtime) != HA_OK) 
-	|| 	(ha_msg_add(resp, F_KEEPALIVE, keepalive) != HA_OK)
-	||	(ha_msg_mod(resp, F_NODENAME, localnodename) != HA_OK)
-	|| 	(ha_msg_add(resp, F_LOGFACILITY, logfacility) != HA_OK)) {
+	if ((ha_msg_add(resp, F_DEADTIME, deadtime) != HA_OK)
+	    || (ha_msg_add(resp, F_KEEPALIVE, keepalive) != HA_OK)
+	    || (ha_msg_mod(resp, F_NODENAME, localnodename) != HA_OK)
+	    || (ha_msg_add(resp, F_LOGFACILITY, logfacility) != HA_OK)) {
 		cl_log(LOG_ERR, "api_process_registration_msg: cannot add field/4");
 		goto del_rsp_and_msg;
 	}
 	if (ANYDEBUG) {
-		cl_log(LOG_DEBUG, "Signing on API client %ld (%s)"
-		,	(long) client->pid
-		,	(client->iscasual? "'casual'" : client->client_id));
+		cl_log(LOG_DEBUG, "Signing on API client %ld (%s)",
+			(long)client->pid, (client->iscasual ? "'casual'" : client->client_id));
 	}
 	api_send_client_msg(client, resp);
 del_rsp_and_msg:
 	if (resp != NULL) {
-		ha_msg_del(resp); resp=NULL;
+		ha_msg_del(resp);
+		resp = NULL;
 	}
 del_msg:
 	if (msg != NULL) {
-		ha_msg_del(msg); msg=NULL;
+		ha_msg_del(msg);
+		msg = NULL;
 	}
 }
 
-
-
 static void
-api_send_client_status(client_proc_t* client, const char * status
-,	const char *	reason)
+api_send_client_status(client_proc_t *client, const char *status, const char *reason)
 {
-	struct ha_msg*		msg;
+	struct ha_msg *msg;
 	if (client->iscasual) {
 		return;
 	}
@@ -1560,34 +1350,33 @@ api_send_client_status(client_proc_t* client, const char * status
 		cl_log(LOG_ERR, "api_send_client_status: out of memory/1");
 		return;
 	}
-	
+
 	if (ha_msg_add(msg, F_TYPE, T_APICLISTAT) != HA_OK
-	||	ha_msg_add(msg, F_STATUS, status) != HA_OK
-	||	ha_msg_add(msg, F_FROMID, client->client_id) != HA_OK
-	||	ha_msg_add(msg, F_TOID, client->client_id) != HA_OK
-	||	ha_msg_add(msg, F_ORIG, curnode->nodename) != HA_OK
-	||	(reason != NULL && ha_msg_add(msg, F_COMMENT, reason)
-	!= HA_OK)) {
+	    || ha_msg_add(msg, F_STATUS, status) != HA_OK
+	    || ha_msg_add(msg, F_FROMID, client->client_id) != HA_OK
+	    || ha_msg_add(msg, F_TOID, client->client_id) != HA_OK
+	    || ha_msg_add(msg, F_ORIG, curnode->nodename) != HA_OK
+	    || (reason != NULL && ha_msg_add(msg, F_COMMENT, reason) != HA_OK)) {
 		cl_log(LOG_ERR, "api_send_client_status: cannot add fields");
-		ha_msg_del(msg); msg=NULL;
+		ha_msg_del(msg);
+		msg = NULL;
 		return;
 	}
 
-	if (add_client_gen(client, msg) != HA_OK){
-		cl_log(LOG_ERR,
-			"api_send_client_status: cannot add client generation");
-		ha_msg_del(msg); msg=NULL;
+	if (add_client_gen(client, msg) != HA_OK) {
+		cl_log(LOG_ERR, "api_send_client_status: cannot add client generation");
+		ha_msg_del(msg);
+		msg = NULL;
 		return;
 	}
-	
+
 	if (strcmp(status, LEAVESTATUS) == 0) {
 		/* Make sure they know they're signed off... */
 		api_send_client_msg(client, msg);
 	}
-	
+
 	if (send_cluster_msg(msg) != HA_OK) {
-		cl_log(LOG_ERR, "api_send_client_status: "
-		       "cannot send message to cluster");
+		cl_log(LOG_ERR, "api_send_client_status: cannot send message to cluster");
 	}
 	msg = NULL;
 }
@@ -1596,13 +1385,13 @@ api_send_client_status(client_proc_t* client, const char * status
  *	Send a message to a client process.
  */
 static void
-api_send_client_msg(client_proc_t* client, struct ha_msg *msg)
+api_send_client_msg(client_proc_t *client, struct ha_msg *msg)
 {
 	if (msg2ipcchan(msg, client->chan) != HA_OK) {
 		if (!client->removereason) {
-			if (client->chan->failreason[0] == EOS){
+			if (client->chan->failreason[0] == EOS) {
 				client->removereason = "sendfail";
-			}else {
+			} else {
 				client->removereason = client->chan->failreason;
 			}
 		}
@@ -1610,8 +1399,7 @@ api_send_client_msg(client_proc_t* client, struct ha_msg *msg)
 
 	if (CL_KILL(client->pid, client->signal) < 0 && errno == ESRCH) {
 		if (ANYDEBUG) {
-			cl_log(LOG_DEBUG, "api_send_client: client %ld died"
-			,	(long) client->pid);
+			cl_log(LOG_DEBUG, "api_send_client: client %ld died", (long)client->pid);
 		}
 		if (!client->removereason) {
 			client->removereason = "died";
@@ -1619,23 +1407,24 @@ api_send_client_msg(client_proc_t* client, struct ha_msg *msg)
 	}
 }
 
-
 int
-api_remove_client_pid(pid_t c_pid, const char * reason)
+api_remove_client_pid(pid_t c_pid, const char *reason)
 {
-	char		cpid[20];
-	int		backlog_processed = 0;
-	client_proc_t* 	client;
+	char cpid[20];
+	int backlog_processed = 0;
+	client_proc_t *client;
 
-	snprintf(cpid, sizeof(cpid)-1, "%d", c_pid);
+	snprintf(cpid, sizeof(cpid) - 1, "%d", c_pid);
 	if ((client = find_client(NULL, cpid)) == NULL) {
 		return 0;
 	}
 
 	client->removereason = reason;
-	client->isindispatch = TRUE; /* avoid recursion */
-	while (client->chan && client->chan->recv_queue->current_qlen > 0
-	&&	(!reason || strcmp(reason, API_SIGNOFF) != 0)) {
+	client->isindispatch = TRUE;	/* avoid recursion */
+	while (client->chan
+	       && client->chan->recv_queue->current_qlen > 0
+	       && (!reason || strcmp(reason, API_SIGNOFF) != 0)) {
+
 		ProcessAnAPIRequest(client);
 		if ((++backlog_processed & 0x3f) == 0) {
 			/* FIXME backlog processing should be done from a
@@ -1652,25 +1441,25 @@ api_remove_client_pid(pid_t c_pid, const char * reason)
 	/* Should trigger G_remove_client (below) */
 	return 1;
 }
+
 static void
 G_remove_client(gpointer Client)
 {
-	client_proc_t*	client = Client;
-	const char *	reason;
+	client_proc_t *client = Client;
+	const char *reason;
 
 	reason = client->removereason ? client->removereason : "?";
 	if (ANYDEBUG) {
-		cl_log(LOG_DEBUG
-		,	"G_remove_client(pid=%d, reason='%s' gsource=0x%lx) {"
-		,	client->pid, reason, (unsigned long) client->gsource);
+		cl_log(LOG_DEBUG, "G_remove_client(pid=%d, reason='%s' gsource=0x%lx) {",
+			client->pid, reason, (unsigned long)client->gsource);
 	}
 
 	api_remove_client_int(client, reason);
 	if (ANYDEBUG) {
-		cl_log(LOG_DEBUG
-		,	"}/*G_remove_client;*/");
+		cl_log(LOG_DEBUG, "}/*G_remove_client;*/");
 	}
 }
+
 /*
  *	Make this client no longer a client ;-)
  *	Should only be called by G_remove_client().
@@ -1679,12 +1468,10 @@ G_remove_client(gpointer Client)
  */
 
 static void
-api_remove_client_int(client_proc_t* req, const char * reason)
+api_remove_client_int(client_proc_t *req, const char *reason)
 {
-	client_proc_t*	prev = NULL;
-	client_proc_t*	client;
-
-		
+	client_proc_t *prev = NULL;
+	client_proc_t *client;
 
 	--total_client_count;
 
@@ -1694,20 +1481,17 @@ api_remove_client_int(client_proc_t* req, const char * reason)
 
 	/* Locate the client data structure in our list */
 
-	for (client=client_list; client != NULL; client=client->next) {
+	for (client = client_list; client != NULL; client = client->next) {
 		/* Is this the client? */
 		if (client->pid == req->pid) {
 			if (ANYDEBUG) {
-				const char *id = client->iscasual
-				?	"casual" : client->client_id;
-				cl_log(LOG_DEBUG
-				,	"api_remove_client_int: removing '%s'"
-				" pid [%ld] reason: %s"
-				,	id, (long)req->pid, reason);
+				const char *id = client->iscasual ? "casual" : client->client_id;
+				cl_log(LOG_DEBUG, "api_remove_client_int: removing '%s' pid [%ld] reason: %s",
+					id, (long)req->pid, reason);
 			}
 			if (prev == NULL) {
 				client_list = client->next;
-			}else{
+			} else {
 				prev->next = client->next;
 			}
 
@@ -1715,37 +1499,34 @@ api_remove_client_int(client_proc_t* req, const char * reason)
 		}
 		prev = client;
 	}
-	
 
-	if (req == client){
-		
+	if (req == client) {
+
 		api_send_client_status(req, LEAVESTATUS, reason);
 		/* Zap! */
 		memset(client, 0, sizeof(*client));
-		free(client); client = NULL;
+		free(client);
+		client = NULL;
 
-	}else{
-		cl_log(LOG_ERR,	"api_remove_client_int: could not find pid [%ld]"
-		       ,	(long) req->pid);
+	} else {
+		cl_log(LOG_ERR, "api_remove_client_int: could not find pid [%ld]", (long)req->pid);
 	}
-	
+
 	return;
 }
 
-
 /* Validate client credentials against the real world */
- 
+
 static gboolean
-api_check_client_credentials(client_proc_t* client, uid_t uid, gid_t gid)
+api_check_client_credentials(client_proc_t *client, uid_t uid, gid_t gid)
 {
-	IPC_Auth	auth;
-	guint		id;
-	int		one = 1;
-	gboolean	result = TRUE;
+	IPC_Auth auth;
+	guint id;
+	int one = 1;
+	gboolean result = TRUE;
 
 	int auth_result = IPC_FAIL;
-	GHashTable*	uidlist
-	=		g_hash_table_new(g_direct_hash, g_direct_equal);
+	GHashTable *uidlist = g_hash_table_new(g_direct_hash, g_direct_equal);
 
 	id = (guint) uid;
 	g_hash_table_insert(uidlist, GUINT_TO_POINTER(id), &one);
@@ -1757,17 +1538,14 @@ api_check_client_credentials(client_proc_t* client, uid_t uid, gid_t gid)
 		result = FALSE;
 
 	} else {
-		GHashTable*	gidlist
-		=		g_hash_table_new(g_direct_hash
-		,		g_direct_equal);
+		GHashTable *gidlist = g_hash_table_new(g_direct_hash, g_direct_equal);
 		id = (guint) gid;
 		g_hash_table_insert(gidlist, GUINT_TO_POINTER(id), &one);
 		auth.uid = NULL;
 		auth.gid = gidlist;
 
-		auth_result = client->chan->ops->verify_auth(
-			client->chan, &auth);
-		
+		auth_result = client->chan->ops->verify_auth(client->chan, &auth);
+
 		if (auth_result != IPC_OK && auth_result != IPC_BROKEN) {
 			result = FALSE;
 		}
@@ -1788,36 +1566,32 @@ api_check_client_credentials(client_proc_t* client, uid_t uid, gid_t gid)
  *			decimal integer.
  */
 static int
-api_add_client(client_proc_t* client, struct ha_msg* msg)
+api_add_client(client_proc_t *client, struct ha_msg *msg)
 {
-	pid_t		pid = 0;
-	const char*	cpid;
-	const char *	fromid;
-	const char *	cgid = NULL;
-	const char *	cuid = NULL;
-	long		luid = -1;
-	long		lgid = -1;
-	int		uid = -1;
-	int		gid = -1;
+	pid_t pid = 0;
+	const char *cpid;
+	const char *fromid;
+	const char *cgid = NULL;
+	const char *cuid = NULL;
+	long luid = -1;
+	long lgid = -1;
+	int uid = -1;
+	int gid = -1;
 
-	
 	if ((cpid = ha_msg_value(msg, F_PID)) != NULL) {
 		pid = atoi(cpid);
 	}
-	if (pid <= 0  || (CL_KILL(pid, 0) < 0 && errno == ESRCH)) {
-		cl_log(LOG_WARNING
-		,	"api_add_client: bad pid [%ld]", (long) pid);
+	if (pid <= 0 || (CL_KILL(pid, 0) < 0 && errno == ESRCH)) {
+		cl_log(LOG_WARNING, "api_add_client: bad pid [%ld]", (long)pid);
 		return FALSE;
 	}
 
 	fromid = ha_msg_value(msg, F_FROMID);
 
-	
 	if (find_client(fromid, NULL) != NULL) {
-		cl_log(LOG_WARNING
-		,	"duplicate client add request [%s] [%s]"
-		,	(fromid ? fromid : "(nullfromid)")
-		,	(cpid ? cpid : "(nullcpid)"));
+		cl_log(LOG_WARNING, "duplicate client add request [%s] [%s]",
+			(fromid ? fromid : "(nullfromid)"),
+			(cpid ? cpid : "(nullcpid)"));
 		client->removereason = "duplicate add request";
 		return FALSE;
 	}
@@ -1826,12 +1600,12 @@ api_add_client(client_proc_t* client, struct ha_msg* msg)
 		strncpy(client->client_id, fromid, sizeof(client->client_id));
 		if (atoi(client->client_id) == pid) {
 			client->iscasual = 1;
-		}else{
+		} else {
 			client->iscasual = 0;
 		}
-	}else{
+	} else {
 		snprintf(client->client_id, sizeof(client->client_id)
-		,	"%d", pid);
+			 , "%d", pid);
 		client->iscasual = 1;
 	}
 
@@ -1839,15 +1613,14 @@ api_add_client(client_proc_t* client, struct ha_msg* msg)
 	client->chan->ops->set_recv_qlen(client->chan, 0);
 
 	if ((cuid = ha_msg_value(msg, F_UID)) == NULL
-	||	(cgid = ha_msg_value(msg, F_GID)) == NULL
-	||	sscanf(cuid, "%ld", &luid) != 1
-	||	sscanf(cgid, "%ld", &lgid) != 1) {
+	    || (cgid = ha_msg_value(msg, F_GID)) == NULL
+	    || sscanf(cuid, "%ld", &luid) != 1
+	    || sscanf(cgid, "%ld", &lgid) != 1) {
+
 		cl_log_message(LOG_ERR, msg);
 		client->removereason = "invalid id info";
-		cl_log(LOG_ERR, "Client user/group id is incorrect"
-		" [%s] => %ld [%s] => %ld"
-		,	cuid == NULL ? "<null>" : cuid, luid
-		,	cgid == NULL ? "<null>" : cgid, lgid);
+		cl_log(LOG_ERR, "Client user/group id is incorrect [%s] => %ld [%s] => %ld",
+			cuid == NULL ? "<null>" : cuid, luid, cgid == NULL ? "<null>" : cgid, lgid);
 		return FALSE;
 	}
 
@@ -1862,124 +1635,109 @@ api_add_client(client_proc_t* client, struct ha_msg* msg)
 	client->gid = gid;
 	if (api_check_client_authorization(client)) {
 		api_send_client_status(client, JOINSTATUS, API_SIGNON);
-	}else{
-		cl_log(LOG_WARNING
-		,	"Client [%s] pid %d failed authorization [%s]"
-		,	client->client_id, pid, client->removereason);
+	} else {
+		cl_log(LOG_WARNING, "Client [%s] pid %d failed authorization [%s]",
+			client->client_id, pid, client->removereason);
 		return FALSE;
 	}
 	return TRUE;
 }
 
 static gboolean
-api_check_client_authorization(client_proc_t* client)
+api_check_client_authorization(client_proc_t *client)
 {
-	gpointer	gauth = NULL;
-	IPC_Auth*	auth;
+	gpointer gauth = NULL;
+	IPC_Auth *auth;
 	int auth_result = IPC_FAIL;
-	
+
 	/* If client is casual, or type of client not in authorization table
 	 * then default to the "default" authorization category.
 	 * otherwise, use the client type's authorization list
 	 */
-	if (client->iscasual){
+	if (client->iscasual) {
 		gauth = g_hash_table_lookup(APIAuthorization, "anon");
-		if (gauth == NULL){
+		if (gauth == NULL) {
 			cl_log(LOG_ERR, "NO auth found for anonymous");
 			return FALSE;
 		}
-		
-	}else if((gauth = g_hash_table_lookup(APIAuthorization,
-					client->client_id)) ==  NULL) {
-		if ((gauth = g_hash_table_lookup(APIAuthorization, "default"))
-		== NULL) {
+
+	} else if ((gauth = g_hash_table_lookup(APIAuthorization, client->client_id)) == NULL) {
+		if ((gauth = g_hash_table_lookup(APIAuthorization, "default")) == NULL) {
 			client->removereason = "no default client auth";
 			return FALSE;
 		}
 	}
-	
+
 	auth = gauth;
 	if ((long)auth->gid == (long)-1L) {
 		cl_log(LOG_DEBUG, "Darn!  -1 gid ptr in api_check_client_authorization");
 		abort();
 	}
 	if (ANYDEBUG) {
-
-		cl_log(LOG_DEBUG
-		,	"Checking client authorization for client %s (%ld:%ld)"
-		,	client->client_id
-		,	(long)client->uid, (long)client->gid);
+		cl_log(LOG_DEBUG, "Checking client authorization for client %s (%ld:%ld)",
+			client->client_id, (long)client->uid, (long)client->gid);
 	}
 
-	auth_result = client->chan->ops->verify_auth(
-			client->chan, auth);
-	
+	auth_result = client->chan->ops->verify_auth(client->chan, auth);
+
 	if (auth_result == IPC_OK) {
 #ifndef GETPID_INCONSISTENT
 		if (client->chan->farside_pid > 0) {
 			if (client->chan->farside_pid != client->pid) {
 				client->removereason = "pid mismatch";
-				cl_log(LOG_INFO
-				,	"PID mismatch: %d vs farside_pid: %d"
-				,	client->pid
-				,	client->chan->farside_pid);
+				cl_log(LOG_INFO, "PID mismatch: %d vs farside_pid: %d",
+					client->pid, client->chan->farside_pid);
 				return FALSE;
 			}
 		}
 #endif
 		return TRUE;
 
-	} else if(auth_result == IPC_BROKEN) {
+	} else if (auth_result == IPC_BROKEN) {
 		return TRUE;
 	}
-	
+
 	client->removereason = "client failed authorization";
 	return FALSE;
 }
 
-
 /*
  *	Find the client that goes with this client id/pid
  */
-client_proc_t*
-find_client(const char * fromid, const char * cpid)
+client_proc_t *
+find_client(const char *fromid, const char *cpid)
 {
-	pid_t	pid = -1;
-	client_proc_t* client;
+	pid_t pid = -1;
+	client_proc_t *client;
 
 	if (cpid != NULL) {
 		pid = atoi(cpid);
 	}
 
-	for (client=client_list; client != NULL; client=client->next) {
+	for (client = client_list; client != NULL; client = client->next) {
 		if (cpid && client->pid == pid) {
-			return(client);
+			return (client);
 		}
 		if (fromid && strcmp(fromid, client->client_id) == 0) {
-			return(client);
+			return (client);
 		}
 	}
-	return(NULL);
+	return (NULL);
 }
 
-
-
 static gboolean
-APIclients_input_dispatch(IPC_Channel* chan, gpointer user_data)
+APIclients_input_dispatch(IPC_Channel *chan, gpointer user_data)
 {
-	client_proc_t*	client = user_data;
-	gboolean	ret = TRUE;
-
+	client_proc_t *client = user_data;
+	gboolean ret = TRUE;
 
 	hb_signal_process_pending();
 	if (DEBUGDETAILS) {
-		cl_log(LOG_DEBUG
-		,	"APIclients_input_dispatch() {");
+		cl_log(LOG_DEBUG, "APIclients_input_dispatch() {");
 	}
 	if (chan != client->chan) {
 		/* Bad boojum! */
-		cl_log(LOG_ERR
-		,	"APIclients_input_dispatch chan mismatch");
+		cl_log(LOG_ERR, "APIclients_input_dispatch chan mismatch");
 		ret = FALSE;
 		goto getout;
 	}
@@ -2000,31 +1758,28 @@ APIclients_input_dispatch(IPC_Channel* chan, gpointer user_data)
 
 getout:
 	if (DEBUGDETAILS) {
-		cl_log(LOG_DEBUG
-		,	"return %d;", ret);
-		cl_log(LOG_DEBUG
-		,	"}/*APIclients_input_dispatch*/;");
+		cl_log(LOG_DEBUG, "return %d;", ret);
+		cl_log(LOG_DEBUG, "}/*APIclients_input_dispatch*/;");
 	}
 	return ret;
 }
-
 
 static gboolean all_clients_running = TRUE;
 gboolean
 all_clients_pause(void)
 {
-	client_proc_t* client;
+	client_proc_t *client;
 
-	if (!all_clients_running ){
+	if (!all_clients_running) {
 		return TRUE;
 	}
-	
+
 	cl_log(LOG_INFO, "all clients are now paused");
-		
-	for (client=client_list; client != NULL; client=client->next) {
+
+	for (client = client_list; client != NULL; client = client->next) {
 		G_main_IPC_Channel_pause(client->gsource);
-		
-	}	
+
+	}
 	all_clients_running = FALSE;
 	return TRUE;
 }
@@ -2032,49 +1787,45 @@ all_clients_pause(void)
 gboolean
 all_clients_resume(void)
 {
-	client_proc_t* client;
-	
-	if (all_clients_running ){
+	client_proc_t *client;
+
+	if (all_clients_running) {
 		return TRUE;
 	}
-	
+
 	cl_log(LOG_INFO, "all clients are now resumed");
-	
-	for (client=client_list; client != NULL; client=client->next) {
-		G_main_IPC_Channel_resume(client->gsource);		
-	}	
-	
+
+	for (client = client_list; client != NULL; client = client->next) {
+		G_main_IPC_Channel_resume(client->gsource);
+	}
+
 	all_clients_running = TRUE;
-	
+
 	return TRUE;
 }
 
 gboolean
-ProcessAnAPIRequest(client_proc_t*	client)
+ProcessAnAPIRequest(client_proc_t *client)
 {
-	struct ha_msg*	msg;
-	static int	consecutive_failures = 0;
-	gboolean	rc = FALSE;
+	struct ha_msg *msg;
+	static int consecutive_failures = 0;
+	gboolean rc = FALSE;
 
 	if (DEBUGDETAILS) {
-		cl_log(LOG_DEBUG
-		,	"ProcessAnAPIRequest() {");
+		cl_log(LOG_DEBUG, "ProcessAnAPIRequest() {");
 	}
-
 
 	if (!client->chan->ops->is_message_pending(client->chan)) {
 		goto getout;
 	}
-	
+
 	/* See if we can read the message */
 	if ((msg = msgfromIPC(client->chan, 0)) == NULL) {
-		
+
 		/* EOF? */
 		if (!IPC_ISRCONN(client->chan)) {
 			if (ANYDEBUG) {
-				cl_log(LOG_DEBUG
-				,	"EOF from client pid %ld"
-				,	(long)client->pid);
+				cl_log(LOG_DEBUG, "EOF from client pid %ld", (long)client->pid);
 			}
 			if (!client->removereason) {
 				client->removereason = "EOF";
@@ -2083,8 +1834,7 @@ ProcessAnAPIRequest(client_proc_t*	client)
 		}
 
 		/* None of the above... */
-		cl_log(LOG_INFO, "No message from pid %ld"
-		,	(long)client->pid);
+		cl_log(LOG_INFO, "No message from pid %ld", (long)client->pid);
 		++consecutive_failures;
 		/*
 		 * This used to happen because of EOF,
@@ -2092,9 +1842,7 @@ ProcessAnAPIRequest(client_proc_t*	client)
 		 * good protection to have anyway ;-)
 		 */
 		if (consecutive_failures >= 10) {
-			cl_log(LOG_ERR
-			,	"Removing client pid %ld"
-			,	(long)client->pid);
+			cl_log(LOG_ERR, "Removing client pid %ld", (long)client->pid);
 			client->removereason = "noinput";
 			consecutive_failures = 0;
 		}
@@ -2105,17 +1853,16 @@ ProcessAnAPIRequest(client_proc_t*	client)
 	/* Process the API request message... */
 	api_heartbeat_monitor(msg, APICALL, "<api>");
 
-
 	/* First message must be a registration msg */
 	if (client->pid == 0) {
 		api_process_registration_msg(client, msg);
-	}else{
+	} else {
 		api_process_request(client, msg);
 	}
 	msg = NULL;
 	rc = TRUE;
-	
-	if (!all_clients_running){
+
+	if (!all_clients_running) {
 		/* This is a new client,
 		 * this allows a client to sign on but further action will be blocked
 		 */
@@ -2128,15 +1875,12 @@ getout:
 	if (CL_KILL(client->pid, 0) < 0 && errno == ESRCH) {
 		/* Oops... he's dead */
 		if (ANYDEBUG) {
-			cl_log(LOG_DEBUG
-			,	"Client pid %ld died (input)"
-			,	(long)client->pid);
+			cl_log(LOG_DEBUG, "Client pid %ld died (input)", (long)client->pid);
 		}
 		client->removereason = "died";
 	}
 	if (DEBUGDETAILS) {
-		cl_log(LOG_DEBUG, "\treturn %s;"
-		,	(rc ? "TRUE" : "FALSE"));
+		cl_log(LOG_DEBUG, "\treturn %s;", (rc ? "TRUE" : "FALSE"));
 		cl_log(LOG_DEBUG, "}/*ProcessAnAPIRequest*/;");
 	}
 
