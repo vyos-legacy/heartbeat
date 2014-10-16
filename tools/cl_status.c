@@ -257,14 +257,13 @@ main(int argc, char ** argv)
 		return 0;
 	}
 
+	/* Prefer HA_logfacility; if unset, set it to HA_LOGFACILITY.
+	 * Default to "non", though.  There is no reason for this tool to log
+	 * to syslog *by default*! */
+	setenv("HA_logfacility", getenv("HA_LOGFACILITY") ?: "none", 0);
 	cl_log_set_entity(cl_status_name);
-	/* 
-	 * You can open it for debugging conveniently.
-	 * When the program is finished formly, all redundant cl_log clauses 
-	 * will be removed
-	 */ 
+	cl_inherit_logging_environment(0);
 	cl_log_enable_stderr(TRUE);
-	cl_log_set_facility(LOG_USER);
 
 	/*
 	 * To avoid cl_status sleep forever, trigger a timer and dealing with 
