@@ -705,7 +705,7 @@ parse_config(const char * cfgfile, char *nodename)
 	,	{"ccm",		"uid=" HA_CCMUSER}
 	,	{"ping",	"gid=" HA_APIGROUP}
 	,	{"lha-snmpagent","uid=root"}
-	,	{"anon",	"gid=" HA_APIGROUP}
+	,	{"anon",	"uid=root gid=" HA_APIGROUP}
 	};
 
 	if ((f = fopen(cfgfile, "r")) == NULL) {
