@@ -2605,13 +2605,13 @@ set_pcmk_support(const char* value)
 	,	{"apiauth", "crmd   	uid=" HA_CCMUSER}
 	,	{"apiauth", "pingd   	uid=root"}
 
-	,	{"failfast"," "HA_CCMUSER " " HA_LIBHBDIR "/ccm"}
-	,	{"failfast"," "HA_CCMUSER " " HA_LIBHBDIR "/cib" }
+	,	{"failfast"," "HA_CCMUSER " " HA_DAEMON_DIR "/ccm"}
+	,	{"failfast"," "HA_CCMUSER " " HA_DAEMON_DIR "/cib" }
 		
-	,	{"respawn", "root "           HA_LIBHBDIR "/lrmd -r"}
-	,	{"respawn", "root "	      HA_LIBHBDIR "/stonithd"}
-	,	{"respawn", " "HA_CCMUSER " " HA_LIBHBDIR "/attrd" }
-	,	{"failfast"," "HA_CCMUSER " " HA_LIBHBDIR "/crmd" }
+	,	{"respawn", "root "           HA_DAEMON_DIR "/lrmd -r"}
+	,	{"respawn", "root "	      HA_DAEMON_DIR "/stonithd"}
+	,	{"respawn", " "HA_CCMUSER " " HA_DAEMON_DIR "/attrd" }
+	,	{"failfast"," "HA_CCMUSER " " HA_DAEMON_DIR "/crmd" }
 		/* Don't 'respawn' pingd - it's a resource agent */
 	};
 
@@ -2632,13 +2632,13 @@ set_pcmk_support(const char* value)
 	,	{"apiauth", "crmd   	uid=" HA_CCMUSER}
 	,	{"apiauth", "pingd   	uid=root"}
 
-	,	{"respawn", " "HA_CCMUSER " " HA_LIBHBDIR "/ccm"}
-	,	{"respawn", " "HA_CCMUSER " " HA_LIBHBDIR "/cib" }
+	,	{"respawn", " "HA_CCMUSER " " HA_DAEMON_DIR "/ccm"}
+	,	{"respawn", " "HA_CCMUSER " " HA_DAEMON_DIR "/cib" }
 		
-	,	{"respawn", "root "           HA_LIBHBDIR "/lrmd -r"}
-	,	{"respawn", "root "	      HA_LIBHBDIR "/stonithd"}
-	,	{"respawn", " "HA_CCMUSER " " HA_LIBHBDIR "/attrd" }
-	,	{"respawn", " "HA_CCMUSER " " HA_LIBHBDIR "/crmd" }
+	,	{"respawn", "root "           HA_DAEMON_DIR "/lrmd -r"}
+	,	{"respawn", "root "	      HA_DAEMON_DIR "/stonithd"}
+	,	{"respawn", " "HA_CCMUSER " " HA_DAEMON_DIR "/attrd" }
+	,	{"respawn", " "HA_CCMUSER " " HA_DAEMON_DIR "/crmd" }
 		/* Don't 'respawn' pingd - it's a resource agent */
 	};
 
@@ -2647,10 +2647,10 @@ set_pcmk_support(const char* value)
 		{"apiauth", "cib 	uid=" HA_CCMUSER}
 	,	{"apiauth", "crmd   	uid=" HA_CCMUSER}
 
-	,	{"failfast"," "HA_CCMUSER " " HA_LIBHBDIR "/ccm"}
-	,	{"failfast"," "HA_CCMUSER " " HA_LIBHBDIR "/cib"}
-	,	{"respawn", "root "           HA_LIBHBDIR "/lrmd"}
-	,	{"failfast"," "HA_CCMUSER " " HA_LIBHBDIR "/crmd"}
+	,	{"failfast"," "HA_CCMUSER " " HA_DAEMON_DIR "/ccm"}
+	,	{"failfast"," "HA_CCMUSER " " HA_DAEMON_DIR "/cib"}
+	,	{"respawn", "root "           HA_DAEMON_DIR "/lrmd"}
+	,	{"failfast"," "HA_CCMUSER " " HA_DAEMON_DIR "/crmd"}
 		/* Don't 'respawn' pingd - it's a resource agent */
 	};
 
@@ -2662,12 +2662,12 @@ set_pcmk_support(const char* value)
 	,	{"apiauth", "attrd   	uid=" HA_CCMUSER}
 	,	{"apiauth", "crmd   	uid=" HA_CCMUSER}
 
-	,	{"respawn"," "HA_CCMUSER " "HA_LIBHBDIR"/ccm"}
-	,	{"respawn"," "HA_CCMUSER " "VALGRIND_BIN" "HA_LIBHBDIR"/cib"}
-	,	{"respawn", "root "          HA_LIBHBDIR"/lrmd -r"}
-	,	{"respawn", "root "	     HA_LIBHBDIR"/stonithd"}
-	,	{"respawn", " "HA_CCMUSER " "VALGRIND_BIN" "HA_LIBHBDIR"/attrd" }
-	,	{"respawn"," "HA_CCMUSER " "VALGRIND_BIN" "HA_LIBHBDIR"/crmd"}
+	,	{"respawn"," "HA_CCMUSER " "HA_DAEMON_DIR"/ccm"}
+	,	{"respawn"," "HA_CCMUSER " "VALGRIND_BIN" "HA_DAEMON_DIR"/cib"}
+	,	{"respawn", "root "          HA_DAEMON_DIR"/lrmd -r"}
+	,	{"respawn", "root "	     HA_DAEMON_DIR"/stonithd"}
+	,	{"respawn", " "HA_CCMUSER " "VALGRIND_BIN" "HA_DAEMON_DIR"/attrd" }
+	,	{"respawn"," "HA_CCMUSER " "VALGRIND_BIN" "HA_DAEMON_DIR"/crmd"}
 		/* Don't 'respawn' pingd - it's a resource agent */
 	};
     

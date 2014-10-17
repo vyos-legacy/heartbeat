@@ -32,7 +32,6 @@ hanoarchdir		= @HA_NOARCHDATAHBDIR@
 gliblib			= @GLIBLIB@
 
 habin_PROGRAMS		= cl_status cl_respawn
-halib_PROGRAMS		=
 
 cl_status_SOURCES	= cl_status.c
 cl_status_LDADD		= $(top_builddir)/lib/hbclient/libhbclient.la	\

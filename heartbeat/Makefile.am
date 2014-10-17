@@ -26,6 +26,7 @@ INCLUDES                = -I$(top_builddir)/include -I$(top_srcdir)/include \
 hadir			= $(sysconfdir)/ha.d
 habindir		= @bindir@
 halibdir		= $(libdir)/@HB_PKG@
+halibexecdir		= $(libexecdir)/@HB_PKG@
 commmoddir		= $(halibdir)/modules/comm
 havarlibdir		= $(localstatedir)/lib/@HB_PKG@
 havarrundir		= $(localstatedir)/run
@@ -51,7 +52,7 @@ noinst_HEADERS		=	hb_config.h		\
 
 
 ## binary progs
-halib_PROGRAMS		= heartbeat
+halibexec_PROGRAMS	= heartbeat
 
 ## SOURCES
 heartbeat_SOURCES	= heartbeat.c auth.c				\
@@ -84,6 +85,7 @@ EXTRA_DIST              = $(ha_DATA) $(ha_SCRIPTS)
 install-exec-local:
 	$(mkinstalldirs) $(DESTDIR)$(havarrundir) 
 	$(mkinstalldirs) $(DESTDIR)$(havarlibdir)
+	$(mkinstalldirs) $(DESTDIR)$(havarlibexecdir)
 	$(mkinstalldirs) $(DESTDIR)$(havarrunhbdir)
 	-chmod 755 $(DESTDIR)$(havarrunhbdir)
 

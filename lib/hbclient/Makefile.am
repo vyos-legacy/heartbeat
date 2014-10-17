@@ -27,6 +27,7 @@ INCLUDES                = -I$(top_builddir)/include -I$(top_srcdir)/include \
 hadir			= $(sysconfdir)/ha.d
 halibdir		= $(libdir)/@HB_PKG@
 commmoddir		= $(halibdir)/modules/comm
+halibexecdir		= $(libexecdir)/@HB_PKG@
 havarlibdir		= $(localstatedir)/lib/@HB_PKG@
 havarrundir		= $(localstatedir)/run/
 apidir		       	= $(havarlibdir)/api
@@ -48,7 +49,7 @@ libhbclient_la_LDFLAGS	= -version-info 1:0:0
 libhbclient_la_LIBADD	= $(top_builddir)/replace/libreplace.la  
 
 ## binary progs
-halib_PROGRAMS		= api_test
+halibexec_PROGRAMS	= api_test
 
 api_test_SOURCES	= api_test.c
 api_test_LDADD		= -lplumb	\

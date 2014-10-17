@@ -47,7 +47,7 @@
       <command>apphbd</command> has been replaced by resource-level
       monitoring in Pacemaker.</para>
     </warning>
-    <para><command>@HA_LIBHBDIR@/apphbd</command> is a basic
+    <para><command>@HA_DAEMON_DIR@/apphbd</command> is a basic
     application heartbeat monitor daemon for Linux-HA. A group of
     Application Heartbeat APIs are defined for this heartbeat
     monitoring service. Applications may register with the daemon in
@@ -60,7 +60,7 @@
     daemon if certain events occur (e.g. an application fails to
     heartbeat). </para>
     <para>The Recovery Manager daemon
-    (<command>@HA_LIBHBDIR@/recoverymgrd</command>) receives
+    (<command>@HA_DAEMON_DIR@/recoverymgrd</command>) receives
     notification from the <code>recmgr</code> plugin, then it tries to
     execute recovery scripts as configured.  See the
     <command>recoverymgrd</command> default configuration file,

@@ -48,11 +48,7 @@ noinst_HEADERS		=
 
 lib_LTLIBRARIES		= libcms.la
 
-## binary progs
-halib_PROGRAMS		=
-
 libcmsdir		= $(libdir)/@HB_PKG@
-libcms_PROGRAMS		= 
 libcms_la_SOURCES	= cmslib_client.c cmslib_client.h
 libcms_la_CFLAGS	= -D$(DEBUG)_LIBRARY
 libcms_la_LDFLAGS	=

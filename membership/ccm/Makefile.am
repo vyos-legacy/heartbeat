@@ -24,12 +24,8 @@ INCLUDES                = -I$(top_builddir)/include -I$(top_srcdir)/include \
 			-I$(top_builddir)/libltdl -I$(top_srcdir)/libltdl \
                         -I$(includedir)/clplumbing
 
-hadir			= $(sysconfdir)/ha.d
-halibdir		= $(libdir)/@HB_PKG@
-ccmlibdir		= $(halibdir)
-commmoddir		= $(halibdir)/modules/comm
-havarlibdir		= $(localstatedir)/lib/@HB_PKG@
-havarrundir		= $(localstatedir)/run/
+halibexecdir		= $(libexecdir)/@HB_PKG@
+ccmlibdir		= $(halibexecdir)
 
 ccmdir			= $(HA_VARRUNDIR)/$(HB_PKG)/ccm
 apigid			= @HA_APIGID@
@@ -47,7 +43,7 @@ lib_LTLIBRARIES		= libccmclient.la libclm.la
 
 
 ## binary progs
-ccmlib_PROGRAMS		= ccm ccm_testclient
+ccmlib_PROGRAMS	= ccm ccm_testclient
 
 ## SOURCES
 ccm_SOURCES	= ccm.c \
@@ -86,7 +82,7 @@ libccmclient_la_LDFLAGS	= -version-info 1:0:0
 
 
 ## library libclm.la
-libclmdir		= $(libdir)/@HB_PKG@
+libclmdir		= $(halibexecdir)
 
 ## binary program
 libclm_PROGRAMS		= clmtest

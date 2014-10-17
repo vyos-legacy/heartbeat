@@ -26,6 +26,7 @@ INCLUDES                = -I$(top_builddir)/include -I$(top_srcdir)/include \
 hadir			= $(sysconfdir)/ha.d
 halibdir		= $(libdir)/@HB_PKG@
 commmoddir		= $(halibdir)/modules/comm
+halibexecdir		= $(libexecdir)/@HB_PKG@
 havarlibdir		= $(localstatedir)/lib/@HB_PKG@
 PIDFILE			= $(localstatedir)/run/apphbd.pid
 
@@ -40,7 +41,7 @@ AM_CFLAGS			= @CFLAGS@	\
 
 
 ## binary progs
-halib_PROGRAMS		= apphbd apphbtest
+halibexec_PROGRAMS	= apphbd apphbtest
 
 ## SOURCES
 

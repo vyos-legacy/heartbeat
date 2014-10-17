@@ -23,13 +23,13 @@ INCLUDES                = -I$(top_builddir)/include -I$(top_srcdir)/include \
 			-I$(top_builddir)/linux-ha -I$(top_srcdir)/linux-ha \
 			-I$(top_builddir)/libltdl -I$(top_srcdir)/libltdl
 
-halibdir		= $(libdir)/@HB_PKG@
+halibexecdir		= $(libexecdir)/@HB_PKG@
 
 havarlibdir		= $(localstatedir)/lib/@HB_PKG@
 
 dopddir			= $(HA_VARRUNDIR)/$(HB_PKG)/dopd
 
-halib_PROGRAMS		= dopd drbd-peer-outdater
+halibexec_PROGRAMS	= dopd drbd-peer-outdater
 
 ## SOURCES
 dopd_SOURCES		= dopd.c dopd.h

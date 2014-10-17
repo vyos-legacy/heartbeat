@@ -151,7 +151,17 @@ fi
 %{_sysconfdir}/ha.d/harc
 %{_sysconfdir}/ha.d/rc.d
 %config(noreplace) %{_sysconfdir}/ha.d/README.config
-%{_datadir}/heartbeat/
+%{_datadir}/heartbeat/ResourceManager
+%{_datadir}/heartbeat/ha_config
+%{_datadir}/heartbeat/ha_propagate
+%{_datadir}/heartbeat/hb_addnode
+%{_datadir}/heartbeat/hb_delnode
+%{_datadir}/heartbeat/hb_setsite
+%{_datadir}/heartbeat/hb_setweight
+%{_datadir}/heartbeat/hb_standby
+%{_datadir}/heartbeat/hb_takeover
+%{_datadir}/heartbeat/mach_down
+%{_datadir}/heartbeat/req_resource
 %{_sysconfdir}/ha.d/resource.d/
 %{_sysconfdir}/init.d/heartbeat
 %config(noreplace) %{_sysconfdir}/logrotate.d/heartbeat
@@ -160,6 +170,13 @@ fi
 %dir %attr (0750, %{uname}, %{gname})   %{_var}/run/heartbeat/dopd
 %attr (2755, %{uname}, %{gname}) %{_bindir}/cl_status
 %{_bindir}/cl_respawn
+%{_libexecdir}/heartbeat/apphbd
+%{_libexecdir}/heartbeat/ccm
+%{_libexecdir}/heartbeat/dopd
+%{_libexecdir}/heartbeat/drbd-peer-outdater
+%{_libexecdir}/heartbeat/heartbeat
+%{_libexecdir}/heartbeat/ipfail
+
 %dir %attr (755, %{uname}, %{gname}) %{_var}/run/heartbeat/ccm
 %{_mandir}/man1/cl_status.1*
 %{_mandir}/man1/hb_standby.1*
@@ -182,6 +199,13 @@ fi
 %files devel
 %defattr(-,root,root,-)
 %doc %{_datadir}/doc/%{name}-%{version}
+%{_libexecdir}/heartbeat/api_test
+%{_libexecdir}/heartbeat/apphbtest
+%{_libexecdir}/heartbeat/ccm_testclient
+%{_libexecdir}/heartbeat/clmtest
+%{_libexecdir}/heartbeat/mlock
+%{_datadir}/heartbeat/BasicSanityCheck
+%{_datadir}/heartbeat/TestHeartbeatComm
 %{_includedir}/heartbeat/
 %{_includedir}/saf/
 %{_includedir}/ocf/

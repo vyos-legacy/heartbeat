@@ -331,13 +331,6 @@ case $libdir in
 	libdir=`dirname $libdir`/$LibDirSuffix
 	AC_MSG_WARN([Overriding libdir to: $libdir]);;
 esac
-case $libexecdir in
-  */$LibDirSuffix)	: Cool ;;
-  *)			: Uh Oh... 
-	libexecdir=`dirname $libexecdir`/$LibDirSuffix
-	AC_MSG_WARN([Overriding libexecdir to: $libexecdir]);;
-esac
-
 for j in exec_prefix bindir sbindir datadir sysconfdir localstatedir \
 	includedir oldincludedir mandir docdir stdocdir libdir noarchlibdir
 do 
@@ -425,9 +418,13 @@ if test x"$HA_LIBHBDIR" = x ; then
 # https://github.com/davidvossel/pacemaker/commit/44e7ba80e2a259f3b407e2d35cf8353572c6d769
 	AC_MSG_NOTICE($GLUE_HEADER does not define HA_LIBHBDIR, using fallback)
 # FIXME we need to use libexec for daemons, lib is only for shared objects
-	HA_LIBHBDIR="$libdir/heartbeat"
-	AC_DEFINE_UNQUOTED(HA_LIBHBDIR,"$HA_LIBHBDIR", lib and daemon directory)
+	HA_LIBHBDIR="$libdir/$PACKAGE_NAME"
+	AC_DEFINE_UNQUOTED(HA_LIBHBDIR,"$HA_LIBHBDIR", heartbeat lib directory)
 fi
+
+AC_SUBST(HA_DAEMON_DIR)
+HA_DAEMON_DIR="$libexecdir/$PACKAGE_NAME"
+AC_DEFINE_UNQUOTED(HA_DAEMON_DIR,"$HA_DAEMON_DIR", heartbeat daemon directory)
 
 HA_VARRUNDIR=`extract_header_define $GLUE_HEADER HA_VARRUNDIR`
 AC_SUBST(HA_VARRUNDIR)

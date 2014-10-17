@@ -145,6 +145,7 @@ Headers and shared libraries for writing programs for Heartbeat
 ###########################################################
 
 %build
+./bootstrap
 # TODO: revisit -all
 CFLAGS="${CFLAGS} ${RPM_OPT_FLAGS}"
 # Feature-dependent CFLAGS:
@@ -165,19 +166,25 @@ CFLAGS="$CFLAGS -fgnu89-inline"
 export CFLAGS
 %if 0%{?suse_version} < 1020
 export docdir=%{heartbeat_docdir}
-%endif
-./ConfigureMe configure \
-    --libexecdir=%{_var} \
-    --libdir=%{_libdir} \
-    --sysconfdir=%{_sysconfdir} \
-    --mandir=%{_mandir} \
-%if 0%{?suse_version} >= 1020
-    --docdir=%{heartbeat_docdir} \
-%endif
+%configure \
+    --enable-fatal-warnings=yes \
+    --with-package-name=%{name} \
     --with-group-name=%{gname} \
     --with-ccmuser-name=%{uname}
+%else
+%configure \
+    --enable-fatal-warnings=yes \
+    --with-package-name=%{name} \
+    --with-group-name=%{gname} \
+    --with-ccmuser-name=%{uname} \
+    --with-rundir=%{_rundir} \
+%if %{defined _unitdir}
+    --with-systemdsystemunitdir=%{_unitdir} \
+%endif
+    --docdir=%{heartbeat_docdir}
+%endif
 
-make %{?_smp_mflags}
+make %{?_smp_mflags} docdir=%{heartbeat_docdir}
 ###########################################################
 
 %install
@@ -251,18 +258,17 @@ rm -rf $RPM_BUILD_DIR/heartbeat-%{version}
 %{_bindir}/cl_respawn
 %attr (2555, root, haclient) %{_bindir}/cl_status
 /sbin/rcheartbeat
-%{_libdir}/heartbeat/mlock
+%{_libexecdir}/heartbeat/apphbd
+%{_libexecdir}/heartbeat/ccm
+%{_libexecdir}/heartbeat/dopd
+%{_libexecdir}/heartbeat/drbd-peer-outdater
+%{_libexecdir}/heartbeat/heartbeat
+%{_libexecdir}/heartbeat/ipfail
 %{_libdir}/heartbeat/plugins/HBauth
 %{_libdir}/heartbeat/plugins/HBcomm
 %{_libdir}/heartbeat/plugins/HBcompress
 %{_libdir}/heartbeat/plugins/quorum
 %{_libdir}/heartbeat/plugins/tiebreaker
-%{_libdir}/heartbeat/heartbeat
-%{_libdir}/heartbeat/ipfail
-%{_libdir}/heartbeat/ccm
-%{_libdir}/heartbeat/apphbd
-%{_libdir}/heartbeat/dopd
-%{_libdir}/heartbeat/drbd-peer-outdater
 %{_libdir}/libclm.so.*
 %{_libdir}/libhbclient.so.*
 %{_libdir}/libccmclient.so.*
@@ -326,10 +332,11 @@ rm -rf $RPM_BUILD_DIR/heartbeat-%{version}
 %{_libdir}/libapphb*.so
 %{_libdir}/libhbclient*.so
 %{_libdir}/libccmclient*.so
-%{_libdir}/heartbeat/clmtest
-%{_libdir}/heartbeat/api_test
-%{_libdir}/heartbeat/apphbtest
-%{_libdir}/heartbeat/ccm_testclient
+%{_libexecdir}/heartbeat/api_test
+%{_libexecdir}/heartbeat/apphbtest
+%{_libexecdir}/heartbeat/ccm_testclient
+%{_libexecdir}/heartbeat/clmtest
+%{_libexecdir}/heartbeat/mlock
 %{_datadir}/heartbeat/BasicSanityCheck
 %{_datadir}/heartbeat/TestHeartbeatComm
 %exclude %{_datadir}/heartbeat/cts

@@ -27,9 +27,9 @@ INCLUDES        = -I$(top_builddir)/include  -I$(top_srcdir)/include     \
 COMMONLIBS	=  -lplumb   \
 		   $(GLIBLIB)
 
-halibdir	=  $(libdir)/@HB_PKG@
+halibexecdir	=  $(libexecdir)/@HB_PKG@
 
-halib_PROGRAMS 	=  quorumd quorumdtest
+halibexec_PROGRAMS 	=  quorumd quorumdtest
 quorumd_SOURCES =  quorumd.c
 quorumd_LDADD 	=  $(COMMONLIBS)
 quorumd_LDFLAGS = $(GNUTLSLIBS)

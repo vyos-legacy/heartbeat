@@ -44,7 +44,7 @@
 # Default-Stop: 0 1 6
 ### END INIT INFO
 
-HEARTBEAT=@HA_LIBHBDIR@/heartbeat
+HEARTBEAT=@HA_DAEMON_DIR@/heartbeat
 
 [ -r @INITDEFDIR@/heartbeat ] && . @INITDEFDIR@/heartbeat
 [ -r @INITDEFDIR@/pacemaker ] && . @INITDEFDIR@/pacemaker
