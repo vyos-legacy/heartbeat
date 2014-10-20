@@ -4076,9 +4076,15 @@ start_a_child_client(gpointer childentry, gpointer dummy)
 				NewTrackedProc(pid, 1, PT_LOGVERBOSE
 				,	centry, &ManagedChildTrackOps);
 				hb_pop_deadtime(NULL);
+				/* Give the child the chance to reset SIGTERM,
+				 * in case this is a respawn racing with a shutdown request. */
+				sched_yield();
 				return;
 
 		case 0:		/* Child */
+				/* Reset SIGTERM handler, in case we are killed before
+				 * we even exec'ed the real child command. */
+				CL_DEFAULT_SIG(SIGTERM);
 				break;
 	}
 
