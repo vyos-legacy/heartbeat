@@ -105,6 +105,8 @@ static int set_register_to_apphbd(const char *);
 static int set_badpack_warn(const char*);
 static int set_coredump(const char*);
 static int set_corerootdir(const char*);
+static int set_crm_daemon_dir(const char*);
+static int set_pengine_by_crm(const char*);
 static int set_release2mode(const char*);
 static int set_pcmk_support(const char*);
 static int set_autojoin(const char*);
@@ -163,6 +165,8 @@ struct directive {
 , {KEY_SYSLOGFMT, set_syslog_logfilefmt, TRUE, "true", "log to files in syslog format"}
 , {KEY_COREDUMP,  set_coredump, TRUE, "true", "enable Linux-HA core dumps"}
 , {KEY_COREROOTDIR,set_corerootdir, TRUE, NULL, "set root directory of core dump area"}
+, {KEY_CRM_DAEMON_DIR, set_crm_daemon_dir, TRUE, NULL, "location for Pacemaker daemons"}
+, {KEY_PENGINE_BY_CRM, set_pengine_by_crm, TRUE, NULL, "should pengine be spawned directly by heartbeat"}
 , {KEY_REL2,      set_release2mode, FALSE, NULL, "historical alias for '"KEY_PACEMAKER"'"}
 , {KEY_PACEMAKER, set_pcmk_support, TRUE, "false", "enable Pacemaker resource management"}
 , {KEY_AUTOJOIN,  set_autojoin, TRUE, "none" ,	"set automatic join mode/style"}
@@ -2132,7 +2136,9 @@ add_client_child_base(const char * directive, gboolean failfast)
 	struct passwd*		pw;
 
 	if (ANYDEBUG) {
-		ha_log(LOG_INFO, "respawn directive: %s", directive);
+		ha_log(LOG_INFO, "%s %s",
+			failfast ? KEY_FAILFAST : KEY_CLIENT_CHILD,
+			directive);
 	}
 
 	/* Skip over initial white space, so we can get the uid */
@@ -2468,7 +2474,8 @@ set_api_authorization(const char * directive)
 	}
 
 	if (ANYDEBUG) {
-		cl_log(LOG_DEBUG, "uid=%s, gid=%s"
+		cl_log(LOG_DEBUG, "%s %s uid=%s, gid=%s"
+		,	KEY_APIPERM, clname
 		,	(uidlist == NULL ? "<null>" : uidlist)
 		,	(gidlist == NULL ? "<null>" : gidlist));
 	}
@@ -2555,6 +2562,33 @@ set_corerootdir(const char* value)
 	return HA_OK;
 }
 
+static int fail_if_after_pacemaker(const char *directive)
+{
+	if (GetParameterValue(KEY_PACEMAKER)) {
+		cl_log(LOG_ERR, "If you specify %s, it must come before the %s directive\n",
+			directive, KEY_PACEMAKER);
+		return HA_FAIL;
+	}
+	return HA_OK;
+}
+
+static int
+set_crm_daemon_dir(const char* value)
+{
+	if (fail_if_after_pacemaker(value))
+		return HA_FAIL;
+	/* Nothing more to do here; add_option() will add it
+	 * to the parameters hash table, that is good enough. */
+	return HA_OK;
+}
+
+static int set_pengine_by_crm(const char* value)
+{
+	if (HA_OK != fail_if_after_pacemaker(value))
+		return HA_FAIL;
+	return ha_config_check_boolean(value);
+}
+
 /*
  *  Enable all these flags when  KEY_PACEMAKER is enabled...
  *	apiauth lrmd   		uid=root
@@ -2569,6 +2603,87 @@ set_corerootdir(const char* value)
  *	respawn hacluster       /usr/lib/heartbeat/crmd
  */
 
+enum pcmk_directive_value { OFF = 0, AUTO = 1, MINIMAL, RESPAWN, VALGRIND, CCM_ONLY };
+
+struct pcmk_child {
+	const gboolean skip_if_minimal;
+	const gboolean use_valgrind_on_request;
+	const gboolean failfast[5];
+	const char *user;
+	const gboolean try_crm_daemon_dir_first;
+	const char *command;
+	const char *hb_args;
+	/* const char *pcmk_args; */
+};
+
+static char *path_command_ok(const char *path, const char *basename)
+{
+	char *command;
+	int c;
+
+	ha_log(LOG_DEBUG, "Checking access of: %s/%s", path, basename);
+	c = asprintf(&command, "%s/%s", path, basename);
+	if (c < 0)
+		return NULL;
+
+	if (access(command, X_OK) < 0) {
+		free(command);
+		command = NULL;
+	}
+	return command;
+}
+
+static int add_pcmk_client_child(struct pcmk_child *p, enum pcmk_directive_value onoff)
+{
+	char *fake_directive = NULL;
+	char *command = NULL;
+	const char *args = NULL;
+	const char *valgrind = NULL;
+	const char *crm_daemon_dir;
+	int failfast_index = onoff - 1;
+	int c;
+
+	if (failfast_index >= DIMOF(p->failfast))
+		return HA_FAIL;
+
+	crm_daemon_dir = GetParameterValue(KEY_CRM_DAEMON_DIR) ?: CRM_DAEMON_DIR;
+
+	if (p->try_crm_daemon_dir_first)
+		command = path_command_ok(crm_daemon_dir, p->command);
+	if (!command) {
+		/* Not started from pacemaker directory, use the "hb_args".
+		 * Right now only used for lrmd. */
+		args = p->hb_args;
+		command = path_command_ok(HA_DAEMON_DIR, p->command);
+
+		/* lrmd may still not be found. Try the historical location as well. */
+		if (!command)
+			command = path_command_ok(HA_LIBHBDIR, p->command);
+		if (!command) {
+			ha_log(LOG_ERR, "Failed to add pacemaker client child \"%s\"", p->command);
+			return HA_FAIL;
+		}
+	}
+	if (p->use_valgrind_on_request && onoff == VALGRIND)
+		valgrind = VALGRIND_BIN;
+
+	c = asprintf(&fake_directive,
+			"%s %s %s%s%s", p->user,
+			valgrind ?: "",
+			command,
+			args ? " " : "", args ?: "");
+	free(command);
+	command = NULL;
+
+	if (c < 0)
+		return HA_FAIL;
+
+	c = add_client_child_base(fake_directive, p->failfast[failfast_index]);
+	free(fake_directive);
+
+	return c;
+}
+
 static int
 set_release2mode(const char* value)
 {
@@ -2577,160 +2692,110 @@ set_release2mode(const char* value)
 }
 
 static int
-set_pcmk_support(const char* value)
+set_pcmk_support(const char *value)
 {
-	struct do_directive {
-		const char * dname;
-		const char * dval;
-	}; 
-    
-    struct do_directive *r2dirs;
-    
-    struct do_directive r2auto_dirs[] =
-	/*
-	 *	To whom it may concern:  Please keep the apiauth and respawn
-	 *	lines in the same order to make auditing the two against each
-	 *	other easier.
-	 *	Thank you.
+	/* CCM apiauth already implicit elsewhere.
+	 * LRMd is not a heartbeat API client.
+	 * Stonith "NG" registered (for some pacemaker versions) as stonith-ng,
+	 * but the name of the binary is still the same: stonithd. */
+
+	const char *api_auth[] = {
+		"cib		uid=" HA_CCMUSER,
+		"crmd   	uid=" HA_CCMUSER,
+
+		/* break if minimal */
+		"stonithd  	uid=root",
+		"stonith-ng	uid=root",
+		"attrd   	uid=" HA_CCMUSER,
+		"pingd   	uid=root"
+	};
+
+	/* Note: order matters. Started in order, stopped in reverse.
+	 * CRMD must be last, which means it will be stopped first.
+	 * For "best practices" start order,
+	 * see pacemaker:mcp/pacemaker.c, pcmk_children[]
 	 */
-	
-	{	/* CCM apiauth already implicit elsewhere */
-		{"apiauth", "cib 	uid=" HA_CCMUSER}
-		/* LRMd is not a heartbeat API client */
-	,	{"apiauth", "stonithd  	uid=root" }
-		/* "NG" registers as stonith-ng, but the name of the binary
-		 * is still the same: stonithd */
-	,	{"apiauth", "stonith-ng	uid=root" }
-	,	{"apiauth", "attrd   	uid=" HA_CCMUSER}
-	,	{"apiauth", "crmd   	uid=" HA_CCMUSER}
-	,	{"apiauth", "pingd   	uid=root"}
+	struct pcmk_child pcmk_children[] = {
+		{ 0, 0, { 1, 1, 0, 0, 0 }, HA_CCMUSER, FALSE, "ccm",       },
 
-	,	{"failfast"," "HA_CCMUSER " " HA_DAEMON_DIR "/ccm"}
-	,	{"failfast"," "HA_CCMUSER " " HA_DAEMON_DIR "/cib" }
-		
-	,	{"respawn", "root "           HA_DAEMON_DIR "/lrmd -r"}
-	,	{"respawn", "root "	      HA_DAEMON_DIR "/stonithd"}
-	,	{"respawn", " "HA_CCMUSER " " HA_DAEMON_DIR "/attrd" }
-	,	{"failfast"," "HA_CCMUSER " " HA_DAEMON_DIR "/crmd" }
+		{ 0, 1, { 1, 1, 0, 0, 0 }, HA_CCMUSER, TRUE,  "cib",       },
+		{ 1, 0, { 0, 0, 0, 0, 0 }, "root",     TRUE,  "stonithd",  },
+		{ 0, 0, { 0, 0, 0, 0, 0 }, "root",     TRUE,  "lrmd", "-r" },
+		{ 1, 1, { 0, 0, 0, 0, 0 }, HA_CCMUSER, TRUE,  "attrd",     },
+		{ 1, 1, { 1, 1, 0, 0, 0 }, HA_CCMUSER, TRUE,  "pengine",   },
+		{ 0, 1, { 1, 1, 0, 0, 0 }, HA_CCMUSER, TRUE,  "crmd",      },
 		/* Don't 'respawn' pingd - it's a resource agent */
 	};
+	const int pengine_idx = 5; /* see above */
 
-    struct do_directive r2respawn_dirs[] =
-	/*
-	 *	To whom it may concern:  Please keep the apiauth and respawn
-	 *	lines in the same order to make auditing the two against each
-	 *	other easier.
-	 *	Thank you.
-	 */
-	
-	{	/* CCM apiauth already implicit elsewhere */
-		{"apiauth", "cib 	uid=" HA_CCMUSER}
-		/* LRMd is not a heartbeat API client */
-	,	{"apiauth", "stonithd  	uid=root" }
-	,	{"apiauth", "stonith-ng	uid=root" }
-	,	{"apiauth", "attrd   	uid=" HA_CCMUSER}
-	,	{"apiauth", "crmd   	uid=" HA_CCMUSER}
-	,	{"apiauth", "pingd   	uid=root"}
+	enum pcmk_directive_value pcmk_directive;
+	int rc;
+	int j;
+	gboolean crmd_spawns_pengine = TRUE;
+	gboolean pacemaker_on;
 
-	,	{"respawn", " "HA_CCMUSER " " HA_DAEMON_DIR "/ccm"}
-	,	{"respawn", " "HA_CCMUSER " " HA_DAEMON_DIR "/cib" }
-		
-	,	{"respawn", "root "           HA_DAEMON_DIR "/lrmd -r"}
-	,	{"respawn", "root "	      HA_DAEMON_DIR "/stonithd"}
-	,	{"respawn", " "HA_CCMUSER " " HA_DAEMON_DIR "/attrd" }
-	,	{"respawn", " "HA_CCMUSER " " HA_DAEMON_DIR "/crmd" }
-		/* Don't 'respawn' pingd - it's a resource agent */
-	};
+	static gboolean already_called = FALSE;
 
-    struct do_directive r2minimal_dirs[] =	
-	{	/* CCM apiauth already implicit elsewhere */
-		{"apiauth", "cib 	uid=" HA_CCMUSER}
-	,	{"apiauth", "crmd   	uid=" HA_CCMUSER}
+	if (already_called) {
+		/* pacemaker directive can appear only *once* */
+		cl_log(LOG_ERR, "pacemaker/crm directive used multiple times!");
+		return HA_FAIL;
+	}
+	already_called = TRUE;
 
-	,	{"failfast"," "HA_CCMUSER " " HA_DAEMON_DIR "/ccm"}
-	,	{"failfast"," "HA_CCMUSER " " HA_DAEMON_DIR "/cib"}
-	,	{"respawn", "root "           HA_DAEMON_DIR "/lrmd"}
-	,	{"failfast"," "HA_CCMUSER " " HA_DAEMON_DIR "/crmd"}
-		/* Don't 'respawn' pingd - it's a resource agent */
-	};
-
-    struct do_directive r2valgrind_dirs[] =	
-	{	/* CCM apiauth already implicit elsewhere */
-		{"apiauth", "cib 	uid=" HA_CCMUSER}
-	,	{"apiauth", "stonithd  	uid=root" }
-	,	{"apiauth", "stonith-ng	uid=root" }
-	,	{"apiauth", "attrd   	uid=" HA_CCMUSER}
-	,	{"apiauth", "crmd   	uid=" HA_CCMUSER}
-
-	,	{"respawn"," "HA_CCMUSER " "HA_DAEMON_DIR"/ccm"}
-	,	{"respawn"," "HA_CCMUSER " "VALGRIND_BIN" "HA_DAEMON_DIR"/cib"}
-	,	{"respawn", "root "          HA_DAEMON_DIR"/lrmd -r"}
-	,	{"respawn", "root "	     HA_DAEMON_DIR"/stonithd"}
-	,	{"respawn", " "HA_CCMUSER " "VALGRIND_BIN" "HA_DAEMON_DIR"/attrd" }
-	,	{"respawn"," "HA_CCMUSER " "VALGRIND_BIN" "HA_DAEMON_DIR"/crmd"}
-		/* Don't 'respawn' pingd - it's a resource agent */
-	};
-    
-	gboolean	dorel2;
-	int		rc;
-	int		j, r2size;
-	int		rc2 = HA_OK;
-
-	r2dirs = &r2auto_dirs[0];
-	r2size = DIMOF(r2auto_dirs);
 	cl_log(LOG_INFO, "Pacemaker support: %s", value);
-	if (0 == strcasecmp("minimal", value)
-		|| 0 == strcasecmp("manual", value)) {
-		r2dirs = &r2minimal_dirs[0];
-		r2size = DIMOF(r2minimal_dirs);
-
-	} else if (0 == strcasecmp("respawn", value)) {
-		r2dirs = &r2respawn_dirs[0];
-		r2size = DIMOF(r2respawn_dirs);
-		
-	} else if (0 == strcasecmp("valgrind", value)) {
-		r2dirs = &r2valgrind_dirs[0];
-		r2size = DIMOF(r2valgrind_dirs);
+	if (!strcasecmp("minimal", value) || !strcasecmp("manual", value)) {
+		pcmk_directive = MINIMAL;
+	} else if (!strcasecmp("respawn", value)) {
+		pcmk_directive = RESPAWN;
+	} else if (!strcasecmp("ccm-only", value)) {
+		pcmk_directive = CCM_ONLY;
+	} else if (!strcasecmp("valgrind", value)) {
+		pcmk_directive = VALGRIND;
 		setenv("HA_VALGRIND_ENABLED", "1", 1);
 		cl_log(LOG_INFO, "Enabling Valgrind on selected components");
-	} else if ((rc = cl_str_to_boolean(value, &dorel2)) == HA_OK) {
-		if (!dorel2) {
+	} else if ((rc = cl_str_to_boolean(value, &pacemaker_on)) == HA_OK) {
+		if (!pacemaker_on)
 			return HA_OK;
-		}
-		
+		pcmk_directive = AUTO;
 	} else {
 		return rc;
 	}
 
 	DoManageResources = FALSE;
-	if (cl_file_exists(RESOURCE_CFG)){
+	setenv("HA_cluster_type", "heartbeat", 1);
+
+	if (cl_file_exists(RESOURCE_CFG)) {
 		cl_log(LOG_WARNING, "File %s exists.", RESOURCE_CFG);
 		cl_log(LOG_WARNING, "This file is not used because "KEY_PACEMAKER" is enabled");
 	}
-	
 
-	/* Enable Pacemaker cluster management */
-	for (j=0; j < r2size ; ++j) {
-		int	k;
-		for (k=0; k < DIMOF(WLdirectives); ++k) {
-			if (0 != strcmp(r2dirs->dname, WLdirectives[k].type)) {
-				continue;
-			}
-			if (ANYDEBUG) {
-				cl_log(LOG_DEBUG, "Implicit directive: %s %s"
-				,	 r2dirs->dname
-				,	 r2dirs->dval);
-			}
-			if (HA_OK
-			!= (rc2 = WLdirectives[k].parse(r2dirs->dval))) {
-				cl_log(LOG_ERR, "Directive %s %s failed"
-				,	r2dirs->dname, r2dirs->dval);
-			}            
-		}
-        r2dirs++;
+	for (j = 0; j < DIMOF(api_auth); j++) {
+		if (pcmk_directive == MINIMAL && j == 2)
+			break;
+		if (set_api_authorization(api_auth[j]) == HA_OK)
+			continue;
+		cl_log(LOG_ERR, "failed: apiauth %s", api_auth[j]);
+		return HA_FAIL;
 	}
-    
-	return rc2;
+
+	cl_str_to_boolean(GetParameterValue(KEY_PENGINE_BY_CRM), &crmd_spawns_pengine);
+	for (j = 0; j < DIMOF(pcmk_children); ++j) {
+		struct pcmk_child *p = &pcmk_children[j];
+		/* In CCM_ONLY mode, pacemakerd is supposed to be started from its
+		 * own init script, and will then start all of its daemons
+		 * itself.
+		 * (Or you may specify explicit failfast/respawn directives) */
+		if (pcmk_directive == CCM_ONLY && j > 0)
+			break;
+		if (pcmk_directive == MINIMAL && p->skip_if_minimal)
+			continue;
+		if (j == pengine_idx && crmd_spawns_pengine)
+			continue;
+		if (HA_OK != add_pcmk_client_child(p, pcmk_directive))
+			return HA_FAIL;
+	}
+	return HA_OK;
 }
 
 static int

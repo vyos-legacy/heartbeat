@@ -243,7 +243,7 @@ infodir=`var "$infodir" "$prefix/info"`
 mandir=`var "$mandir" "$exec_prefix/man"`
 dnl docdir is available in autoconf 2.60+, for older versions preseed
 dnl with the same value that 2.60+ uses
-docdir=`var "$docdir" "${datadir}/doc/${PACKAGE_NAME}"`
+docdir=`var "$docdir" "${datadir}/doc/${HB_PKG}"`
 libdir=`var "$libdir" "$exec_prefix/lib"`
 libexecdir=`var "$libexecdir" "$exec_prefix/libexec"`
 noarchlibdir=`var "$noarchlibdir" "$prefix/lib"`
@@ -418,13 +418,17 @@ if test x"$HA_LIBHBDIR" = x ; then
 # https://github.com/davidvossel/pacemaker/commit/44e7ba80e2a259f3b407e2d35cf8353572c6d769
 	AC_MSG_NOTICE($GLUE_HEADER does not define HA_LIBHBDIR, using fallback)
 # FIXME we need to use libexec for daemons, lib is only for shared objects
-	HA_LIBHBDIR="$libdir/$PACKAGE_NAME"
+	HA_LIBHBDIR="$libdir/$HB_PKG"
 	AC_DEFINE_UNQUOTED(HA_LIBHBDIR,"$HA_LIBHBDIR", heartbeat lib directory)
 fi
 
 AC_SUBST(HA_DAEMON_DIR)
-HA_DAEMON_DIR="$libexecdir/$PACKAGE_NAME"
+HA_DAEMON_DIR="$libexecdir/$HB_PKG"
 AC_DEFINE_UNQUOTED(HA_DAEMON_DIR,"$HA_DAEMON_DIR", heartbeat daemon directory)
+
+AC_SUBST(CRM_DAEMON_DIR)
+CRM_DAEMON_DIR="$libexecdir/pacemaker"
+AC_DEFINE_UNQUOTED(CRM_DAEMON_DIR,"$CRM_DAEMON_DIR", pacemaker daemon directory)
 
 HA_VARRUNDIR=`extract_header_define $GLUE_HEADER HA_VARRUNDIR`
 AC_SUBST(HA_VARRUNDIR)

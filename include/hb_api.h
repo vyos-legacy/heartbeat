@@ -437,6 +437,8 @@ struct llc_ops {
 #define KEY_COREROOTDIR	"coreroot"
 #define KEY_REL2	"crm"		/* historical alias for pacemaker */
 #define KEY_PACEMAKER	"pacemaker"
+#define KEY_CRM_DAEMON_DIR	"crm_daemon_dir"
+#define KEY_PENGINE_BY_CRM	"crmd_spawns_pengine"
 #define KEY_AUTOJOIN	"autojoin"
 #define KEY_UUIDFROM	"uuidfrom"
 #define KEY_ENV		"env"
