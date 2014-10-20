@@ -508,28 +508,22 @@ init_config(const char * cfgfile)
 		,	"See documentation for conversion details.");
 	}
 
-	if (*(config->logfile) == EOS) {
-                 if (config->log_facility > 0) {
-                        /* 
-                         * Set to DEVNULL in case a stray script outputs logs
-                         */
-			 strncpy(config->logfile, DEVNULL
-				, 	sizeof(config->logfile));
-                        config->use_logfile=0;
-                  }
-	}
-	if (*(config->dbgfile) == EOS) {
-	        if (config->log_facility > 0) {
-		        /* 
-			 * Set to DEVNULL in case a stray script outputs errors
-		        */
-		        strncpy(config->dbgfile, DEVNULL
-			,	sizeof(config->dbgfile));
-                        config->use_dbgfile=0;
-	        }
+	check_logd_usage(&errcount);
+
+	/*
+	 * If we are supposed to use syslog,
+	 * and no logfiles have been set,
+	 * implicitly set to DEVNULL,
+	 * to override any default-if-unset
+	 * some stray script may have.
+	 */
+	if (config->log_facility > 0) {
+		if (*(config->logfile) == EOS)
+			SetParameterValue(KEY_LOGFILE, DEVNULL);
+		if (*(config->dbgfile) == EOS)
+			SetParameterValue(KEY_DBGFILE, DEVNULL);
         }
 	
-	check_logd_usage(&errcount);
 	if ( !r1_style_valid()){
 		errcount++;
 	}
@@ -1721,7 +1715,7 @@ set_dbgfile(const char * value)
 {
 	strncpy(config->dbgfile, value, PATH_MAX);
 	cl_log_set_debugfile(config->dbgfile);
-	config->use_dbgfile=1;
+	config->use_dbgfile = strcmp(value, DEVNULL);
 	return(HA_OK);
 }
 
@@ -1731,7 +1725,7 @@ set_logfile(const char * value)
 {
 	strncpy(config->logfile, value, PATH_MAX);
 	cl_log_set_logfile(config->logfile);
-	config->use_logfile=1;
+	config->use_logfile = strcmp(value, DEVNULL);
 	return(HA_OK);
 }
 
