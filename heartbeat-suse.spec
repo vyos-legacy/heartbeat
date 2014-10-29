@@ -339,6 +339,8 @@ rm -rf $RPM_BUILD_DIR/heartbeat-%{version}
 %{_libexecdir}/heartbeat/mlock
 %{_datadir}/heartbeat/BasicSanityCheck
 %{_datadir}/heartbeat/TestHeartbeatComm
+%{_datadir}/heartbeat/hb_api.py*
+%{_datadir}/heartbeat/ha_test.py*
 %exclude %{_datadir}/heartbeat/cts
 
 %changelog

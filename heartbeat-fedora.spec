@@ -206,6 +206,8 @@ fi
 %{_libexecdir}/heartbeat/mlock
 %{_datadir}/heartbeat/BasicSanityCheck
 %{_datadir}/heartbeat/TestHeartbeatComm
+%{_datadir}/heartbeat/hb_api.py*
+%{_datadir}/heartbeat/ha_test.py*
 %{_includedir}/heartbeat/
 %{_includedir}/saf/
 %{_includedir}/ocf/

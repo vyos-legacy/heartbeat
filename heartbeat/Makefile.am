@@ -27,6 +27,7 @@ hadir			= $(sysconfdir)/ha.d
 habindir		= @bindir@
 halibdir		= $(libdir)/@HB_PKG@
 halibexecdir		= $(libexecdir)/@HB_PKG@
+hanoarchdir		= "@HA_NOARCHDATAHBDIR@"
 commmoddir		= $(halibdir)/modules/comm
 havarlibdir		= $(localstatedir)/lib/@HB_PKG@
 havarrundir		= $(localstatedir)/run
@@ -53,6 +54,7 @@ noinst_HEADERS		=	hb_config.h		\
 
 ## binary progs
 halibexec_PROGRAMS	= heartbeat
+hanoarch_SCRIPTS	= hb_api.py ha_test.py
 
 ## SOURCES
 heartbeat_SOURCES	= heartbeat.c auth.c				\
