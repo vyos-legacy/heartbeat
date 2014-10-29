@@ -188,12 +188,12 @@ static const size_t CMDS_MAX_LENGTH = 16;
 static gboolean FOR_HUMAN_READ = FALSE;
 static const cmd_t cmds[] = {
 	{ "hbstatus",      hbstatus, 	  "mv",		FALSE},
-	{ "listnodes",     listnodes, 	  "mpn",	TRUE},
+	{ "listnodes",     listnodes, 	  "mpnv",	TRUE},
 	{ "nodestatus",    nodestatus, 	  "m",		TRUE},
 	{ "nodeweight",    nodeweight, 	  "m",		TRUE},
 	{ "nodesite",	   nodesite, 	  "m",		TRUE},
 	{ "nodetype",      nodetype, 	  "m",		TRUE },
-	{ "listhblinks",   listhblinks,   "m",		TRUE },
+	{ "listhblinks",   listhblinks,   "mv",		TRUE },
 	{ "hblinkstatus",  hblinkstatus,  "m",		TRUE },
 	{ "clientstatus",  clientstatus,  "m",		TRUE },
 	{ "rscstatus",     rscstatus, 	  "m",		TRUE}, 
@@ -212,13 +212,19 @@ static const char * simple_help_screen =
 "	Show the status of a heartbeat link\n"
 "hbstatus\n"
 "	Indicate if heartbeat is running on the local system.\n"
-"listhblinks <node-name>\n"
-"	List the network interfaces used as hearbeat links.\n"
+"	Options:\n"
+"		-v	verbose: also add \"listnodes -v\" output\n"
 "listnodes [<option>]\n"
 "	List the nodes in the cluster.\n"
 "	Options:\n"
 "		-p	list only 'ping' type nodes\n"
 "		-n	list only 'normal' type nodes\n"
+"		-v	verbose: also list type and status,\n"
+"			then add \"listhblinks -v\" output\n"
+"listhblinks <node-name>\n"
+"	List the network interfaces used as hearbeat links.\n"
+"	Options:\n"
+"		-v	verbose: list link status as well\n"
 "nodestatus <node-name>\n"
 "	List the node status.\n"
 "nodeweight <node-name>\n"
@@ -358,7 +364,10 @@ static int is_pacemaker_enabled(ll_cluster_t *hb, char **result)
 	return enabled;
 }
 
-static int 
+static int
+__listnodes(ll_cluster_t *hb, int normal_only, int ping_only, int verbose);
+
+static int
 hbstatus(ll_cluster_t *hb, int argc, char ** argv, const char * optstr)
 {
 	char *hbversion = NULL;
@@ -417,26 +426,26 @@ hbstatus(ll_cluster_t *hb, int argc, char ** argv, const char * optstr)
 		else
 			printf("Resources controlled by \"haresources\"\n");
 	} else {
-		printf("version\t\t%s\n", hbversion ?: "unknown");
+		printf("version:\t%s\n", hbversion ?: "unknown");
 		if (!pacemaker_enabled)
-			printf("managed by\t\"haresources\"\n");
+			printf("managed by:\t\"haresources\"\n");
 		else
-			printf("managed by\tpacemaker\t(%s)\n", pacemaker);
+			printf("managed by:\tpacemaker\t(%s)\n", pacemaker);
 	}
+	__listnodes(hb, 0, 0, 1);
 	free(hbversion);
 	free(pacemaker);
 
 	return 0;
 }
 
-static int 
+static int
 listnodes(ll_cluster_t *hb, int argc, char ** argv, const char * optstr)
 {
-	gboolean LIST_ALL = TRUE,
+	gboolean VERBOSE = FALSE,
 		 ONLY_LIST_PING = FALSE, 
-		 ONLY_LIST_NORAMAL = FALSE;
+		 ONLY_LIST_NORMAL = FALSE;
 	int option_char;
-	const char * node, * type;
 
 	do {
 		option_char = getopt(argc-1, argv+1, optstr);
@@ -450,14 +459,16 @@ listnodes(ll_cluster_t *hb, int argc, char ** argv, const char * optstr)
 				FOR_HUMAN_READ = TRUE;
 				break;
 
+			case 'v':
+				VERBOSE = TRUE;
+				break;
+
 			case 'p':
 				ONLY_LIST_PING = TRUE;
-				LIST_ALL = FALSE;	
 				break;
 
 			case 'n':
-				ONLY_LIST_NORAMAL = TRUE;
-				LIST_ALL = FALSE;	
+				ONLY_LIST_NORMAL = TRUE;
 				break;
 
 			default:
@@ -467,31 +478,44 @@ listnodes(ll_cluster_t *hb, int argc, char ** argv, const char * optstr)
 		}
 	} while (1);
 
+	return __listnodes(hb, ONLY_LIST_NORMAL, ONLY_LIST_PING, VERBOSE);
+}
+
+static int
+__listhblinks(ll_cluster_t *hb, const char *host, int verbose);
+
+static int
+__listnodes(ll_cluster_t *hb, int normal_only, int ping_only, int verbose)
+{
+	const char *node, *type;
+
 	if (hb->llc_ops->init_nodewalk(hb) != HA_OK) {
 		cl_log(LOG_ERR, "Cannot start node walk.");
 		cl_log(LOG_ERR, "REASON: %s", hb->llc_ops->errmsg(hb));
 		return UNKNOWN_ERROR;
 	}
 
-	if ( (ONLY_LIST_NORAMAL == TRUE) && (ONLY_LIST_PING == TRUE) ) {
-		LIST_ALL = TRUE;
-	}
+	if (normal_only && ping_only)
+		normal_only = ping_only = 0;
+
 	if (FOR_HUMAN_READ == TRUE) {
 		printf("The nodes are as follow:\n");
 	}
 	while ((node = hb->llc_ops->nextnode(hb))!= NULL) {
-		if ( LIST_ALL == TRUE ) {
-			printf("%s\n", node);
-		} else {
+		if (normal_only || ping_only) {
 			type = hb->llc_ops->node_type(hb, node);
-			if (( ONLY_LIST_NORAMAL == TRUE )
-			      && (STRNCMP_CONST(type, "normal")==0)) {
-				printf("%s\n", node);
-			} else if (( ONLY_LIST_PING == TRUE ) 
-				    && (STRNCMP_CONST(type, "ping")==0)) {
-				printf("%s\n", node);
-			}
-		} 
+			if (normal_only && STRNCMP_CONST(type, "normal"))
+				continue;
+			if (ping_only && STRNCMP_CONST(type, "ping"))
+				continue;
+		}
+		if (verbose) {
+			printf("\n%s\t%s\t(nodetype: %s)\n", node,
+				hb->llc_ops->node_status(hb, node),
+				hb->llc_ops->node_type(hb, node));
+			__listhblinks(hb, node, 1);
+		} else
+			printf("%s\n", node);
 	}
 
 	if (hb->llc_ops->end_nodewalk(hb) != HA_OK) {
@@ -505,7 +529,7 @@ listnodes(ll_cluster_t *hb, int argc, char ** argv, const char * optstr)
 /* Map string std_output to return value ? 
  * Active
  */
-static int 
+static int
 nodestatus(ll_cluster_t *hb, int argc, char ** argv, const char * optstr)
 {
 	const char *	status;
@@ -545,7 +569,8 @@ nodestatus(ll_cluster_t *hb, int argc, char ** argv, const char * optstr)
 	
 	return ret;
 }
-static int 
+
+static int
 nodeweight(ll_cluster_t *hb, int argc, char ** argv, const char * optstr)
 {
 	int	weight;
@@ -576,7 +601,7 @@ nodeweight(ll_cluster_t *hb, int argc, char ** argv, const char * optstr)
 /* Map string std_output to return value ? 
  * Active
  */
-static int 
+static int
 nodesite(ll_cluster_t *hb, int argc, char ** argv, const char * optstr)
 {
 	const char *	site;
@@ -607,7 +632,7 @@ nodesite(ll_cluster_t *hb, int argc, char ** argv, const char * optstr)
 /* Map string std_output to return value ? No
  * NORMAL PING UNKNOWN
  */
-static int 
+static int
 nodetype(ll_cluster_t *hb, int argc, char ** argv, const char * optstr)
 {
 	const char * type;
@@ -636,34 +661,62 @@ nodetype(ll_cluster_t *hb, int argc, char ** argv, const char * optstr)
 	return 0;
 }
 
-static int 
+static int
 listhblinks(ll_cluster_t *hb, int argc, char ** argv, const char * optstr)
 {
-	const char * intf;
+	gboolean VERBOSE = FALSE;
+	int option_char;
 
-	if ( general_simple_opt_deal(argc, argv, optstr) < 0 ) {
-		/* There are option errors */
-		return PARAMETER_ERROR;
-	};
+	do {
+		option_char = getopt(argc-1, argv+1, optstr);
+
+		if (option_char == -1) {
+			break;
+		}
+
+		switch (option_char) {
+			case 'm':
+				FOR_HUMAN_READ = TRUE;
+				break;
+
+			case 'v':
+				VERBOSE = TRUE;
+				break;
+
+			default:
+				cl_log(LOG_ERR, "Error: getopt returned"
+					"character code %c.", option_char);
+				return PARAMETER_ERROR;
+		}
+	} while (1);
 
 	if (argc <= optind+1) {
 		fprintf(stderr, "No enough parameter.\n");
 		return PARAMETER_ERROR;
 	}
+	return __listhblinks(hb, argv[optind+1], VERBOSE);
+}
 
+static int
+__listhblinks(ll_cluster_t *hb, const char *host, int verbose)
+{
+	const char * intf;
 
-	if (hb->llc_ops->init_ifwalk(hb, argv[optind+1]) != HA_OK) {
+	if (hb->llc_ops->init_ifwalk(hb, host) != HA_OK) {
 		cl_log(LOG_ERR, "Cannot start heartbeat link interface walk.");
 		cl_log(LOG_ERR, "REASON: %s", hb->llc_ops->errmsg(hb));
 		return UNKNOWN_ERROR;
 	}
 
 	if (FOR_HUMAN_READ == TRUE) {
-		printf("\tthis node have the following heartbeat links:\n");
+		printf("\tthis node has the following heartbeat links:\n");
 	}
 
 	while ((intf = hb->llc_ops->nextif(hb))) {
-		printf("\t%s\n", intf); 
+		if (verbose)
+			printf("\t%s\t%s\n", intf, hb->llc_ops->if_status(hb, host, intf));
+		else
+			printf("\t%s\n", intf);
 	}
 
 	if (hb->llc_ops->end_ifwalk(hb) != HA_OK) {
@@ -675,7 +728,7 @@ listhblinks(ll_cluster_t *hb, int argc, char ** argv, const char * optstr)
 	return 0;
 }
 
-static int 
+static int
 hblinkstatus(ll_cluster_t *hb, int argc, char ** argv, const char * optstr)
 {
 	const char * if_status;	
@@ -714,7 +767,7 @@ hblinkstatus(ll_cluster_t *hb, int argc, char ** argv, const char * optstr)
 	return ret;
 }
 
-static int 
+static int
 clientstatus(ll_cluster_t *hb, int argc, char ** argv, const char * optstr)
 {
 	/* Default value, its unit is milliseconds */
@@ -761,7 +814,7 @@ clientstatus(ll_cluster_t *hb, int argc, char ** argv, const char * optstr)
 	return ret;
 }
 
-static int 
+static int
 rscstatus(ll_cluster_t *hb, int argc, char ** argv, const char * optstr)
 {
 	const char * rstatus;
@@ -850,7 +903,7 @@ hbparameter(ll_cluster_t *hb, int argc, char ** argv, const char * optstr)
 	return ret_value;
 }
 
-static int 
+static int
 general_simple_opt_deal(int argc, char ** argv, const char * optstr)
 {
 	int option_char;
