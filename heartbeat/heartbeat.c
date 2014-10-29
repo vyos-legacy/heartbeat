@@ -552,6 +552,15 @@ lookup_iface(struct node_info * hip, const char *iface)
 	return NULL;
 }
 
+void inplace_ascii_strdown(char *str)
+{
+	char *c = str;
+	if (!str)
+		return;
+	for (c = str; *c && (*c = g_ascii_tolower(*c)); c++)
+		;
+}
+
 /*
  *	Look up the node in the configuration, returning the node
  *	info structure
@@ -559,13 +568,13 @@ lookup_iface(struct node_info * hip, const char *iface)
 struct node_info *
 lookup_node(const char * h)
 {
-	int			j;
-	char	*shost;
+	int j;
+	char *shost;
 
 	if ( (shost = strdup(h)) == NULL) {
 		return NULL;
 	}
-	g_strdown(shost);
+	inplace_ascii_strdown(shost);
 	for (j=0; j < config->nodecount; ++j) {
 		if (strcmp(shost, config->nodes[j].nodename) == 0)
 			break;
@@ -4981,7 +4990,7 @@ main(int argc, char * argv[], char **envp)
 				cl_perror("uname(2) call failed");
 				cleanexit(LSB_EXIT_EPERM);
 			}
-			g_strdown(u.nodename);
+			inplace_ascii_strdown(u.nodename);
 			printf("%s OK [pid %ld et al] is running on %s [%s]...\n"
 			,	cmdname, running_hb_pid, u.nodename, localnodename);
 			cleanexit(LSB_STATUS_OK);
@@ -5870,8 +5879,6 @@ process_outbound_packet(struct msg_xmit_hist*	hist
 	const char *	type;
 	const char *	cseq;
 	seqno_t		seqno = -1;
-	const  char *	to;
-	int		IsToUs;
 	size_t		len;
 
 	if (DEBUGPKTCONT) {
@@ -5892,9 +5899,6 @@ process_outbound_packet(struct msg_xmit_hist*	hist
 			return HA_FAIL;
 		}
 	}
-
-	to = ha_msg_value(msg, F_TO);
-	IsToUs = (to != NULL) && (strcmp(to, curnode->nodename) == 0);
 
 	/* Convert the incoming message to a string */
 	smsg = msg2wirefmt(msg, &len);
@@ -6661,7 +6665,7 @@ get_localnodeinfo(void)
 	if (fp) {
 		fclose(fp);
 	}
-	g_strdown(localnodename);
+	inplace_ascii_strdown(localnodename);
 }
 static void
 hb_add_deadtime(int increment)

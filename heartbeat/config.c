@@ -1356,7 +1356,7 @@ add_node(const char * value, int nodetype)
 	++config->nodecount;
 	strncpy(hip->status, INITSTATUS, sizeof(hip->status));
 	strncpy(hip->nodename, value, sizeof(hip->nodename));
-	g_strdown(hip->nodename);
+	inplace_ascii_strdown(hip->nodename);
 	cl_uuid_clear(&hip->uuid);
 	hip->rmt_lastupdate = 0L;
 	hip->has_resources = TRUE;
@@ -1906,7 +1906,7 @@ set_stonith_host_info(const char * value)
 	}
 	strncpy(StonithHost, vp, tlen);
 	StonithHost[tlen] = EOS;
-	g_strdown(StonithHost);
+	inplace_ascii_strdown(StonithHost);
 
 	/* Verify that this host is valid to create this stonith
 	 *  object.  Expect the hostname listed to match this host or '*'

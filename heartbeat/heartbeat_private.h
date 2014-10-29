@@ -83,4 +83,7 @@ void hb_kill_tracked_process(ProcTrack* p, void * data);
 gboolean hb_mcp_final_shutdown(gpointer p);
 
 struct ha_msg * add_control_msg_fields(struct ha_msg* ret);
+
+/* simple replacement for deprecated g_strdown(); */
+void inplace_ascii_strdown(char *str);
 #endif /* _HEARTBEAT_PRIVATE_H */

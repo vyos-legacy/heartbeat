@@ -540,12 +540,12 @@ int
 graph_get_maxclique(graph_t *gr, char **bitmap)
 {
 	int loc = 0;
-	int i, size, numBytes;
+	int i, size;
 	
 	graph_sanitize(gr);
 	size = get_max_clique(gr->graph_node, gr->graph_nodes, 
 				&loc);
-	numBytes = bitmap_create(bitmap, MAXNODE);
+	bitmap_create(bitmap, MAXNODE);
 	for ( i = loc ; i < size ; i++ ) {
 		bitmap_mark(gr->graph_node[i]->uuid, *bitmap, MAXNODE);
 	}

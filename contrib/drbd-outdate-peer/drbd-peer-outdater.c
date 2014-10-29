@@ -185,7 +185,6 @@ main(int argc, char ** argv)
 	int i;
 
 	dop_client_t *new_client = NULL;
-	GCHSource *src = NULL;
 
 	cl_log_set_entity(crm_system_name);
 	cl_log_set_facility(HA_LOG_FACILITY);
@@ -250,7 +249,7 @@ main(int argc, char ** argv)
 	new_client->rc = 5; /* default: down/unreachable */
 
 	/* Connect to the IPC server */
-	src = init_dopd_client_ipc_comms(T_OUTDATER, outdate_callback,
+	init_dopd_client_ipc_comms(T_OUTDATER, outdate_callback,
 					 (gpointer)new_client, &ipc_server);
 
 	if (ipc_server == NULL) {

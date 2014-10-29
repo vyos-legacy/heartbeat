@@ -197,14 +197,12 @@ static struct ping_private *
 new_ping_interface(const char * host)
 {
 	struct ping_private*	ppi;
-	struct sockaddr_in *to;
 
 	if ((ppi = (struct ping_private*)MALLOC(sizeof(struct ping_private)))
 	== NULL) {
 		return NULL;
 	}
 	memset(ppi, 0, sizeof (*ppi));
-  	to = &ppi->addr;
 
 #ifdef HAVE_SOCKADDR_IN_SIN_LEN
 	ppi->addr.sin_len = sizeof(struct sockaddr_in);

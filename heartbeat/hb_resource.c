@@ -1369,7 +1369,7 @@ req_our_resources(int getthemanyway)
 	char	cmd[MAXLINE];
 	char	getcmd[MAXLINE];
 	char	buf[MAXLINE];
-	int	finalrc = HA_OK;
+	//int	finalrc = HA_OK;
 	int	rc;
 	int	rsc_count = 0;
 	int	pid;
@@ -1488,7 +1488,7 @@ req_our_resources(int getthemanyway)
 
 		if ((rc=system(getcmd)) != 0) {
 			cl_perror("%s %s", getcmd, rctomsg(rc));
-			finalrc=HA_FAIL;
+			//finalrc=HA_FAIL;
 		}
 	}
 	if ((rc = pclose(rkeys)) != 0) {
@@ -1833,7 +1833,7 @@ go_standby(enum standby who, int resourceset) /* Which resources to give up */
 	FILE *			rkeys;
 	char			cmd[MAXLINE];
 	char			buf[MAXLINE];
-	int			finalrc = HA_OK;
+	//int			finalrc = HA_OK;
 	int			rc = 0;
 	pid_t			pid;
 	int			actresources;	/* Resources to act on */
@@ -1963,7 +1963,7 @@ go_standby(enum standby who, int resourceset) /* Which resources to give up */
 		
 		if ((rc=system(cmd)) != 0) {
 			cl_log(LOG_ERR, "%s %s", cmd, rctomsg(rc));
-			finalrc=HA_FAIL;
+			//finalrc=HA_FAIL;
 		}
 	}
 	if ((rc = pclose(rkeys)) != 0) {
@@ -2005,7 +2005,7 @@ hb_giveup_resources(void)
 	FILE *		rkeys;
 	char		cmd[MAXLINE];
 	char		buf[MAXLINE];
-	int		finalrc = HA_OK;
+	//int		finalrc = HA_OK;
 	int		rc;
 	pid_t		pid;
 	struct ha_msg *	m;
@@ -2112,7 +2112,7 @@ hb_giveup_resources(void)
 		,	buf);
 		if ((rc=system(cmd)) != 0) {
 			cl_log(LOG_ERR, "%s %s", cmd, rctomsg(rc));
-			finalrc=HA_FAIL;
+			//finalrc=HA_FAIL;
 		}
 	}
 	if ((rc = pclose(rkeys)) != 0) {

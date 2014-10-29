@@ -416,9 +416,7 @@ static int
 bcast_make_send_sock(struct hb_media * mp)
 {
 	int sockfd, one = 1;
-	struct ip_private * ei;
 	BCASTASSERT(mp);
-	ei = (struct ip_private *) mp->pd;
 
 	if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
 		PILCallLog(LOG, PIL_CRIT

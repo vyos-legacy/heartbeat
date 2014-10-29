@@ -311,6 +311,7 @@ hb_api_signon(struct ll_cluster* cinfo, const char * clientid)
 	GHashTable*	wchanattrs;
 	char		cuid[20];
 	char		cgid[20];
+	char *c;
 
 	ClearLog();
 	if (!ISOURS(cinfo)) {
@@ -344,7 +345,9 @@ hb_api_signon(struct ll_cluster* cinfo, const char * clientid)
 	}
         memset(OurNode, 0, sizeof(OurNode));
 	strncpy(OurNode, un.nodename, sizeof(OurNode)-1);
-	g_strdown(OurNode);
+	/* g_strdown() is deprecated. */
+	for (c = OurNode; *c && (*c = tolower(*c)); c++)
+		;
 
 	/* Initialize order_seq_head */
 	pi->order_seq_head.seqno = 1;

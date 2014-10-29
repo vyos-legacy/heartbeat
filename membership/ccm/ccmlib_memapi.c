@@ -150,7 +150,7 @@ static int
 init_llm(mbr_private_t *private)
 {
 	struct IPC_CHANNEL *ch;
-	int 	sockfd, ret;
+	int 	ret;
 	struct IPC_MESSAGE *msg;
 
 	if(private->llm) {
@@ -158,7 +158,7 @@ init_llm(mbr_private_t *private)
 	}
 
 	ch 	   = private->channel;
-	sockfd = ch->ops->get_recv_select_fd(ch);
+	ch->ops->get_recv_select_fd(ch);
 	while(1) {
 		if(ch->ops->waitin(ch) != IPC_OK){
 			ch->ops->destroy(ch);
@@ -266,7 +266,7 @@ get_new_membership(mbr_private_t *private,
 		mbr_track_t **mbr)
 {
 	mbr_track_t *newmbr, *oldmbr;
-	int trans, i, j, in_index, out_index, born;
+	int i, j, in_index, out_index, born;
 	int n_members;
 	
 	int n_nodes = CLLM_GET_NODECOUNT(private->llm);
@@ -277,7 +277,7 @@ get_new_membership(mbr_private_t *private,
  	newmbr = *mbr = (mbr_track_t *)g_malloc(size +
 						sizeof(mbr_track_t)-sizeof(newmbr->m_mem));
 	
-	trans = OC_EV_SET_INSTANCE(newmbr,mbrinfo->trans);
+	OC_EV_SET_INSTANCE(newmbr,mbrinfo->trans);
 	n_members = OC_EV_SET_N_MEMBER(newmbr,mbrinfo->n);
 	OC_EV_SET_SIZE(newmbr, size);
 

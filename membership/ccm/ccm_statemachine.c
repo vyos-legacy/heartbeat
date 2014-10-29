@@ -478,7 +478,7 @@ static void
 ccm_memcomp_note(ccm_info_t *info, const char *orig, 
 		uint32_t maxtrans, const char *memlist)
 {
-	int index, numbytes;
+	int index;
 	char *bitmap = NULL;
 	uint32_t *ptr;
 	memcomp_t *mem_comp = CCM_GET_MEMCOMP(info);
@@ -492,7 +492,7 @@ ccm_memcomp_note(ccm_info_t *info, const char *orig,
 	index = llm_get_index(CCM_GET_LLM(info), orig);
 	
 	/* convert the memlist into a bit map and feed it to the graph */
-	numbytes = ccm_str2bitmap(memlist, strlen(memlist), bitmap);
+	ccm_str2bitmap(memlist, strlen(memlist), bitmap);
 	
 	graph_update_membership(MEMCOMP_GET_GRAPH(mem_comp), 
 				index, bitmap);
@@ -513,9 +513,8 @@ static void
 ccm_memcomp_note_my_membership(ccm_info_t *info)
 {
 	char memlist[MAX_MEMLIST_STRING];
-	int str_len;
 
-	str_len = update_strcreate(CCM_GET_UPDATETABLE(info), 
+	update_strcreate(CCM_GET_UPDATETABLE(info),
 			memlist, CCM_GET_LLM(info));
 	ccm_memcomp_note(info, llm_get_mynodename(&info->llm), 
 			CCM_GET_MAXTRANS(info), memlist);
@@ -564,12 +563,10 @@ ccm_memcomp_init(ccm_info_t *info)
 static void 
 ccm_memcomp_reset(ccm_info_t *info)
 {
-	GSList *head;
 	memcomp_t *mem_comp = CCM_GET_MEMCOMP(info);
 
 	graph_free(MEMCOMP_GET_GRAPH(mem_comp));
 	MEMCOMP_SET_GRAPH(mem_comp,NULL);
-	head = MEMCOMP_GET_MAXT(mem_comp);
 	g_slist_foreach(MEMCOMP_GET_MAXT(mem_comp), 
 			ccm_memcomp_free, NULL);
 	g_slist_free(MEMCOMP_GET_MAXT(mem_comp));
@@ -817,7 +814,6 @@ ccm_compute_and_send_final_memlist(ll_cluster_t *hb, ccm_info_t *info)
 	uint maxtrans;
 	char string[MAX_MEMLIST_STRING];
 	char *cookie = NULL;
-	int strsize;
 	int repeat;
 
 	/* get the maxmimum membership list */
@@ -825,7 +821,7 @@ ccm_compute_and_send_final_memlist(ll_cluster_t *hb, ccm_info_t *info)
 
 	
 	/* create a string with the membership information */
-	strsize  = ccm_bitmap2str(bitmap,  string, MAX_MEMLIST_STRING);
+	ccm_bitmap2str(bitmap,  string, MAX_MEMLIST_STRING);
 	
 
 	cookie = ccm_generate_random_cookie();
@@ -895,7 +891,7 @@ ccm_compute_and_send_final_memlist(ll_cluster_t *hb, ccm_info_t *info)
 static int
 ccm_send_cl_reply(ll_cluster_t *hb, ccm_info_t *info)
 {
-	int ret=FALSE, bitmap_strlen;
+	int ret=FALSE;
 	char memlist[MAX_MEMLIST_STRING];
 	const char* cl;
 	const char* cl_tmp;
@@ -927,7 +923,7 @@ ccm_send_cl_reply(ll_cluster_t *hb, ccm_info_t *info)
 				return FALSE;
 			}
 			ret = TRUE;
-			bitmap_strlen = update_strcreate(CCM_GET_UPDATETABLE(info), 
+			update_strcreate(CCM_GET_UPDATETABLE(info), 
 							 memlist, CCM_GET_LLM(info));
 
 			/* send Cluster Leader our memlist only if we are 
@@ -3544,12 +3540,12 @@ reset_change_info(ccm_info_t *info)
 static void send_mem_list_to_all(ll_cluster_t *hb, 
 		ccm_info_t *info, char *cookie)
 {
-	int numBytes, i, size, strsize,  j, tmp, tmp_mem[100];
+	int i, size, j, tmp, tmp_mem[100];
 	char *bitmap;
 	char memlist[MAX_MEMLIST_STRING];
 	int uptime[MAXNODE];
     
-	numBytes = bitmap_create(&bitmap, MAXNODE);
+	bitmap_create(&bitmap, MAXNODE);
 	size = info->memcount;
 	
 	for (i=0; i<size; i++){
@@ -3572,7 +3568,7 @@ static void send_mem_list_to_all(ll_cluster_t *hb,
 						    CCM_GET_LLM(info),
 						    tmp_mem[i]));
 	}    
-	strsize  = ccm_bitmap2str(bitmap, memlist, MAX_MEMLIST_STRING);
+	ccm_bitmap2str(bitmap, memlist, MAX_MEMLIST_STRING);
 	bitmap_delete(bitmap);
 	ccm_send_to_all(hb, info, memlist, cookie, uptime, size);
 	return;
