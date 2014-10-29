@@ -27,3 +27,8 @@ MAINTAINERCLEANFILES    = Makefile.in
 noinst_PROGRAMS		= ccdv 
 
 ccdv_SOURCES	= ccdv.c
+
+# This seems to break compilation with -Wunused and recent sufficiently "smart"
+# compilers, and I'm not going to fix this. It is not relevant for the
+# heartbeat code base.
+ccdv_CFLAGS = $(AM_CFLAGS) -Wno-unused
