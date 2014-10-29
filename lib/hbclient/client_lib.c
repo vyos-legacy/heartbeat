@@ -55,11 +55,20 @@ struct sys_config *		config  = NULL;
 
 int			netstring_format = TRUE;
 
-struct stringlist {
-	char *			value;
-	struct stringlist *	next;
+struct nodelist_entry {
+	longclock_t timestamp;
+	char *name;
+	char *status;
+	char *type;
+	struct nodelist_entry *next;
 };
 
+struct iflist_entry {
+	longclock_t timestamp;
+	char *name;
+	char *status;
+	struct iflist_entry *next;
+};
 
 /*
  *	Queue of messages to be read later...
@@ -122,8 +131,9 @@ typedef struct llc_private {
 	void*			client_private;	/* client status callback data*/
 	struct gen_callback*	genlist;	/* List of general callbacks*/
 	IPC_Channel*		chan;		/* IPC communication channel*/
-	struct stringlist *	nodelist;	/* List of nodes from query */
-	struct stringlist *	iflist;		/* List of IFs from query */
+	struct nodelist_entry*	nodelist;	/* List of nodes from query */
+	char *			iflist_host;	/* Host for which the iflist is valid */
+	struct iflist_entry*	iflist;		/* List of IFs from query */
 	int			SignedOn;	/* 1 if we're signed on */
 	int			iscasual;	/* 1 if casual client */
 	long			deadtime_ms;	/* heartbeat's deadtime */
@@ -131,8 +141,10 @@ typedef struct llc_private {
 	int			logfacility;	/* HB's logging facility */
 	char			*hbversion;	/* cached hbversion at signon */
 	char			*pcmk_mode;	/* cached pacemaker at signon */
-	struct stringlist*	nextnode;	/* Next node for walknode */
-	struct stringlist*	nextif;		/* Next interface for walkif*/
+	struct nodelist_entry*	nextnode;	/* Next node for walknode */
+	struct nodelist_entry*	currnode;	/* corresponds to last return value of nextnode */
+	struct iflist_entry*	nextif;		/* Next interface for walkif */
+	struct iflist_entry*	currif;		/* corresponds to last return value of nextif */
 	/* Messages to be read after current call completes */
 	struct MsgQueue *	firstQdmsg;
 	struct MsgQueue *	lastQdmsg;
@@ -153,9 +165,10 @@ static struct ha_msg*	hb_api_boilerplate(const char * apitype);
 static int		hb_api_signon(struct ll_cluster*, const char * clientid);
 static int		hb_api_signoff(struct ll_cluster*, gboolean);
 static int		hb_api_setfilter(struct ll_cluster*, unsigned);
-static void		destroy_stringlist(struct stringlist *);
-static struct stringlist*
-			new_stringlist(const char *);
+static void		destroy_nodelist(struct nodelist_entry *);
+static void		destroy_iflist(struct iflist_entry *);
+static struct nodelist_entry* new_nodelist(const struct ha_msg *);
+static int		add_to_iflist(llc_private_t *pi, const struct ha_msg *msg);
 static int		get_nodelist(llc_private_t*);
 static void		zap_nodelist(llc_private_t*);
 static int		get_iflist(llc_private_t*, const char *host);
@@ -695,7 +708,7 @@ get_nodelist(llc_private_t* pi)
 	struct ha_msg*		request;
 	struct ha_msg*		reply;
 	const char *		result = NULL;
-	struct stringlist*	sl;
+	struct nodelist_entry*	nl;
 
 	if (!pi->SignedOn) {
 		ha_api_log(LOG_ERR, "not signed on");
@@ -721,10 +734,10 @@ get_nodelist(llc_private_t* pi)
 	while ((reply=read_api_msg(pi)) != NULL
 	&& 	(result = ha_msg_value(reply, F_APIRESULT)) != NULL
 	&&	(strcmp(result, API_MORE) == 0 || strcmp(result, API_OK) == 0)
-	&&	(sl = new_stringlist(ha_msg_value(reply, F_NODENAME))) != NULL){
+	&&	(nl = new_nodelist(reply)) != NULL){
 
-		sl->next = pi->nodelist;
-		pi->nodelist = sl;
+		nl->next = pi->nodelist;
+		pi->nodelist = nl;
 		if (strcmp(result, API_OK) == 0) {
 			pi->nextnode = pi->nodelist;
 			ZAPMSG(reply);
@@ -762,7 +775,6 @@ get_iflist(llc_private_t* pi, const char *host)
 	struct ha_msg*		request;
 	struct ha_msg*		reply;
 	const char *		result;
-	struct stringlist*	sl;
 
 	if (!pi->SignedOn) {
 		ha_api_log(LOG_ERR, "not signed on");
@@ -793,19 +805,22 @@ get_iflist(llc_private_t* pi, const char *host)
 	while ((reply=read_api_msg(pi)) != NULL
 	&& 	(result = ha_msg_value(reply, F_APIRESULT)) != NULL
 	&&	(strcmp(result, API_MORE) == 0 || strcmp(result, API_OK) == 0)
-	&&	(sl = new_stringlist(ha_msg_value(reply, F_IFNAME))) != NULL){
+	&&	(add_to_iflist(pi, reply) == HA_OK)) {
 
-		sl->next = pi->iflist;
-		pi->iflist = sl;
 		if (strcmp(result, API_OK) == 0) {
 			pi->nextif = pi->iflist;
+			pi->iflist_host = strdup(host);
 			ZAPMSG(reply);
 			return(HA_OK);
 		}
 		ZAPMSG(reply);
 	}
 	if (reply != NULL) {
+		const char* failreason = ha_msg_value(reply, F_COMMENT);
 		zap_iflist(pi);
+		if (failreason){
+			ha_api_log(LOG_ERR,  "%s", failreason);
+		}
 		ZAPMSG(reply);
 	}
 
@@ -816,16 +831,30 @@ get_iflist(llc_private_t* pi, const char *host)
  * Return the status of the given node.
  */
 
+static struct nodelist_entry *
+cached_node_info(llc_private_t *pi, const char *host, unsigned stale_ms)
+{
+	if (!pi->currnode || !pi->currnode->name || strcmp(pi->currnode->name, host))
+		return NULL;
+
+	/* longclock_t is long enough. */
+	if (longclockto_ms(cl_times() - pi->currnode->timestamp) > stale_ms)
+		return NULL;
+
+	return pi->currnode;
+}
+
 static const char *
 get_nodestatus(ll_cluster_t* lcl, const char *host)
 {
 	struct ha_msg*		request;
-	struct ha_msg*		reply;
+	struct ha_msg*		reply = NULL;
 	const char *		result;
-	const char *		status;
+	const char *		status = NULL;
 	static char		statbuf[128];
 	const char *		ret;
 	llc_private_t*		pi;
+	const struct nodelist_entry *ne;
 
 	ClearLog();
 	if (!ISOURS(lcl)) {
@@ -837,6 +866,12 @@ get_nodestatus(ll_cluster_t* lcl, const char *host)
 	if (!pi->SignedOn) {
 		ha_api_log(LOG_ERR, "not signed on");
 		return NULL;
+	}
+
+	ne = cached_node_info(pi, host, pi->deadtime_ms/2);
+	if (ne && ne->status) {
+		status = ne->status;
+		goto skip_ipc;
 	}
 
 	if ((request = hb_api_boilerplate(API_NODESTATUS)) == NULL) {
@@ -863,13 +898,16 @@ get_nodestatus(ll_cluster_t* lcl, const char *host)
 	if ((result = ha_msg_value(reply, F_APIRESULT)) != NULL
 	&&	strcmp(result, API_OK) == 0
 	&&	(status = ha_msg_value(reply, F_STATUS)) != NULL) {
+
+skip_ipc:
                 memset(statbuf, 0, sizeof(statbuf));
 		strncpy(statbuf, status, sizeof(statbuf) - 1);
 		ret = statbuf;
 	}else{
 		ret = NULL;
 	}
-	ZAPMSG(reply);
+	if (reply)
+		ZAPMSG(reply);
 
 	return ret;
 }
@@ -1117,12 +1155,13 @@ static const char *
 get_nodetype(ll_cluster_t* lcl, const char *host)
 {
 	struct ha_msg*		request;
-	struct ha_msg*		reply;
+	struct ha_msg*		reply = NULL;
 	const char *		result;
-	const char *		status;
+	const char *		status = NULL;
 	static char		statbuf[128];
 	const char *		ret;
 	llc_private_t*		pi;
+	const struct nodelist_entry *ne;
 
 	ClearLog();
 	if (!ISOURS(lcl)) {
@@ -1135,6 +1174,13 @@ get_nodetype(ll_cluster_t* lcl, const char *host)
 		ha_api_log(LOG_ERR, "not signed on");
 		return NULL;
 	}
+
+	ne = cached_node_info(pi, host, pi->deadtime_ms/2);
+	if (ne && ne->type) {
+		status = ne->type;
+		goto skip_ipc;
+	}
+
 
 	if ((request = hb_api_boilerplate(API_NODETYPE)) == NULL) {
 		return NULL;
@@ -1160,13 +1206,16 @@ get_nodetype(ll_cluster_t* lcl, const char *host)
 	if ((result = ha_msg_value(reply, F_APIRESULT)) != NULL
 	&&	strcmp(result, API_OK) == 0
 	&&	(status = ha_msg_value(reply, F_NODETYPE)) != NULL) {
+
+skip_ipc:
                 memset(statbuf, 0, sizeof(statbuf));
 		strncpy(statbuf, status, sizeof(statbuf) - 1);
 		ret = statbuf;
 	}else{
 		ret = NULL;
 	}
-	ZAPMSG(reply);
+	if (reply)
+		ZAPMSG(reply);
 
 	return ret;
 }
@@ -1410,6 +1459,20 @@ get_mynodeid(ll_cluster_t* lcl)
 
 
 
+static struct iflist_entry *
+cached_intf_info(llc_private_t *pi, const char *host, const char *ifname, unsigned stale_ms)
+{
+	if (!pi->iflist_host || strcmp(pi->iflist_host, host) ||
+	    !pi->currif || !pi->currif->name || strcmp(pi->currif->name, ifname))
+		return NULL;
+
+	/* longclock_t is long enough. */
+	if (longclockto_ms(cl_times() - pi->currif->timestamp) > stale_ms)
+		return NULL;
+
+	return pi->currif;
+}
+
 /*
  * Return the status of the given interface for the given machine.
  */
@@ -1417,12 +1480,13 @@ static const char *
 get_ifstatus(ll_cluster_t* lcl, const char *host, const char * ifname)
 {
 	struct ha_msg*		request;
-	struct ha_msg*		reply;
+	struct ha_msg*		reply = NULL;
 	const char *		result;
-	const char *		status;
+	const char *		status = NULL;
 	static char		statbuf[128];
 	const char *		ret;
 	llc_private_t* pi;
+	const struct iflist_entry *ie;
 
 	ClearLog();
 	if (!ISOURS(lcl)) {
@@ -1433,6 +1497,11 @@ get_ifstatus(ll_cluster_t* lcl, const char *host, const char * ifname)
 	if (!pi->SignedOn) {
 		ha_api_log(LOG_ERR, "not signed on");
 		return NULL;
+	}
+	ie = cached_intf_info(pi, host, ifname, 2000);
+	if (ie && ie->status) {
+		status = ie->status;
+		goto skip_ipc;
 	}
 
 	if ((request = hb_api_boilerplate(API_IFSTATUS)) == NULL) {
@@ -1464,13 +1533,16 @@ get_ifstatus(ll_cluster_t* lcl, const char *host, const char * ifname)
 	if ((result = ha_msg_value(reply, F_APIRESULT)) != NULL
 	&&	strcmp(result, API_OK) == 0
 	&&	(status = ha_msg_value(reply,F_STATUS)) != NULL) {
+
+skip_ipc:
                 memset(statbuf, 0, sizeof(statbuf));
 		strncpy(statbuf, status, sizeof(statbuf) - 1);
 		ret = statbuf;
 	}else{
 		ret = NULL;
 	}
-	ZAPMSG(reply);
+	if (reply)
+		ZAPMSG(reply);
 
 	return ret;
 }
@@ -1480,9 +1552,10 @@ get_ifstatus(ll_cluster_t* lcl, const char *host, const char * ifname)
 static void
 zap_nodelist(llc_private_t* pi)
 {
-	destroy_stringlist(pi->nodelist);
-	pi->nodelist=NULL;
+	destroy_nodelist(pi->nodelist);
+	pi->nodelist = NULL;
 	pi->nextnode = NULL;
+	pi->currnode = NULL;
 }
 /*
  * Zap our list of interfaces.
@@ -1490,9 +1563,12 @@ zap_nodelist(llc_private_t* pi)
 static void
 zap_iflist(llc_private_t* pi)
 {
-	destroy_stringlist(pi->iflist);
-	pi->iflist=NULL;
+	destroy_iflist(pi->iflist);
+	free(pi->iflist_host);
+	pi->iflist_host = NULL;
+	pi->iflist = NULL;
 	pi->nextif = NULL;
+	pi->currif = NULL;
 }
 
 static void
@@ -1550,46 +1626,113 @@ zap_msg_queue(llc_private_t* pi)
 	pi->lastQdmsg = NULL;
 }
 
-
-/*
- * Create a new stringlist.
- */
-static struct stringlist*
-new_stringlist(const char *s)
+static struct nodelist_entry*
+new_nodelist(const struct ha_msg *msg)
 {
-	struct stringlist*	ret;
-	char *			cp;
+	struct nodelist_entry *e;
+	const char *ctmp;
+	char *tmp;
 
-	if (s == NULL) {
-		return(NULL);
-	}
+	if (!msg)
+		return NULL;
 
-	if ((cp = strdup(s)) == NULL) {
-		return(NULL);
+	ctmp = ha_msg_value(msg, F_NODENAME);
+	if (!ctmp)
+		return NULL;
+	tmp = strdup(ctmp);
+	if (!tmp)
+		return NULL;
+
+	e = MALLOCT(struct nodelist_entry);
+	if (e == NULL) {
+		free(tmp);
+		return NULL;
 	}
-	if ((ret = MALLOCT(struct stringlist)) == NULL) {
-		free(cp);
-		return(NULL);
-	}
-	ret->next = NULL;
-	ret->value = cp;
-	return(ret);
+	e->name = tmp;
+
+	/* status and type are shortcuts since heartbeat 3.0.6
+	 * and may be absent from the msg. */
+
+	ctmp = ha_msg_value(msg, F_STATUS);
+	e->status = ctmp ? strdup(ctmp) : NULL;
+
+	ctmp = ha_msg_value(msg, F_NODETYPE);
+	e->type = ctmp ? strdup(ctmp) : NULL;
+
+	e->timestamp = cl_times();
+	e->next = NULL;
+	return e;
 }
 
-/*
- * Destroy (free) a stringlist.
- */
-static void
-destroy_stringlist(struct stringlist * s)
+static void destroy_nodelist(struct nodelist_entry *e)
 {
-	struct stringlist *	this;
-	struct stringlist *	next;
+	struct nodelist_entry *i;
+	struct nodelist_entry *t;
 
-	for (this=s; this; this=next) {
-		next = this->next;
-		free(this->value);
-		memset(this, 0, sizeof(*this));
-		free(this);
+	for (i = e; i; i=t) {
+		t = i->next;
+		free(i->name);
+		free(i->status);
+		free(i->type);
+		memset(i, 0, sizeof(*i));
+	}
+}
+
+int
+add_to_iflist(llc_private_t *pi, const struct ha_msg *msg)
+{
+	struct iflist_entry *e;
+	const char *ctmp;
+	char *tmp;
+
+	if (!msg)
+		return HA_FAIL;
+
+	ctmp = ha_msg_value(msg, F_IFNAME);
+	if (!ctmp)
+		return HA_FAIL;
+
+	/* filter out duplicates */
+	for (e = pi->iflist; e && strcmp(e->name, ctmp); e = e->next)
+		;
+	if (e)
+		return HA_OK;
+
+	tmp = strdup(ctmp);
+	if (!tmp)
+		return HA_FAIL;
+
+	e = MALLOCT(struct iflist_entry);
+	if (e == NULL) {
+		free(tmp);
+		return HA_FAIL;
+	}
+	e->name = tmp;
+
+	/* status is a shortcut since heartbeat 3.0.6
+	 * and may be absent from the msg. */
+	ctmp = ha_msg_value(msg, F_STATUS);
+	e->status = ctmp ? strdup(ctmp) : NULL;
+
+	e->timestamp = cl_times();
+	e->next = NULL;
+
+	e->next = pi->iflist;
+	pi->iflist = e;
+
+	return HA_OK;
+}
+
+static void destroy_iflist(struct iflist_entry *e)
+{
+	struct iflist_entry *i;
+	struct iflist_entry *t;
+
+	for (i = e; i; i=t) {
+		t = i->next;
+		free(i->name);
+		free(i->status);
+		memset(i, 0, sizeof(*i));
 	}
 }
 
@@ -2549,7 +2692,8 @@ nextnode (ll_cluster_t* ci)
 	if (pi->nextnode == NULL) {
 		return(NULL);
 	}
-	ret = pi->nextnode->value;
+	ret = pi->nextnode->name;
+	pi->currnode = pi->nextnode;
 
 	pi->nextnode = pi->nextnode->next;
 	return(ret);
@@ -2617,7 +2761,8 @@ nextif (ll_cluster_t* ci)
 	if (pi->nextif == NULL) {
 		return(NULL);
 	}
-	ret = pi->nextif->value;
+	ret = pi->nextif->name;
+	pi->currif = pi->nextif;
 
 	pi->nextif = pi->nextif->next;
 	return(ret);
