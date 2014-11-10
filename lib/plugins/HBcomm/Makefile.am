@@ -23,10 +23,6 @@ if HBAAPI_BUILD
 HBAPING = hbaping.la
 endif
 
-if BUILD_OPENAIS_MODULE
-OPENAIS=openais.la
-endif
-
 if BUILD_TIPC_MODULE
 TIPC=tipc.la
 endif
@@ -89,10 +85,6 @@ ping_group_la_LIBADD	= $(top_builddir)/replace/libreplace.la
 hbaping_la_SOURCES   	= hbaping.c
 hbaping_la_LDFLAGS  	 = -export-dynamic -module -avoid-version
 hbaping_la_LIBADD   	 = $(top_builddir)/replace/libreplace.la
-
-openais_la_SOURCES   	= openais.c
-openais_la_LDFLAGS  	 = -export-dynamic -module -avoid-version
-openais_la_LIBADD   	 = $(top_builddir)/replace/libreplace.la -levs
 
 tipc_la_SOURCES   	= tipc.c
 tipc_la_LDFLAGS  	= -export-dynamic -module -avoid-version

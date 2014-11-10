@@ -1992,12 +1992,6 @@ AC_CHECK_HEADERS(bzlib.h, , [bz2_installed="no"],)
 AC_CHECK_LIB(bz2, BZ2_bzBuffToBuffCompress , , [bz2_installed="no"])
 AM_CONDITIONAL(BUILD_BZ2_COMPRESS_MODULE, test "x${bz2_installed}" = "xyes")
 
-dnl check if header file and lib are there for openais module
-openais_installed="yes"
-AC_CHECK_HEADERS(evs.h, , [openais_installed="no"],)
-AC_CHECK_LIB(evs, evs_initialize , , [openais_installed="no"])
-AM_CONDITIONAL(BUILD_OPENAIS_MODULE, test "x${openais_installed}" = "xyes")
-
 dnl check if there are getpid() inconsistency
 dnl	Note: reduce LIBS; in particular, ltdl can cause confusion.
 dnl	Possibly better:  move 'LIBS="$LIBS -lltdl"' from above to beyond here.
