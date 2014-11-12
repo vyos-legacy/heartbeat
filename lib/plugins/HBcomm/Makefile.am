@@ -45,7 +45,7 @@ AM_CFLAGS		= @CFLAGS@
 
 halibdir		= $(libdir)/@HB_PKG@
 plugindir		= $(halibdir)/plugins/HBcomm
-plugin_LTLIBRARIES	= bcast.la mcast.la mcast6.la ucast.la \
+plugin_LTLIBRARIES	= bcast.la mcast.la mcast6.la ucast.la ucast6.la \
 			  serial.la \
 			  ping.la ping6.la ping_group.la  \
 			  $(HBAPING) $(OPENAIS) $(TIPC) $(RDS)
@@ -66,6 +66,10 @@ mcast_la_LIBADD		= $(top_builddir)/replace/libreplace.la
 mcast6_la_SOURCES	= mcast6.c
 mcast6_la_LDFLAGS	= -export-dynamic -module -avoid-version 
 mcast6_la_LIBADD	= $(top_builddir)/replace/libreplace.la
+
+ucast6_la_SOURCES	= ucast6.c
+ucast6_la_LDFLAGS	= -export-dynamic -module -avoid-version 
+ucast6_la_LIBADD	= $(top_builddir)/replace/libreplace.la
 
 serial_la_SOURCES	= serial.c
 serial_la_LDFLAGS	= -export-dynamic -module -avoid-version

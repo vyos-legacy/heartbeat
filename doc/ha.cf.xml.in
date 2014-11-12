@@ -564,6 +564,38 @@ respawn hacluster       crmd</programlisting>
       </varlistentry>
       <varlistentry>
 	<term>
+	  <option>ucast6</option>
+	</term>
+	<listitem>
+	  <para>The ucast6 directive configures Heartbeat to
+	  communicate over a IPv6 UDP unicast communications link. The
+	  udpport directive is used to configure which port is used
+	  for these unicast communications if the udpport directive is
+	  specified before the ucast directive, otherwise the default
+	  port will be used.</para>
+	  <para>The general syntax of a ucast6 directive is:</para>
+	  <programlisting>ucast dev peer-ipv6-address</programlisting>
+	  <para>Where dev is the device to use when talking to the
+	  peer, and peer-ip-address is the IP address we will send
+	  packets to.</para>
+	  <para>A sample ucast directive is shown below:</para>
+	  <programlisting>ucast6  eth1 fe80::5054:ff:fe29:3949</programlisting>
+	  <para>This directive will cause us to send packets to the specified
+	  (in this example: link-local) address via the specified interface.
+	  </para><para>As the sockets will be bound to the specified interface,
+	  you have to ensure the specified address is in fact reachable via
+	  that interface.</para><para>
+	  For link-local addresses, you may explicitly specify the
+	  "scope-id" (in the example you would add %eth1 to the address).
+	  If you do, it has to match the device. If you leave it off,
+	  the specified device name is implied.</para>
+	  <para>Note that ucast6 directives which go to the local
+	  machine are effectively ignored. This allows the ha.cf
+	  directives on all machines to be identical.</para>
+	</listitem>
+      </varlistentry>
+      <varlistentry>
+	<term>
 	  <option>udpport</option>
 	</term>
 	<listitem>

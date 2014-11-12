@@ -545,6 +545,8 @@ static int HB_make_receive_sock(struct hb_media *mp) {
 	int bindtries;
 	int boundyet = 0;
 	int one = 1;
+	int rc;
+	int error=0;
 
 	UCASTASSERT(mp);
 	ei = (struct ip_private*)mp->pd;
@@ -625,19 +627,24 @@ static int HB_make_receive_sock(struct hb_media *mp) {
 	/* Sometimes a process with it open is exiting right now */
 
 	for (bindtries=0; !boundyet && bindtries < MAXBINDTRIES; ++bindtries) {
-		if (bind(sockfd, (struct sockaddr *)&my_addr,
-				sizeof(struct sockaddr)) < 0) {
-			PILCallLog(LOG, PIL_CRIT, "ucast: error binding socket. Retrying: %s",
-				strerror(errno));
-			sleep(1);
-		}
-		else{
-			boundyet = 1;
+		rc = bind(sockfd, (struct sockaddr *)&my_addr, sizeof(struct sockaddr));
+		error = errno;
+		if (rc == 0) {
+			boundyet=1;
+		} else if (rc == -1) {
+			if (error == EADDRINUSE) {
+				PILCallLog(LOG, PIL_CRIT, "ucast: Can't bind (EADDRINUSE), retrying");
+				sleep(1);
+			} else	{
+			/* don't keep trying if the error isn't caused by */
+			/* the address being in use already...real error */
+				break;
+			}
 		}
 	}
 	if (!boundyet) {
 #if !defined(SO_BINDTODEVICE)
-		if (errno == EADDRINUSE) {
+		if (error == EADDRINUSE) {
 			/* This happens with multiple udp or ppp interfaces */
 			PILCallLog(LOG, PIL_INFO,
 			  "ucast: someone already listening on port %d [%s]",
