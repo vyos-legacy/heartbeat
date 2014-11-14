@@ -3202,7 +3202,7 @@ get_name_by_uuid(ll_cluster_t* ci, cl_uuid_t* uuid,
 	}	
 	
 	if(!uuid || !nodename || maxnamlen <= 0){
-		ha_api_log(LOG_ERR, "get_name_by_uuid: bad paramter");
+		ha_api_log(LOG_ERR, "get_name_by_uuid: bad parameter");
 		return HA_FAIL;
 	}
 	return get_name(pi, uuid, nodename, maxnamlen);
