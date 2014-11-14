@@ -26,6 +26,8 @@ INCLUDES                = -I$(top_builddir)/include -I$(top_srcdir)/include \
 
 AM_CFLAGS		= @CFLAGS@
 
+gliblib			= @GLIBLIB@
+
 ## libraries
 
 lib_LTLIBRARIES		= libapphb.la
@@ -39,3 +41,5 @@ libapphb_la_CFLAGS	= -lpthread
 endif
 
 libapphb_la_LDFLAGS	= -version-info 2:0:0 
+libapphb_la_LIBADD	= $(gliblib) \
+			  -lplumb
