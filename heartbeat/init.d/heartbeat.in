@@ -18,6 +18,7 @@
 # pidfile: @localstatedir@/run/heartbeat.pid
 # config: @sysconfdir@/ha.d/ha.cf
 #
+
 ### BEGIN INIT INFO
 # Description: @HB_PKG@ is a basic high-availability subsystem.
 #	It will start services at initialization, and when machines go up
@@ -31,18 +32,19 @@
 #		- UDP/IP multicast (ethernet, etc)
 #		- Unicast heartbeats
 #		- "ping" heartbeats (for routers, switches, etc.)
-#	   	(to be used for breaking ties in 2-node systems
+#		(to be used for breaking ties in 2-node systems
 #		 and monitoring networking availability)
-#
 # Short-Description: High-availability services.
-# Provides: heartbeat HA
-# Required-Start: $remote_fs $network $time $syslog
-# Should-Start: openhpid
-# Required-Stop: $remote_fs $network $time $syslog
-# Should-stop: openhpid
-# Default-Start: 2 3 4 5
-# Default-Stop: 0 1 6
+# Provides:		heartbeat HA
+# Required-Start:	$remote_fs $network $time $syslog
+# Should-Start:		openhpid
+# Required-Stop:	$remote_fs $network $time $syslog
+# Should-Stop:		openhpid
+# Default-Start:	2 3 4 5
+# Default-Stop:		0 1 6
 ### END INIT INFO
+
+test -r /lib/lsb/init-functions && . /lib/lsb/init-functions
 
 HEARTBEAT=@HA_DAEMON_DIR@/heartbeat
 
@@ -146,7 +148,7 @@ USE_MODULES=@USE_MODULES@
 #	Some environments like it if we use their functions...
 #
 if
-  [ ! -x $DISTFUNCS ]
+  [ ! -r $DISTFUNCS ]
 then
   # Provide our own versions of these functions
   status() {
