@@ -35,6 +35,8 @@ habin_PROGRAMS		= cl_status cl_respawn
 
 cl_status_SOURCES	= cl_status.c
 cl_status_LDADD		= $(top_builddir)/lib/hbclient/libhbclient.la	\
+			  $(top_builddir)/membership/ccm/libclm.la	\
+			  $(top_builddir)/membership/ccm/libccmclient.la \
 			  -lplumb	\
 			  $(gliblib)					\
 			  $(top_builddir)/replace/libreplace.la

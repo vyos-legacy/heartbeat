@@ -40,6 +40,7 @@
 #include <clplumbing/cl_log.h>
 #include <clplumbing/cl_misc.h>
 #include <hb_api.h>
+#include <ocf/oc_event.h>
 
 
 /* exit code */
@@ -250,6 +251,113 @@ static const unsigned int DEFAULT_TIMEOUT = 5;
 /* the handler of signal SIGALRM */
 static void quit(int signum);
 
+
+/*
+ * Also try to report CCM membership, if any
+ */
+static oc_ev_t *ev_token;
+
+extern void oc_ev_special(const oc_ev_t *, oc_ev_class_t , int );
+
+static void
+my_ms_events(oc_ed_t event, void *cookie, size_t size, const void *data)
+{
+	const oc_ev_membership_t *oc = (const oc_ev_membership_t *)data;
+	uint i;
+	int i_am_in;
+
+	/* See also membership/ccm/ccm_testclient.c
+	 * We don't do a polling loop here, so reduce detail level a bit. */
+	printf("\nccm membership %s\n",
+	       event == OC_EV_MS_EVICTED          ? "evicted" :
+	       event == OC_EV_MS_NEW_MEMBERSHIP   ? "with quorum" :
+	       event == OC_EV_MS_PRIMARY_RESTORED ? "with quorum" :
+	       event == OC_EV_MS_NOT_PRIMARY   ? "WITHOUT quorum" :
+	       /* OC_EV_MS_INVALID */            "WITHOUT quorum");
+
+	if (OC_EV_MS_EVICTED == event) {
+		oc_ev_callback_done(cookie);
+		return;
+	}
+
+	printf("\tinstance %d\n"
+	       "\tmembers %d" /* " (new: %d, lost: %d)" */ "\n",
+	       oc->m_instance, oc->m_n_member /*, oc->m_n_in, oc->m_n_out */);
+
+	i_am_in = 0;
+	for (i = 0; i < oc->m_n_member; i++) {
+		printf("\t\t%d %s\t(born: %d)\n",
+		       oc->m_array[oc->m_memb_idx + i].node_id,
+		       oc->m_array[oc->m_memb_idx + i].node_uname,
+		       oc->m_array[oc->m_memb_idx + i].node_born_on);
+		if (oc_ev_is_my_nodeid(ev_token, &(oc->m_array[i])))
+			i_am_in = 1;
+	}
+	printf("\t%smember of partition\n", i_am_in ? "" : "NOT ");
+
+#if 0
+	printf("\tnew members\n");
+	if (oc->m_n_in == 0)
+		printf("\t\tNONE\n");
+	for (i = 0; i < oc->m_n_in; i++) {
+		printf("\t\t%d %s\t(born: %d)\n",
+		       oc->m_array[oc->m_in_idx + i].node_id,
+		       oc->m_array[oc->m_in_idx + i].node_uname,
+		       oc->m_array[oc->m_in_idx + i].node_born_on);
+	}
+	printf("\tlost members\n");
+	if (oc->m_n_out == 0)
+		printf("\t\tNONE\n");
+	for (i = 0; i < oc->m_n_out; i++) {
+		printf("\t\t%d %s\t(born: %d)\n",
+		       oc->m_array[oc->m_out_idx + i].node_id,
+		       oc->m_array[oc->m_out_idx + i].node_uname,
+		       oc->m_array[oc->m_out_idx + i].node_born_on);
+	}
+#endif
+	oc_ev_callback_done(cookie);
+}
+
+static int try_to_show_ccm_status(void)
+{
+	int ret;
+	fd_set rset;
+	int my_ev_fd;
+
+	oc_ev_register(&ev_token);
+
+	oc_ev_set_callback(ev_token, OC_EV_MEMB_CLASS, my_ms_events, NULL);
+	/* "please also report non-quorate membership": */
+	oc_ev_special(ev_token, OC_EV_MEMB_CLASS, 0 /*don't care */ );
+
+	ret = oc_ev_activate(ev_token, &my_ev_fd);
+	if (ret) {
+		oc_ev_unregister(ev_token);
+		return (1);
+	}
+
+	FD_ZERO(&rset);
+	FD_SET(my_ev_fd, &rset);
+
+	/* no need for timeout, this tool set a global alarm() */
+	if (select(my_ev_fd + 1, &rset, NULL, NULL, NULL) == -1) {
+		perror("select waiting for membership:");
+		return (1);
+	}
+	/* some parts of the ccm lib are too verbose
+	 * for use from a command line tool. */
+	cl_log_enable_stderr(FALSE);
+	ret = oc_ev_handle_event(ev_token);
+	cl_log_enable_stderr(TRUE);
+	if (oc_ev_handle_event(ev_token)) {
+		cl_log(LOG_ERR, "problem handling ccm membership event");
+		return (1);
+	}
+	oc_ev_unregister(ev_token);
+
+	return 0;
+}
+
 int
 main(int argc, char ** argv)
 {
@@ -432,6 +540,11 @@ hbstatus(ll_cluster_t *hb, int argc, char ** argv, const char * optstr)
 		else
 			printf("managed by:\tpacemaker\t(%s)\n", pacemaker);
 	}
+	/* ask this first, because ... */
+	try_to_show_ccm_status();
+	fflush(stderr);
+	fflush(stdout);
+	/* ... below does cluster communication, and may sometimes block */
 	__listnodes(hb, 0, 0, 1);
 	free(hbversion);
 	free(pacemaker);
