@@ -22,7 +22,7 @@ MAINTAINERCLEANFILES    = Makefile.in
 
 SUBDIRS                 = 
 
-INCLUDES                = -I$(top_builddir)/include -I$(top_srcdir)/include \
+AM_CPPFLAGS		= -I$(top_builddir)/include -I$(top_srcdir)/include \
 			-I$(top_builddir)/linux-ha -I$(top_srcdir)/linux-ha  \
 			-I$(top_builddir)/libltdl -I$(top_srcdir)/libltdl  \
 			-I$(top_builddir)/lib/upmls -I$(top_srcdir)/lib/upmls
@@ -38,4 +38,4 @@ plugin_LTLIBRARIES	= 2_0_8.la
 2_0_8_la_SOURCES	= 2_0_8.c
 2_0_8_la_LDFLAGS	= -export-dynamic -module -avoid-version -lz $(GNUTLSLIBS)
 2_0_8_la_LIBADD		= $(top_builddir)/replace/libreplace.la 
-2_0_8_la_CFLAGS 	= $(INCLUDES) $(GNUTLSHEAD)
+2_0_8_la_CFLAGS 	= $(AM_CPPFLAGS) $(GNUTLSHEAD)

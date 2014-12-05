@@ -22,7 +22,7 @@ MAINTAINERCLEANFILES    = Makefile.in
 
 SUBDIRS                 = 
 
-INCLUDES                = -I$(top_builddir)/include -I$(top_srcdir)/include \
+AM_CPPFLAGS		= -I$(top_builddir)/include -I$(top_srcdir)/include \
 			-I$(top_builddir)/linux-ha -I$(top_srcdir)/linux-ha  \
 			-I$(top_builddir)/libltdl -I$(top_srcdir)/libltdl  \
 			-I$(top_builddir)/lib/upmls -I$(top_srcdir)/lib/upmls 
@@ -56,6 +56,6 @@ if QUORUMD_BUILD
 quorumd_la_SOURCES		= quorumd.c
 quorumd_la_LDFLAGS		= -export-dynamic -module -avoid-version -lz $(GNUTLSLIBS)
 quorumd_la_LIBADD		= $(top_builddir)/replace/libreplace.la $(COMMONLIBS)
-quorumd_la_CFLAGS		= $(INCLUDES) $(GNUTLSHEAD)
+quorumd_la_CFLAGS		= $(AM_CPPFLAGS) $(GNUTLSHEAD)
 endif
 

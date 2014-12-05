@@ -18,7 +18,7 @@
 #
 MAINTAINERCLEANFILES = Makefile.in
 
-INCLUDES        = -I$(top_builddir)/include  -I$(top_srcdir)/include     \
+AM_CPPFLAGS	= -I$(top_builddir)/include  -I$(top_srcdir)/include     \
                   -I$(top_builddir)/libltdl  -I$(top_srcdir)/libltdl     \
 		  -I$(top_builddir)/linux-ha -I$(top_srcdir)/linux-ha    \
 		  -I$(top_builddir)          -I$(top_srcdir)
@@ -33,9 +33,9 @@ halibexec_PROGRAMS 	=  quorumd quorumdtest
 quorumd_SOURCES =  quorumd.c
 quorumd_LDADD 	=  $(COMMONLIBS)
 quorumd_LDFLAGS = $(GNUTLSLIBS)
-quorumd_CFLAGS = $(INCLUDES) $(GNUTLSHEAD)
+quorumd_CFLAGS = $(AM_CPPFLAGS) $(GNUTLSHEAD)
 
 quorumdtest_SOURCES =  quorumdtest.c
 quorumdtest_LDADD =  $(COMMONLIBS)
 quorumdtest_LDFLAGS = $(GNUTLSLIBS)
-quorumdtest_CFLAGS = $(INCLUDES) $(GNUTLSHEAD)
+quorumdtest_CFLAGS = $(AM_CPPFLAGS) $(GNUTLSHEAD)

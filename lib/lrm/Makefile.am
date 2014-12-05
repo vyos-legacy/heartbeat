@@ -18,7 +18,7 @@
 #
 MAINTAINERCLEANFILES = Makefile.in
 
-INCLUDES                	=	-I$(top_builddir)/include -I$(top_srcdir)/include \
+AM_CPPFLAGS			=	-I$(top_builddir)/include -I$(top_srcdir)/include \
                        			-I$(top_builddir)/linux-ha -I$(top_srcdir)/linux-ha \
 					-I$(top_builddir)/libltdl -I$(top_srcdir)/libltdl
 
@@ -34,7 +34,6 @@ apigid                          =       @HA_APIGID@
 lib_LTLIBRARIES = liblrm.la
 liblrm_la_SOURCES = lrm_msg.c clientlib.c racommon.c
 liblrm_la_LDFLAGS = -version-info 2:0:0 $(COMMONLIBS)
-liblrm_la_CFLAGS = $(INCLUDES)
 
 install-exec-local:
 	$(mkinstalldirs) $(DESTDIR)$(lrmdir)
