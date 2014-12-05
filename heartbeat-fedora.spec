@@ -17,7 +17,7 @@ Name:             heartbeat
 Summary:          Messaging and membership subsystem for High-Availability Linux
 Version:          3.0.6
 #Release:          %{?alphatag:0.}%{specversion}%{?alphatag:.%{alphatag}}%{?dist}
-Release:          0rc1%{?dist}
+Release:          0rc2%{?dist}
 License:          GPLv2 and LGPLv2+
 URL:              http://linux-ha.org/
 Group:            System Environment/Daemons
@@ -47,7 +47,6 @@ Requires(post):   /sbin/chkconfig
 Requires(preun):  /sbin/chkconfig
 %endif
 Requires:         heartbeat-libs = %{version}-%{release}
-Requires:         PyXML
 Requires:         resource-agents
 Requires:         cluster-glue-libs
 Requires(pre):    shadow-utils
@@ -253,6 +252,20 @@ fi
 %{_libdir}/*.so
 
 %changelog
+* Thu Dec 04 2014 Lars Ellenberg <lars.ellenberg@linbit.com> - 3.0.6-0rc2
+- fix ccm not converging (addendum)
+- fix emergency shutdown due to broken update_ackseq
+- heartbeat.service file for systemd platforms
+- new ucast6 UDP IPv6 communication plugin
+- package ha_api.py in standard package
+- update some man pages, specifically the example ha.cf
+- also report ccm membership status for cl_status hbstatus -v
+- updated some log messages, or their log levels
+- reduce max_delay in broadcast client_status query to one second
+- apply various (mostly cosmetic) patches from Debian
+- drop HBcompress compression plugins: they are part of cluster glue
+- drop "openais" HBcomm plugin
+
 * Tue Oct 28 2014 Lars Ellenberg <lars.ellenberg@linbit.com> - 3.0.6-0rc1
 - fix node dead detection problems
 - fix converging of membership (ccm)

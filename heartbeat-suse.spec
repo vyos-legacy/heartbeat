@@ -31,7 +31,7 @@
 Name:           heartbeat
 Summary:        Messaging and membership subsystem for High-Availability Linux
 Version:        3.0.6
-Release:	0rc1%{?dist}
+Release:	0rc2%{?dist}
 License:        GPL v2 only; LGPL v2.1 or later
 Url:            http://linux-ha.org/
 Group:          Productivity/Clustering/HA
@@ -338,6 +338,21 @@ systemd-tmpfiles --create %{_tmpfilesdir}/%{name}.conf
 %{_libdir}/*.so
 
 %changelog
+* Thu Dec 04 2014 Lars Ellenberg <lars.ellenberg@linbit.com> - 3.0.6-0rc2
+- fix ccm not converging (addendum)
+- fix emergency shutdown due to broken update_ackseq
+- heartbeat.service file for systemd platforms
+- new ucast6 UDP IPv6 communication plugin
+- package ha_api.py in standard package
+- update some man pages, specifically the example ha.cf
+- also report ccm membership status for cl_status hbstatus -v
+- updated some log messages, or their log levels
+- reduce max_delay in broadcast client_status query to one second
+- apply various (mostly cosmetic) patches from Debian
+- drop HBcompress compression plugins: they are part of cluster glue
+- drop "openais" HBcomm plugin
+- split into heartbeat and heartbeat-libs packages also on suse
+
 * Tue Oct 28 2014 Lars Ellenberg <lars.ellenberg@linbit.com> - 3.0.6-0rc1
 - fix node dead detection problems
 - fix converging of membership (ccm)
