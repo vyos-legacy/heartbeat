@@ -2632,6 +2632,38 @@ read_msg_w_callbacks(ll_cluster_t* llc, int blocking)
 	}while (msg && CallbackCall(pi, msg));
 	return(msg);
 }
+
+static void log_ignored_msg(const struct ha_msg *msg)
+{
+	if (DEBUGPKTCONT) {
+		cl_log(LOG_DEBUG, "Received but ignored message");
+		cl_log_message(LOG_DEBUG, msg);
+	} else {
+		/* ANYDEBUG */
+		const char *ty = ha_msg_value(msg, F_TYPE);
+		const char *to = ha_msg_value(msg, F_TOID);
+		const char *from = ha_msg_value(msg, F_FROMID);
+		const char *src = ha_msg_value(msg, F_ORIG);
+		const char *dest = ha_msg_value(msg, F_TO);
+		const char *client_status = NULL;
+
+		if (ty) {
+			if (strcasecmp(ty, T_APICLISTAT))
+				client_status = ha_msg_value(msg, F_STATUS);
+			if (strcasecmp(ty, T_RCSTATUS)) {
+				client_status = ha_msg_value(msg, F_CLIENTSTATUS);
+				if (!from)
+					from = ha_msg_value(msg, F_CLIENTNAME);
+			}
+		}
+		cl_log(LOG_DEBUG, "Received but ignored message from %s@%s to %s@%s %s=%s %s%s",
+				from ?: "", src ?: "", to ?: "", dest ?: "",
+				F_TYPE, ty ?: "",
+				client_status ? "remote client status now: " : "",
+				client_status ?: "");
+	}
+}
+
 /*
  * Receive messages.  Activate callbacks.  Messages without callbacks
  * are ignored.  Potentially several messages could be acted on.
@@ -2640,10 +2672,9 @@ static int
 rcvmsg(ll_cluster_t* llc, int blocking)
 {
 	struct ha_msg*	msg = NULL;
-	
 	msg=read_msg_w_callbacks(llc, blocking);
-
 	if (msg) {
+		log_ignored_msg(msg);
 		ZAPMSG(msg);
 		return(1);
 	}
