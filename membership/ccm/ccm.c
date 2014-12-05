@@ -178,7 +178,6 @@ ccm_control_process(ccm_info_t *info, ll_cluster_t * hb)
 			if (STRNCMP_CONST(nodetype, NORMALNODE) !=0 ){
 				return TRUE;
 			}
-			nodetype = hb->llc_ops->node_type(hb, orig);
 			site = hb->llc_ops->node_site(hb, orig);
 			weight = hb->llc_ops->node_weight(hb, orig);
 			if (llm_add(llm, orig, status, mynode, site, weight) != HA_OK){

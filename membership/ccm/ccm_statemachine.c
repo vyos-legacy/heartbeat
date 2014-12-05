@@ -1215,7 +1215,7 @@ ccm_state_version_request(enum ccm_type ccm_msg_type,
 		 */
 		if(resp_can_i_drop()) {
 			if ((clsize = ha_msg_value(reply, CCM_CLSIZE)) == NULL){
-				ccm_debug(LOG_WARNING, "%s:  no cookie information", __FUNCTION__);
+				ccm_debug(LOG_WARNING, "%s: no cluster size information", __FUNCTION__);
 				return;
 			}
 			clsize_val = atoi(clsize);
