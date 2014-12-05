@@ -1087,11 +1087,11 @@ get_clientstatus(ll_cluster_t* lcl, const char *host
 		}
 
 		/* We delay random time here to distribute requests from different nodes
-		 * across time in a big cluster. Scale max delay as 50ms per node,
-		 * in a 100-node cluster, the max delay is 5 seconds
+		 * across time in a big cluster. Scale max delay as 10ms per node,
+		 * in a 100-node cluster, the max delay is 1 seconds
 		 */
 		num_nodes = get_num_nodes(lcl);
-		max_delay = num_nodes * 50000; /* in microsecond*/
+		max_delay = num_nodes * 10000; /* in microsecond*/
 		srand(cl_randseed());
 		delay = (1.0* rand()/RAND_MAX)*max_delay;
 		if (ANYDEBUG){
