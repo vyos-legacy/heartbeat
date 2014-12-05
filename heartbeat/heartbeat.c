@@ -2433,12 +2433,10 @@ update_ackseq(seqno_t new_ackseq)
 		all_clients_resume();
 	}
 
+	start = hist->lowseq;
 	count = hist->ackseq - hist->lowseq - send_cluster_msg_level;
-	if (old_ackseq == 0){
-		start = 0;
+	if (old_ackseq == 0) {
 		count = count - 1;
-	}else{
-		start = hist->lowseq;
 	}
 	
 	while(count -- > 0){
@@ -6219,7 +6217,6 @@ add2_xmit_hist (struct msg_xmit_hist * hist, struct ha_msg* msg
 ,	seqno_t seq)
 {
 	int	slot;
-	struct ha_msg* slotmsg;
 
 	if (!msg) {
 		cl_log(LOG_CRIT, "Unallocated message in add2_xmit_hist");
@@ -6232,19 +6229,7 @@ add2_xmit_hist (struct msg_xmit_hist * hist, struct ha_msg* msg
 		slot = 0;
 	}
 	hist->hiseq = seq;
-	slotmsg = hist->msgq[slot];
-	/* Throw away old packet in this slot */
-	if (slotmsg != NULL) {
-		/* Lowseq is less than the lowest recorded seqno */
-		hist->lowseq = hist->seqnos[slot];
-		hist->msgq[slot] = NULL;
-		if (!slotmsg) {
-			cl_log(LOG_CRIT
-			,	"Unallocated slotmsg in add2_xmit_hist");
-		}else{
-			ha_msg_del(slotmsg);
-		}
-	}
+	free_one_hist_slot(hist, slot);
 	hist->msgq[slot] = msg;
 	hist->seqnos[slot] = seq;
 	hist->lastrexmit[slot] = 0L;
