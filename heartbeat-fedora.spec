@@ -106,6 +106,12 @@ export docdir=%{heartbeat_docdir}
 CFLAGS=${RPM_OPT_FLAGS} %configure \
     --disable-fatal-warnings \
     --disable-static \
+%if %{defined _initrddir}
+    --with-initdir=%{_initrddir} \
+%endif
+%if %{defined _unitdir}
+    --with-systemdunitdir=%{_unitdir} \
+%endif
 %if 0%{?fedora} >= 11 || 0%{?centos_version} > 5 || 0%{?rhel} > 5
     --docdir=%{heartbeat_docdir}
 %endif
@@ -126,6 +132,11 @@ make DESTDIR=$RPM_BUILD_ROOT docdir=%{heartbeat_docdir} install
 [ -d $RPM_BUILD_ROOT/usr/share/libtool ] && rm -rf $RPM_BUILD_ROOT/usr/share/libtool
 find $RPM_BUILD_ROOT -type f -name *.la -exec rm -f {} ';'
 rm -rf $RPM_BUILD_ROOT/%{_datadir}/heartbeat/cts
+
+# don't package sysv init files on systemd platforms
+%if %{defined _unitdir}
+rm -f %{buildroot}/%{_initrddir}/heartbeat
+%endif
 
 %clean
 rm -rf $RPM_BUILD_ROOT
@@ -165,7 +176,11 @@ fi
 %{_datadir}/heartbeat/hb_api.py*
 %{_datadir}/heartbeat/ha_test.py*
 %{_sysconfdir}/ha.d/resource.d/
-%{_sysconfdir}/init.d/heartbeat
+%if %{defined _unitdir}
+%{_unitdir}/heartbeat.service
+%else
+%{_initrddir}/heartbeat
+%endif
 %config(noreplace) %{_sysconfdir}/logrotate.d/heartbeat
 %dir %{_var}/lib/heartbeat
 %dir %{_var}/run/heartbeat

@@ -386,7 +386,7 @@ else
    AC_MSG_FAILURE(Core development headers were not found)
 fi
 
-CFLAGS="$CFLAGS -I${prefix}/include/heartbeat"
+CPPFLAGS="$CPPFLAGS -I${prefix}/include/heartbeat"
 AC_CHECK_HEADERS(glue_config.h)
 if test "$ac_cv_header_glue_config_h" != "yes";  then
    AC_MSG_FAILURE(Core development headers were not found)
@@ -572,7 +572,7 @@ AC_SUBST(MD5)
 
 dnl The "test" program can be different from the "sh" builtin.
 AC_PATH_PROGS(TEST, test)
-AC_PATH_PROGS(PKGCONFIG, pkg-config)
+PKG_PROG_PKG_CONFIG
 
 dnl xsltproc is required for building the man pages
 AC_PATH_PROGS(XSLTPROC, xsltproc)
@@ -686,10 +686,10 @@ dnl ************ uuid **********************
 
 EXTRAGLIBMSG="-"
 
-if test "X${PKGCONFIG}" = "X"; then
+if test "X${PKG_CONFIG}" = "X"; then
 	AC_MSG_RESULT(not found)
-	FatalMissingThing "pkgconfig" "Package pkgconfig is required" 	\
-	"See http://pkgconfig.sourceforge.net/"	
+	FatalMissingThing "pkgconfig" "Package pkgconfig is required"	\
+	"See http://pkgconfig.sourceforge.net/"
 	EXTRALIBMSG="(this message might be bogus because pkgconfig is missing)"
 fi
 
@@ -699,14 +699,14 @@ else
         GPKGNAME="glib-2.0"
 fi
 
-if test "X${PKGCONFIG}" != "X" && $PKGCONFIG --exists $GPKGNAME; then
-	GLIBCONFIG="$PKGCONFIG $GPKGNAME"
+if $PKG_CONFIG --exists $GPKGNAME; then
+	GLIBCONFIG="$PKG_CONFIG $GPKGNAME"
 else
 	set -x
         echo PKG_CONFIG_PATH=$PKG_CONFIG_PATH
-	$PKGCONFIG --exists $GPKGNAME; echo $?
-	$PKGCONFIG --cflags $GPKGNAME; echo $?
-	$PKGCONFIG $GPKGNAME; echo $?
+	$PKG_CONFIG --exists $GPKGNAME; echo $?
+	$PKG_CONFIG --cflags $GPKGNAME; echo $?
+	$PKG_CONFIG $GPKGNAME; echo $?
 	set +x
         
 	FatalMissingThing "glib2-devel"              \
@@ -717,17 +717,42 @@ else
 fi
 AC_MSG_RESULT(using $GLIBCONFIG)
 
+dnl ***************************
+dnl Do we know where systemd unit files go?
+AC_ARG_WITH([systemdunitdir],
+	[AC_HELP_STRING([--with-systemdunitdir=DIR],
+        	        [Directory for systemd service files [Auto]])],
+	[WITH_SYSTEMD_UNIT_DIR=$withval])
+if test x"$with_systemdunitdir" = x || \
+   test x"$with_systemdunitdir" = xyes ; then
+	if test x"$PKG_CONFIG" != x; then
+		systemdunitdir=$($PKG_CONFIG --variable=systemdsystemunitdir systemd)
+	fi
+	if test x"$systemdunitdir" = x; then
+		AC_MSG_NOTICE([Could not detect systemd unit directory])
+	fi
+else
+	systemdunitdir=$with_systemdunitdir
+fi
+AC_SUBST(systemdunitdir)
+AC_MSG_RESULT([Using systemd unit directory: '$systemdunitdir'])
+AM_CONDITIONAL(BUILD_SYSTEMD, test -n "$systemdunitdir")
+
+dnl ***************************
+
 sendarp_linux=0
 case $host_os in
      *Linux*|*linux*) sendarp_linux=1;;
 esac
 
+dnl ***************************
 AC_MSG_CHECKING(where is python installed)
 if test "x${PYTHON}" = x; then
   PYTHON="/usr/bin/env python";
 fi
 AC_MSG_RESULT(using $PYTHON);
 
+dnl ***************************
 AC_MSG_CHECKING(if netstat supports -f inet flag)
 $NETSTAT -rn -f inet > /dev/null 2>&1
 if test x"$?" = x"0"; then
@@ -1385,9 +1410,7 @@ AC_ARG_ENABLE([thread-safe],
 [  --enable-thread-safe Enable some client libraries to be thread safe.
                           [default=no]])
 
-
 CC_WARNINGS=""
-enable_crm=no
 
 dnl - If requested, enable ALL subsystems.
 	if test "${enable_all}" = "yes" ; then
@@ -1688,6 +1711,7 @@ INITDIR=""
 for initdir in /etc/init.d /etc/rc.d/init.d /sbin/init.d	\
 	 /usr/local/etc/rc.d /etc/rc.d
 do
+  test -L $initdir && continue
   if
     test -d $initdir
   then
@@ -2342,6 +2366,7 @@ heartbeat/Makefile						\
 		heartbeat/rc.d/hb_takeover			\
 	heartbeat/init.d/Makefile				\
 		heartbeat/init.d/heartbeat			\
+		heartbeat/init.d/heartbeat.service		\
 	heartbeat/lib/Makefile					\
 		heartbeat/lib/BasicSanityCheck			\
 		heartbeat/lib/ha_config				\

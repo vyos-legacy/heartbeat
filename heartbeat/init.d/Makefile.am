@@ -19,30 +19,11 @@
 #
 MAINTAINERCLEANFILES    = Makefile.in
 
-initddir		= @INITDIR@
+initdir		= @INITDIR@
+init_SCRIPTS	= heartbeat
 
-initd_SCRIPTS		= heartbeat
+if BUILD_SYSTEMD
+systemdunit_DATA = heartbeat.service
+endif
 
-EXTRA_DIST              = heartbeat.in
-
-install-initdSCRIPTS: $(initd_SCRIPTS)
-	@$(NORMAL_INSTALL)
-	$(mkinstalldirs) $(DESTDIR)$(initddir)
-	@list='$(initd_SCRIPTS)'; for p in $$list; do \
-	  f="`echo $$p|sed '$(transform)'`"; \
-	  if test -f $$p; then \
-	    echo " $(INSTALL_SCRIPT) $$p $(DESTDIR)$(initddir)/$$f@INIT_EXT@"; \
-	    $(INSTALL_SCRIPT) $$p $(DESTDIR)$(initddir)/$$f@INIT_EXT@; \
-	  elif test -f $(srcdir)/$$p; then \
-	    echo " $(INSTALL_SCRIPT) $(srcdir)/$$p $(DESTDIR)$(initddir)/$$f@INIT_EXT@"; \
-	    $(INSTALL_SCRIPT) $(srcdir)/$$p $(DESTDIR)$(initddir)/$$f@INIT_EXT@; \
-	  else :; fi; \
-	done
-
-uninstall-initdSCRIPTS:
-	@$(NORMAL_UNINSTALL)
-	@list='$(initd_SCRIPTS)'; for p in $$list; do \
-	  f="`echo $$p|sed '$(transform)'`"; \
-	  echo " rm -f $(DESTDIR)$(initddir)/$$f@INIT_EXT@"; \
-	  rm -f $(DESTDIR)$(initddir)/$$f;@INIT_EXT@ \
-	done
+EXTRA_DIST	= heartbeat.in heartbeat.service.in

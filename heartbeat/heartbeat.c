@@ -262,7 +262,7 @@
 #include "clplumbing/setproctitle.h"
 #include <clplumbing/cl_pidfile.h>
 
-#define OPTARGS			"dDkMrRsvWlC:V"
+#define OPTARGS			"dDkMrRsvWlC:Vf"
 #define	ONEDAY			(24*60*60)	/* Seconds in a day */
 #define MAX_MISSING_PKTS	20
 
@@ -299,6 +299,7 @@ static gboolean			killrunninghb = FALSE;
 static gboolean			rpt_hb_status = FALSE;
 int				RestartRequested = FALSE;
 int				hb_realtime_prio = -1;
+int				foreground = 0;
 
 int	 			UseApphbd = FALSE;
 static gboolean			RegisteredWithApphbd = FALSE;
@@ -4886,6 +4887,9 @@ main(int argc, char * argv[], char **envp)
 			case 'W':
 				++WikiOutput;
 				break;
+			case 'f':
+				++foreground;
+				break;
 				
 			default:
 				++argerrs;
@@ -5253,12 +5257,8 @@ make_daemon(void)
 
 	/* Guess not. Go ahead and start things up */
 
-	if (!WeAreRestarting) {
-#if 1
+	if (!WeAreRestarting && !foreground) {
 		pid = fork();
-#else
-		pid = 0;
-#endif
 		if (pid < 0) {
 			cl_log(LOG_ERR, "%s: could not start daemon\n"
 			,	cmdname);
@@ -5269,14 +5269,12 @@ make_daemon(void)
 		}
 	}
 
-	
+	pid = getpid();
 	if ( cl_lock_pidfile(PIDFILE) < 0){
 		cl_log(LOG_ERR,"%s: could not create pidfile [%s]\n",
 			cmdname, PIDFILE);
 		exit(LSB_EXIT_EPERM);
 	}
-
-
 
 	cl_log_enable_stderr(FALSE);
 

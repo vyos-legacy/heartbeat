@@ -178,8 +178,11 @@ export docdir=%{heartbeat_docdir}
     --with-group-name=%{gname} \
     --with-ccmuser-name=%{uname} \
     --with-rundir=%{_rundir} \
+%if %{defined _initrddir}
+    --with-initdir=%{_initrddir} \
+%endif
 %if %{defined _unitdir}
-    --with-systemdsystemunitdir=%{_unitdir} \
+    --with-systemdunitdir=%{_unitdir} \
 %endif
     --docdir=%{heartbeat_docdir}
 %endif
@@ -191,11 +194,17 @@ make %{?_smp_mflags} docdir=%{heartbeat_docdir}
 ###########################################################
 #make DESTDIR=$RPM_BUILD_ROOT install-strip
 make DESTDIR=$RPM_BUILD_ROOT install
+%if %{defined _unitdir}
+# don't package sysv init files on systemd platforms
+rm -f %{buildroot}/%{_initrddir}/heartbeat
+%else
+# only package rcheartbeat on sysv init platforms
 test -d $RPM_BUILD_ROOT/sbin || mkdir $RPM_BUILD_ROOT/sbin
 (
   cd $RPM_BUILD_ROOT/sbin
   ln -s /etc/init.d/heartbeat   rcheartbeat
 ) || true
+%endif
 # Cleanup
 [ -d $RPM_BUILD_ROOT/usr/man ] && rm -rf $RPM_BUILD_ROOT/usr/man
 [ -d $RPM_BUILD_ROOT/usr/share/libtool ] && rm -rf $RPM_BUILD_ROOT/usr/share/libtool
@@ -257,7 +266,6 @@ rm -rf $RPM_BUILD_DIR/heartbeat-%{version}
 %defattr(-,root,root)
 %{_bindir}/cl_respawn
 %attr (2555, root, haclient) %{_bindir}/cl_status
-/sbin/rcheartbeat
 %{_libexecdir}/heartbeat/apphbd
 %{_libexecdir}/heartbeat/ccm
 %{_libexecdir}/heartbeat/dopd
@@ -287,7 +295,12 @@ rm -rf $RPM_BUILD_DIR/heartbeat-%{version}
 %{_datadir}/heartbeat/ha_test.py*
 %{_datadir}/doc/packages/heartbeat/apphbd.cf
 %{_sysconfdir}/ha.d
-%{_sysconfdir}/init.d/heartbeat
+%if %{defined _unitdir}
+%{_unitdir}/heartbeat.service
+%else
+%{_initrddir}/heartbeat
+/sbin/rcheartbeat
+%endif
 %config(noreplace) %{_sysconfdir}/logrotate.d/heartbeat
 %dir %{_var}/run/heartbeat
 %dir %attr (0750, %{uname}, %{gname})   %{_var}/run/heartbeat/dopd
