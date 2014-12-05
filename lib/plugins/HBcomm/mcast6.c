@@ -411,7 +411,7 @@ mcast6_read(struct hb_media* hbm, int *lenp)
 	mcast6_pkt[numbytes] = EOS;
 
 	if (numbytes > largest_msg_size) {
-		PILCallLog(LOG, PIL_INFO, "mcast6: maximum received message: %d bytes from %s", numbytes, mcp->mcast6_s);
+		PILCallLog(LOG, PIL_DEBUG, "mcast6: maximum received message: %d bytes from %s", numbytes, mcp->mcast6_s);
 		largest_msg_size = numbytes;
 	}
 	if (Debug >= PKTTRACE) {
@@ -453,7 +453,7 @@ mcast6_write(struct hb_media* hbm, void *pkt, int len)
 	}
 
 	if (len > largest_msg_size) {
-		PILCallLog(LOG, PIL_INFO, "mcast6: maximum sent message: %d bytes to %s", rc, mcp->mcast6_s);
+		PILCallLog(LOG, PIL_DEBUG, "mcast6: maximum sent message: %d bytes to %s", rc, mcp->mcast6_s);
 		largest_msg_size = len;
 	}
 

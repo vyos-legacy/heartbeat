@@ -479,7 +479,7 @@ rds_read(struct hb_media* mp, int *lenp)
 		return NULL;
 	}
 	if (numbytes > largest_msg_size) {
-		PILCallLog(LOG, PIL_INFO, "rds: %s maximum received message: %d bytes from %s",
+		PILCallLog(LOG, PIL_DEBUG, "rds: %s maximum received message: %d bytes from %s",
 			ei->interface, numbytes, inet_ntoa(their_addr.sin_addr));
 		largest_msg_size = numbytes;
 	}
@@ -603,7 +603,7 @@ rds_write(struct hb_media* mp, void *pkt, int len)
 		return HA_FAIL;
 
 	if (len > largest_msg_size) {
-		PILCallLog(LOG, PIL_INFO, "rds: %s maximum sent message: %d bytes",
+		PILCallLog(LOG, PIL_DEBUG, "rds: %s maximum sent message: %d bytes",
 			ei->interface, len);
 		largest_msg_size = len;
 	}
