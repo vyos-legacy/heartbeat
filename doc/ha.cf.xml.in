@@ -192,10 +192,9 @@ bcast le0        # for Solaris systems</programlisting>
 	  <para>The compression directive sets which compression method will be used when a message is big and compression is needed.</para>
 	  <para>It could be either zlib or bz2, depending on whether
 	  you have the corresponding library in the system. You can
-	  check @HA_PLUGIN_DIR@/HBcompress,
-	  or, with recent (>= 1.0.10) cluster-glue packages, @HA_PLUGIN_DIR@/compress,
-	  to see what
-	  compression module is available.</para>
+	  check @HA_PLUGIN_DIR@/compress, to see what
+	  compression module is available.
+	  Requires cluster-glue >= 1.0.10.</para>
 	  <para>If this directive is not set, there will be no
 	  compression.</para>
 	</listitem>

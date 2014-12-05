@@ -2333,7 +2333,6 @@ lib/Makefile							\
 	lib/plugins/Makefile					\
 		lib/plugins/HBauth/Makefile			\
 		lib/plugins/HBcomm/Makefile			\
-		lib/plugins/HBcompress/Makefile			\
 		lib/plugins/quorum/Makefile			\
 		lib/plugins/quorumd/Makefile			\
 		lib/plugins/tiebreaker/Makefile			\

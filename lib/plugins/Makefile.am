@@ -24,5 +24,5 @@ if QUORUMD_BUILD
 QUORUMD_DIR = quorumd
 endif
 
-SUBDIRS			= HBauth HBcomm HBcompress \
+SUBDIRS			= HBauth HBcomm \
 			  quorum  tiebreaker $(QUORUMD_DIR)

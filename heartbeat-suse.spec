@@ -266,7 +266,6 @@ rm -rf $RPM_BUILD_DIR/heartbeat-%{version}
 %{_libexecdir}/heartbeat/ipfail
 %{_libdir}/heartbeat/plugins/HBauth
 %{_libdir}/heartbeat/plugins/HBcomm
-%{_libdir}/heartbeat/plugins/HBcompress
 %{_libdir}/heartbeat/plugins/quorum
 %{_libdir}/heartbeat/plugins/tiebreaker
 %{_libdir}/libclm.so.*
