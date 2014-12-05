@@ -28,14 +28,6 @@
 
 %global heartbeat_docdir %{_defaultdocdir}/%{name}
 
-%if 0%{?fedora} || 0%{?centos_version} || 0%{?rhel}
-%define pkg_group System Environment/Daemons
-BuildRequires:  cluster-glue-libs-devel
-%else
-%define pkg_group Productivity/Clustering/HA
-BuildRequires:  libglue-devel
-%endif
-
 Name:           heartbeat
 Summary:        Messaging and membership subsystem for High-Availability Linux
 Version:        3.0.6
@@ -46,16 +38,18 @@ Group:          Productivity/Clustering/HA
 Source:         heartbeat.tar.bz2
 BuildRoot:      %{_tmppath}/%{name}-%{version}-build
 Requires:       /bin/ping perl-TimeDate resource-agents
-BuildRequires:  e2fsprogs-devel glib2-devel iputils lynx python
+Requires:       heartbeat-libs = %{version}-%{release}
+BuildRequires:  e2fsprogs-devel glib2-devel iputils python
 BuildRequires:  libxslt docbook_4 docbook-xsl-stylesheets
-AutoReqProv:    on
-Requires(pre):  cluster-glue
-%if 0%{?fedora}
-Requires(post): /sbin/chkconfig
-Requires(preun):/sbin/chkconfig
+BuildRequires:  libglue-devel >= 1.0.12
+%if 0%{?suse_version} >= 1210
+BuildRequires: systemd
+%{?systemd_requires}
 %endif
+
+AutoReqProv:    on
+Requires(pre):  cluster-glue >= 1.0.12
 %if 0%{?suse_version}
-BuildRequires:  bison flex
 PreReq:         %insserv_prereq %fillup_prereq
 Requires:       logrotate
 %define SSLeay		perl-Net_SSLeay
@@ -76,17 +70,6 @@ BuildRequires:  tcpd-devel
 %endif
 %if 0%{?sles_version} == 9
 BuildRequires:  pkgconfig
-%endif
-%endif
-%if 0%{?rhel} == 406
-BuildRequires:  gcc-c++
-%endif
-%if 0%{?fedora} || 0%{?centos_version} || 0%{?rhel}
-Requires:       which
-BuildRequires:  which
-#Requires:               pygtk2 >= 2.4
-%if 0%{?fedora} > 7
-BuildRequires:  openssl-devel
 %endif
 %endif
 %if 0%{?mandriva_version}
@@ -126,13 +109,19 @@ It implements the following kinds of heartbeats:
         - UDP/IP unicast heartbeats
         - "ping" heartbeats (for routers, switches, etc.)
 
+%package libs
+Summary:          Heartbeat libraries
+Group:            System Environment/Daemons
+
+%description libs
+Heartbeat library package
 
 %package devel 
 License:        GPL v2 or later; LGPL v2.1 or later
 Summary:        Heartbeat development package
 Group:          Productivity/Clustering/HA
-Requires:       %{name} = %{version}-%{release}
-Requires:       libglue-devel
+Requires:       %{name}-libs = %{version}-%{release}
+Requires:       libglue-devel >= 1.0.12
 
 %description devel
 Headers and shared libraries for writing programs for Heartbeat
@@ -158,9 +147,6 @@ CFLAGS="${CFLAGS} -Wfloat-equal -Wendif-labels -Winline"
 CFLAGS="${CFLAGS} -fstack-protector-all"
 %endif
 %if 0%{?suse_version} > 1020
-CFLAGS="$CFLAGS -fgnu89-inline"
-%endif
-%if 0%{?fedora} > 6
 CFLAGS="$CFLAGS -fgnu89-inline"
 %endif
 export CFLAGS
@@ -230,59 +216,47 @@ fi
 rm -rf $RPM_BUILD_DIR/heartbeat-%{version}
 ###########################################################
 
+%if %{defined _unitdir}
+
 %post
-/sbin/ldconfig
-%if %{start_at_boot}
+%service_add_post heartbeat.service
+systemd-tmpfiles --create %{_tmpfilesdir}/%{name}.conf
+
+%preun
+%service_del_preun heartbeat.service
+
+%postun
+%service_del_postun heartbeat.service
+
+%else
+
 %if 0%{?suse_version}
+%post
     %{fillup_and_insserv -n heartbeat}
-%endif
-%if 0%{?fedora}
-    /sbin/chkconfig --add heartbeat
-%endif
-%endif
-###########################################################
-%if 0%{?suse_version}
 
 %preun
     %stop_on_removal heartbeat
-%endif
-%if 0%{?fedora}
-
-%preun
-%if %{stop_start_script}
-    /sbin/chkconfig --del heartbeat
-%endif
-%endif
-###########################################################
 
 %postun
-/sbin/ldconfig
-%if 0%{?suse_version}
 %if %{stop_start_script}
     %restart_on_update heartbeat
 %endif
 %{insserv_cleanup}
 %endif
 
-%files
+%endif
+
+%post -n %{name}-libs -p /sbin/ldconfig
+%postun -n %{name}-libs -p /sbin/ldconfig
+
 ###########################################################
+%files
 %defattr(-,root,root)
-%{_bindir}/cl_respawn
-%attr (2555, root, haclient) %{_bindir}/cl_status
-%{_libexecdir}/heartbeat/apphbd
-%{_libexecdir}/heartbeat/ccm
-%{_libexecdir}/heartbeat/dopd
-%{_libexecdir}/heartbeat/drbd-peer-outdater
-%{_libexecdir}/heartbeat/heartbeat
-%{_libexecdir}/heartbeat/ipfail
-%{_libdir}/heartbeat/plugins/HBauth
-%{_libdir}/heartbeat/plugins/HBcomm
-%{_libdir}/heartbeat/plugins/quorum
-%{_libdir}/heartbeat/plugins/tiebreaker
-%{_libdir}/libclm.so.*
-%{_libdir}/libhbclient.so.*
-%{_libdir}/libccmclient.so.*
-%{_libdir}/libapphb.so.*
+%dir %{_sysconfdir}/ha.d
+%{_sysconfdir}/ha.d/harc
+%{_sysconfdir}/ha.d/rc.d
+%config(noreplace) %{_sysconfdir}/ha.d/README.config
+%dir %{_datadir}/heartbeat
 %{_datadir}/heartbeat/ResourceManager
 %{_datadir}/heartbeat/ha_config
 %{_datadir}/heartbeat/ha_propagate
@@ -296,8 +270,7 @@ rm -rf $RPM_BUILD_DIR/heartbeat-%{version}
 %{_datadir}/heartbeat/req_resource
 %{_datadir}/heartbeat/hb_api.py*
 %{_datadir}/heartbeat/ha_test.py*
-%{_datadir}/doc/packages/heartbeat/apphbd.cf
-%{_sysconfdir}/ha.d
+%{_sysconfdir}/ha.d/resource.d/
 %if %{defined _unitdir}
 %{_unitdir}/heartbeat.service
 %{_tmpfilesdir}/%{name}.conf
@@ -306,26 +279,33 @@ rm -rf $RPM_BUILD_DIR/heartbeat-%{version}
 /sbin/rcheartbeat
 %endif
 %config(noreplace) %{_sysconfdir}/logrotate.d/heartbeat
-%dir %{_var}/run/heartbeat
-%dir %attr (0750, %{uname}, %{gname})   %{_var}/run/heartbeat/dopd
 %dir %{_var}/lib/heartbeat
-%dir %attr (0755, %{uname}, %{gname})   %{_var}/run/heartbeat/ccm
-%dir %{_libdir}/heartbeat
-%dir %{_libdir}/heartbeat/plugins
-%dir %{_datadir}/heartbeat
-%dir %{_datadir}/doc/packages/heartbeat
-%doc %{_datadir}/doc/packages/heartbeat/AUTHORS
-%doc %{_datadir}/doc/packages/heartbeat/COPYING
-%doc %{_datadir}/doc/packages/heartbeat/COPYING.LGPL
+%dir %{_var}/run/heartbeat
+%dir %attr (0755, %{uname}, %{gname}) %{_var}/run/heartbeat/ccm
+%dir %attr (0750, %{uname}, %{gname})   %{_var}/run/heartbeat/dopd
+%attr (2555, root, %{gname}) %{_bindir}/cl_status
+%{_bindir}/cl_respawn
+%{_libexecdir}/heartbeat/apphbd
+%{_libexecdir}/heartbeat/ccm
+%{_libexecdir}/heartbeat/dopd
+%{_libexecdir}/heartbeat/drbd-peer-outdater
+%{_libexecdir}/heartbeat/heartbeat
+%{_libexecdir}/heartbeat/ipfail
+
 %doc %{_mandir}/man1/cl_status.1*
-%doc %{_mandir}/man1/hb_addnode.1*   
-%doc %{_mandir}/man1/hb_delnode.1*   
-%doc %{_mandir}/man1/hb_standby.1*   
-%doc %{_mandir}/man1/hb_takeover.1*   
+%doc %{_mandir}/man1/hb_addnode.1*
+%doc %{_mandir}/man1/hb_delnode.1*
+%doc %{_mandir}/man1/hb_standby.1*
+%doc %{_mandir}/man1/hb_takeover.1*
 %doc %{_mandir}/man5/ha.cf.5*
 %doc %{_mandir}/man5/authkeys.5*
 %doc %{_mandir}/man8/heartbeat.8*
 %doc %{_mandir}/man8/apphbd.8*
+%dir %{_datadir}/doc/packages/heartbeat
+%doc %{_datadir}/doc/packages/heartbeat/apphbd.cf
+%doc %{_datadir}/doc/packages/heartbeat/AUTHORS
+%doc %{_datadir}/doc/packages/heartbeat/COPYING
+%doc %{_datadir}/doc/packages/heartbeat/COPYING.LGPL
 %doc %{_datadir}/doc/packages/heartbeat/README
 %doc %{_datadir}/doc/packages/heartbeat/authkeys
 %doc %{_datadir}/doc/packages/heartbeat/haresources
@@ -333,23 +313,17 @@ rm -rf $RPM_BUILD_DIR/heartbeat-%{version}
 %doc %{_datadir}/doc/packages/heartbeat/ha.cf
 ###########################################################
 
+%files libs
+%defattr(-,root,root,-)
+%{_libdir}/heartbeat
+%{_libdir}/libapphb.so.*
+%{_libdir}/libccmclient.so.*
+%{_libdir}/libclm.so.*
+%{_libdir}/libhbclient.so.*
+
 %files devel
 %defattr(-,root,root)
 #%doc %{_datadir}/doc/%{name}-%{version}
-%{_includedir}/saf/
-%{_includedir}/ocf/
-%{_includedir}/heartbeat/hb_api.h
-%dir %{_includedir}/heartbeat
-%{_includedir}/heartbeat/apphb.h
-%{_includedir}/heartbeat/apphb_notify.h
-%{_includedir}/heartbeat/HBauth.h
-%{_includedir}/heartbeat/HBcomm.h
-%{_includedir}/heartbeat/hb_config.h
-%{_includedir}/heartbeat/heartbeat.h
-%{_libdir}/libclm*.so
-%{_libdir}/libapphb*.so
-%{_libdir}/libhbclient*.so
-%{_libdir}/libccmclient*.so
 %{_libexecdir}/heartbeat/api_test
 %{_libexecdir}/heartbeat/apphbtest
 %{_libexecdir}/heartbeat/ccm_testclient
@@ -358,6 +332,10 @@ rm -rf $RPM_BUILD_DIR/heartbeat-%{version}
 %{_datadir}/heartbeat/BasicSanityCheck
 %{_datadir}/heartbeat/TestHeartbeatComm
 %exclude %{_datadir}/heartbeat/cts
+%{_includedir}/heartbeat/
+%{_includedir}/saf/
+%{_includedir}/ocf/
+%{_libdir}/*.so
 
 %changelog
 * Tue Oct 28 2014 Lars Ellenberg <lars.ellenberg@linbit.com> - 3.0.6-0rc1

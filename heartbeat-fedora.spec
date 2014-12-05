@@ -13,8 +13,8 @@
 
 %global heartbeat_docdir %{_defaultdocdir}/%{name}-%{version}
 
-Summary:          Messaging and membership subsystem for High-Availability Linux
 Name:             heartbeat
+Summary:          Messaging and membership subsystem for High-Availability Linux
 Version:          3.0.6
 #Release:          %{?alphatag:0.}%{specversion}%{?alphatag:.%{alphatag}}%{?dist}
 Release:          0rc1%{?dist}
@@ -33,21 +33,25 @@ BuildRequires:    ncurses-devel
 BuildRequires:    openssl-devel
 BuildRequires:    libtool
 BuildRequires:    gettext
-BuildRequires:    bison
-BuildRequires:    flex
 BuildRequires:    zlib-devel
 BuildRequires:    mailx
 BuildRequires:    which
 BuildRequires:    cluster-glue-libs-devel
 BuildRequires:    libxslt docbook-dtds docbook-style-xsl
+%if %{defined _unitdir}
+Requires(post): systemd
+Requires(preun): systemd
+Requires(postun): systemd
+%else
+Requires(post):   /sbin/chkconfig
+Requires(preun):  /sbin/chkconfig
+%endif
 Requires:         heartbeat-libs = %{version}-%{release}
 Requires:         PyXML
 Requires:         resource-agents
 Requires:         cluster-glue-libs
 Requires(pre):    shadow-utils
 Requires(pre):    cluster-glue
-Requires(post):   /sbin/chkconfig
-Requires(preun):  /sbin/chkconfig
 Obsoletes:        heartbeat-gui < %{version}-%{release}
 
 %description
@@ -144,27 +148,42 @@ rm -f %{buildroot}/%{_initrddir}/heartbeat
 %clean
 rm -rf $RPM_BUILD_ROOT
 
-%post
-/sbin/ldconfig
-/sbin/chkconfig --add heartbeat
+%if %{defined _unitdir}
 
-%postun -p /sbin/ldconfig
+%post
+%systemd_post heartbeat.service
+systemd-tmpfiles --create %{_tmpfilesdir}/%{name}.conf
 
 %preun
+%systemd_preun heartbeat.service
+
+%postun
+%systemd_postun_with_restart heartbeat.service
+
+%else
+
+%post
+/sbin/chkconfig --add heartbeat || :
+
+%preun
+/sbin/service heartbeat stop || :
 if [ $1 = 0 ] ; then
-    /sbin/service heartbeat stop
-    /sbin/chkconfig --del heartbeat
+    # package removal, not upgrade
+    /sbin/chkconfig --del heartbeat || :
 fi
 
-/sbin/ldconfig
+%endif
+
+%post -n %{name}-libs -p /sbin/ldconfig
+%postun -n %{name}-libs -p /sbin/ldconfig
 
 %files
 %defattr(-,root,root,-)
-%doc %{_datadir}/doc/%{name}-%{version}
 %dir %{_sysconfdir}/ha.d
 %{_sysconfdir}/ha.d/harc
 %{_sysconfdir}/ha.d/rc.d
 %config(noreplace) %{_sysconfdir}/ha.d/README.config
+%dir %{_datadir}/heartbeat
 %{_datadir}/heartbeat/ResourceManager
 %{_datadir}/heartbeat/ha_config
 %{_datadir}/heartbeat/ha_propagate
@@ -188,8 +207,9 @@ fi
 %config(noreplace) %{_sysconfdir}/logrotate.d/heartbeat
 %dir %{_var}/lib/heartbeat
 %dir %{_var}/run/heartbeat
+%dir %attr (0755, %{uname}, %{gname}) %{_var}/run/heartbeat/ccm
 %dir %attr (0750, %{uname}, %{gname})   %{_var}/run/heartbeat/dopd
-%attr (2755, %{uname}, %{gname}) %{_bindir}/cl_status
+%attr (2555, root, %{gname}) %{_bindir}/cl_status
 %{_bindir}/cl_respawn
 %{_libexecdir}/heartbeat/apphbd
 %{_libexecdir}/heartbeat/ccm
@@ -198,16 +218,16 @@ fi
 %{_libexecdir}/heartbeat/heartbeat
 %{_libexecdir}/heartbeat/ipfail
 
-%dir %attr (755, %{uname}, %{gname}) %{_var}/run/heartbeat/ccm
-%{_mandir}/man1/cl_status.1*
-%{_mandir}/man1/hb_standby.1*
-%{_mandir}/man1/hb_takeover.1*
-%{_mandir}/man1/hb_addnode.1*
-%{_mandir}/man1/hb_delnode.1*
-%{_mandir}/man5/ha.cf.5*
-%{_mandir}/man5/authkeys.5*
-%{_mandir}/man8/heartbeat.8*
-%{_mandir}/man8/apphbd.8*
+%doc %{_mandir}/man1/cl_status.1*
+%doc %{_mandir}/man1/hb_addnode.1*
+%doc %{_mandir}/man1/hb_delnode.1*
+%doc %{_mandir}/man1/hb_standby.1*
+%doc %{_mandir}/man1/hb_takeover.1*
+%doc %{_mandir}/man5/ha.cf.5*
+%doc %{_mandir}/man5/authkeys.5*
+%doc %{_mandir}/man8/heartbeat.8*
+%doc %{_mandir}/man8/apphbd.8*
+%doc %{_datadir}/doc/%{name}-%{version}
 
 %files libs
 %defattr(-,root,root,-)
