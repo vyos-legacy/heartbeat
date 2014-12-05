@@ -738,6 +738,12 @@ AC_SUBST(systemdunitdir)
 AC_MSG_RESULT([Using systemd unit directory: '$systemdunitdir'])
 AM_CONDITIONAL(BUILD_SYSTEMD, test -n "$systemdunitdir")
 
+AC_ARG_WITH(tmpfilesdir,
+ 	    AC_HELP_STRING([--with-tmpfilesdir=DIR],
+			   [install configuration files for management of volatile files and directories in DIR [[PREFIX/lib/tmpfiles.d]]]),
+			   tmpfilesdir=$withval, tmpfilesdir='${prefix}/lib/tmpfiles.d')
+AC_SUBST(tmpfilesdir)
+
 dnl ***************************
 
 sendarp_linux=0
@@ -2367,6 +2373,7 @@ heartbeat/Makefile						\
 	heartbeat/init.d/Makefile				\
 		heartbeat/init.d/heartbeat			\
 		heartbeat/init.d/heartbeat.service		\
+		heartbeat/init.d/heartbeat.conf			\
 	heartbeat/lib/Makefile					\
 		heartbeat/lib/BasicSanityCheck			\
 		heartbeat/lib/ha_config				\

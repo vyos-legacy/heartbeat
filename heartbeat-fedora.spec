@@ -112,6 +112,9 @@ CFLAGS=${RPM_OPT_FLAGS} %configure \
 %if %{defined _unitdir}
     --with-systemdunitdir=%{_unitdir} \
 %endif
+%if %{defined _tmpfilesdir}
+    --with-tmpfilesdir=%{_tmpfilesdir} \
+%endif
 %if 0%{?fedora} >= 11 || 0%{?centos_version} > 5 || 0%{?rhel} > 5
     --docdir=%{heartbeat_docdir}
 %endif
@@ -178,6 +181,7 @@ fi
 %{_sysconfdir}/ha.d/resource.d/
 %if %{defined _unitdir}
 %{_unitdir}/heartbeat.service
+%{_tmpfilesdir}/%{name}.conf
 %else
 %{_initrddir}/heartbeat
 %endif

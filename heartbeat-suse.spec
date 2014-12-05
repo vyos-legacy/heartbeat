@@ -184,6 +184,9 @@ export docdir=%{heartbeat_docdir}
 %if %{defined _unitdir}
     --with-systemdunitdir=%{_unitdir} \
 %endif
+%if %{defined _tmpfilesdir}
+    --with-tmpfilesdir=%{_tmpfilesdir} \
+%endif
     --docdir=%{heartbeat_docdir}
 %endif
 
@@ -297,6 +300,7 @@ rm -rf $RPM_BUILD_DIR/heartbeat-%{version}
 %{_sysconfdir}/ha.d
 %if %{defined _unitdir}
 %{_unitdir}/heartbeat.service
+%{_tmpfilesdir}/%{name}.conf
 %else
 %{_initrddir}/heartbeat
 /sbin/rcheartbeat

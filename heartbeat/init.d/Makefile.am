@@ -24,6 +24,7 @@ init_SCRIPTS	= heartbeat
 
 if BUILD_SYSTEMD
 systemdunit_DATA = heartbeat.service
+tmpfiles_DATA	= heartbeat.conf
 endif
 
-EXTRA_DIST	= heartbeat.in heartbeat.service.in
+EXTRA_DIST	= heartbeat.in heartbeat.service.in heartbeat.conf.in
