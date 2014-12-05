@@ -284,6 +284,8 @@ rm -rf $RPM_BUILD_DIR/heartbeat-%{version}
 %{_datadir}/heartbeat/hb_takeover
 %{_datadir}/heartbeat/mach_down
 %{_datadir}/heartbeat/req_resource
+%{_datadir}/heartbeat/hb_api.py*
+%{_datadir}/heartbeat/ha_test.py*
 %{_datadir}/doc/packages/heartbeat/apphbd.cf
 %{_sysconfdir}/ha.d
 %{_sysconfdir}/init.d/heartbeat
@@ -339,8 +341,6 @@ rm -rf $RPM_BUILD_DIR/heartbeat-%{version}
 %{_libexecdir}/heartbeat/mlock
 %{_datadir}/heartbeat/BasicSanityCheck
 %{_datadir}/heartbeat/TestHeartbeatComm
-%{_datadir}/heartbeat/hb_api.py*
-%{_datadir}/heartbeat/ha_test.py*
 %exclude %{_datadir}/heartbeat/cts
 
 %changelog

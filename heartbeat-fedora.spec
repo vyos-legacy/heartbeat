@@ -162,6 +162,8 @@ fi
 %{_datadir}/heartbeat/hb_takeover
 %{_datadir}/heartbeat/mach_down
 %{_datadir}/heartbeat/req_resource
+%{_datadir}/heartbeat/hb_api.py*
+%{_datadir}/heartbeat/ha_test.py*
 %{_sysconfdir}/ha.d/resource.d/
 %{_sysconfdir}/init.d/heartbeat
 %config(noreplace) %{_sysconfdir}/logrotate.d/heartbeat
@@ -206,8 +208,6 @@ fi
 %{_libexecdir}/heartbeat/mlock
 %{_datadir}/heartbeat/BasicSanityCheck
 %{_datadir}/heartbeat/TestHeartbeatComm
-%{_datadir}/heartbeat/hb_api.py*
-%{_datadir}/heartbeat/ha_test.py*
 %{_includedir}/heartbeat/
 %{_includedir}/saf/
 %{_includedir}/ocf/
