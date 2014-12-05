@@ -1113,6 +1113,10 @@ ccm_all_restart(ll_cluster_t* hb, ccm_info_t* info, struct ha_msg* msg)
 	if (info->state != CCM_STATE_VERSION_REQUEST
 	    && gl_membership_converged ){
 		gl_membership_converged = FALSE;
+		if (ccm_get_memcount(info) == 1) {
+			ccm_reset(info);
+			return;
+		}
 		ccm_set_state(info, CCM_STATE_NONE, msg);
 		ccm_reset_all_join_request(info);
 		CCM_SET_CL(info,-1);
