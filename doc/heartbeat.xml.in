@@ -2,7 +2,7 @@
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.4//EN" "http://www.oasis-open.org/docbook/xml/4.4/docbookx.dtd">
 <refentry id="re-heartbeat">
   <refentryinfo>
-    <date>24 Nov 2009</date>
+    <date>2 Dec 2014</date>
     <productname>Heartbeat</productname>
     <productnumber>@VERSION@</productnumber>
     <authorgroup>
@@ -11,6 +11,12 @@
 	<surname>Robertson</surname>
 	<contrib>heartbeat</contrib>
 	<email>alanr@unix.sh</email>
+      </author>
+      <author>
+	<firstname>Lars</firstname>
+	<surname>Ellenberg</surname>
+	<contrib>Heartbeat Maintainer; code fixes; documentation updates</contrib>
+	<email>lars.ellenberg@linbit.com</email>
       </author>
       <author>
 	<firstname>Juan Pedro</firstname>
@@ -52,13 +58,16 @@
     <para>It implements the following kinds of heartbeats:</para>
     <itemizedlist>
       <listitem>
-	<para>UDP/IP broadcast;</para>
+	<para>UDP/IP v4 broadcast;</para>
       </listitem>
       <listitem>
-	<para>UDP/IP multicast;</para>
+	<para>UDP/IP v4/v6 multicast;</para>
       </listitem>
       <listitem>
-	<para>UDP/IP unicast;</para>
+	<para>UDP/IP v4/v6 unicast;</para>
+      </listitem>
+      <listitem>
+	<para>Even such exotic protocols as TIPC or RDS.</para>
       </listitem>
       <listitem>
 	<para>Bidirectional Serial Rings ("raw" serial ports) &mdash;

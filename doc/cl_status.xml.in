@@ -13,6 +13,12 @@
 	<email>alanr@unix.sh</email>
       </author>
       <author>
+	<firstname>Lars</firstname>
+	<surname>Ellenberg</surname>
+	<contrib>Heartbeat Maintainer; code fixes; documentation updates</contrib>
+	<email>lars.ellenberg@linbit.com</email>
+      </author>
+      <author>
 	<firstname>Juan Pedro</firstname>
 	<surname>Paredes Caballero</surname>
 	<contrib>man page</contrib>
@@ -58,8 +64,34 @@
 	  <command>hbstatus</command>
 	</term>
 	<listitem>
-	  <para>Indicate if heartbeat is running on the local
-	  system.</para>
+	  <para>Indicate if heartbeat is running on the local system.</para>
+	  <para>With <option>-v</option>, gives more details, similar to:
+	  <programlisting>
+version:        3.0.6 (10e3f2130ea1)
+managed by:     pacemaker       (respawn)
+
+ccm membership with quorum
+        instance 12
+        members 2
+                1 bob   (born: 6)
+                0 alice (born: 12)
+        member of partition
+
+bob     active  (nodetype: normal)
+        eth1    dead
+        eth0    up
+
+alice   active  (nodetype: normal)
+        eth1    dead
+        eth0    up
+
+10.43.9.55      ping    (nodetype: ping)
+        10.43.9.55      up
+	  </programlisting>
+	  </para>
+	  <para>Note: it is not a concern if a certain link from some node to itself is reported "dead".
+	  For example "mcast" directives usually don't see their own network packages.
+	  </para>
 	</listitem>
       </varlistentry>
       <varlistentry>
@@ -158,6 +190,14 @@
     <title>Options</title>
     <para>The following options are supported by heartbeat:</para>
     <variablelist>
+      <varlistentry>
+	<term>
+	  <option>-v</option>
+	</term>
+	<listitem>
+	  <para>Report more details. Available with hbstatus, listnodes, and listhblinks.</para>
+	</listitem>
+      </varlistentry>
       <varlistentry>
 	<term>
 	  <option>-m</option>

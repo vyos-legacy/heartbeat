@@ -13,6 +13,12 @@
 	<email>alanr@unix.sh</email>
       </author>
       <author>
+	<firstname>Lars</firstname>
+	<surname>Ellenberg</surname>
+	<contrib>Heartbeat Maintainer; code fixes; documentation updates</contrib>
+	<email>lars.ellenberg@linbit.com</email>
+      </author>
+      <author>
 	<firstname>Florian</firstname>
 	<surname>Haas</surname>
 	<contrib>man page</contrib>

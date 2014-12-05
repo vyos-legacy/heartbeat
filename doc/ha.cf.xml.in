@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.4//EN" "http://www.oasis-open.org/docbook/xml/4.4/docbookx.dtd">
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
 <refentry id="re-hacf">
   <refentryinfo>
-    <date>24 Nov 2009</date>
+    <date>2 Dec 2014</date>
     <productname>Heartbeat</productname>
     <productnumber>@VERSION@</productnumber>
     <authorgroup>
@@ -13,9 +13,15 @@
 	<email>alanr@unix.sh</email>
       </author>
       <author>
+	<firstname>Lars</firstname>
+	<surname>Ellenberg</surname>
+	<contrib>Heartbeat Maintainer; code fixes; documentation updates</contrib>
+	<email>lars.ellenberg@linbit.com</email>
+      </author>
+      <author>
 	<firstname>Florian</firstname>
 	<surname>Haas</surname>
-	<contrib>man page</contrib>
+	<contrib>initial man page</contrib>
 	<email>florian.haas@linbit.com</email>
       </author>
     </authorgroup>
@@ -255,19 +261,46 @@ bcast le0        # for Solaris systems</programlisting>
 	  <option>off</option>; however, it should always be set to
 	  <option>respawn</option>.</para>
 	  <para>When set to <option>respawn</option>, the directive
-	  automatically implies:</para>
-	  <programlisting>apiauth stonithd        uid=root
+	  automatically implies, with proper search paths, something similar to:</para>
+	  <programlisting>apiauth cib             uid=hacluster
+apiauth crmd            uid=hacluster
+apiauth stonithd        uid=root
 apiauth stonithd-ng     uid=root
 apiauth attrd           uid=hacluster
-apiauth crmd            uid=hacluster
-apiauth cib             uid=hacluster
+apiauth pingd           uid=root
 
 respawn hacluster       ccm
 respawn hacluster       cib
+respawn root		stonithd
+respawn root		lrmd
 respawn hacluster       attrd
-respawn root            stonithd
-respawn root            lrmd
+respawn hacluster       pengine
 respawn hacluster       crmd</programlisting>
+	</listitem>
+      </varlistentry>
+      <varlistentry>
+	<term>
+	  <option>crm_daemon_dir</option>
+	</term>
+	<listitem>
+	  <para>The paths where heartbeat looks first for pacemaker daemons
+	  (cib, lrmd, stonithd, pengine, attd, crmd, see above).
+	  If not set, uses @CRM_DAEMON_DIR@. Always falls back to @HA_DAEMON_DIR@.
+	  (both hardcoded at compile time).
+	  If any daemon is not found or inaccessible at startup time, this is
+	  treated as a configuration error and startup fails.</para>
+	</listitem>
+      </varlistentry>
+      <varlistentry>
+	<term>
+	  <option>crmd_spawns_pengine</option>
+	</term>
+	<listitem>
+	  <para>If pacemaker crmd spawns the pengine (policy engine daemon)
+	  itself, it sometimes "forgets" to kill the pengine on shutdown, which
+	  later may confuse the system after cluster restart.
+	  "crmd_spawns_pengine off" tells the system that Heartbeat is supposed
+	  to control the pengine directly.</para>
 	</listitem>
       </varlistentry>
       <varlistentry>
@@ -398,7 +431,11 @@ respawn hacluster       crmd</programlisting>
 	    <listitem>
 	      <para>mcast-group - multicast group to join (class D
 	      multicast address 224.0.0.0 - 239.255.255.255). For most
-	      Heartbeat uses, the first byte should be 239.</para>
+	      Heartbeat uses, you should chose from
+	      "The IPv4 Organization Local Scope -- 239.192.0.0/14".</para>
+	      <caution><title>Do not use reserved or well known multicast addresses.</title>
+		      <para>You likely would seriously confuse a lot of network devices.</para>
+	      </caution>
 	    </listitem>
 	    <listitem>
 	      <para>port - UDP port to sendto/rcvfrom (set this to the
@@ -919,9 +956,17 @@ serial /dev/cua/a                # Solaris</programlisting>
 	  <option>traditional_compression</option> <token>on</token>|<token>off</token>
 	</term>
 	<listitem>
-	  <para>This directive enables traditional compression. It is
-	  highly recommended that this be set to <token>off</token>
-	  (the default); otherwise heartbeat performance can be significantly negatively impacted.</para>
+	  <para>This directive enables traditional compression (messages are
+	  compressed as a whole, including message header information).
+	  Defaults to <token>off</token>.
+	  Pacemaker clusters with significant number of node/resources may
+	  need to enable this, because Pacemaker not always chose to send
+	  compressible payload field types.
+	  If uncompressed packet sizes exceed maximum message size,
+	  this method may be tried implicitly as a fallback, even if switched off.
+	  You should combine this with a sufficiently high compression_threshold.
+	  May impact real time performance.
+	  </para>
 	</listitem>
       </varlistentry>
       <varlistentry>
@@ -975,13 +1020,59 @@ serial /dev/cua/a                # Solaris</programlisting>
   <refsection id="rs-hacf-examples">
     <title>Example</title>
     <para>Below is an example <filename>ha.cf</filename> for a 2-node
-    Pacemaker cluster with redundant network communication
-    paths:</para>
-    <programlisting>use_logd on
-mcast eth0 239.0.0.42 694 1 0
-bcast eth1
+    Pacemaker cluster with redundant network communication paths:</para>
+    <programlisting>
+# understood time specifications:
+#  2          | 2 seconds
+#  1.7        | 1.7 seconds
+#  2000ms     | 2 seconds
+#  1700ms     | 1.7 seconds
+
+keepalive  1
+warntime   6
+deadtime  10
+initdead 120 # your choice.
+
+# debug 1 # or more
+# Or use kill -USR1 to increase at runtime, USR2 to decrease.
+
+# LOGGING: your choice.
+#
+# Note: if you want pacemaker to NOT write any log file at all,
+# you may need to explicitly use: logfile /dev/null
+# (and use a recent cluster glue!)
+#
+# logfile /var/log/ha.log
+# debugfile /var/log/ha-debug.log
+# logfacility local7
+# or use logd, which is configured in /etc/logd.cf
+# use_logd on
+
+mcast eth0 239.192.0.42 694 1 0
+ucast eth1 10.0.0.7
+ucast eth1 10.0.0.8
+
 node alice
 node bob
-pacemaker respawn</programlisting>
+
+compression bz2
+compression_threshold 20
+traditional_compression on
+
+# if you want to pass certain environments to child processes (pacemaker),
+# you could do:
+# env logpriority=debug
+
+# Where to look for pacemaker daemons first.
+# Use if you use a different pacemaker path:
+# crm_daemon_dir /usr/libexec/pacemaker
+
+# If pacemaker crmd spawns the pengine itself,
+# it sometimes "forgets" to kill the pengine on shutdown,
+# which later may confuse the system after cluster restart.
+# Tell the system that Heartbeat is supposed to control the pengine directly.
+crmd_spawns_pengine off
+pacemaker respawn
+</programlisting>
   </refsection>
 </refentry>
