@@ -516,6 +516,7 @@ class hb_api:
     def signon(self, service=None):
 
         '''Sign on to heartbeat (register as a client)'''
+        hb_register_socket_name = "/var/run/heartbeat/register"
 
         if service == None:
             self.OurClientID = repr(hb_api._pid)
@@ -531,8 +532,11 @@ class hb_api:
 	 "uid" : "%u" % os.getuid(),
 	 "gid" : "%u" % os.getgid() })
 
-	s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-	s.connect("/var/run/heartbeat/register");
+        try:
+            s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            s.connect(hb_register_socket_name);
+        except socket.error, e:
+            print >> sys.stderr, "connect(%s): %s" % (hb_register_socket_name, e)
 
         # Send the registration request
 	msg.tosock(s)
@@ -996,13 +1000,15 @@ def main(argv):
     hb.set_nstatus_callback(nodestatus, config)
     hb.set_ifstatus_callback(ifstatus, config)
     while 1:
-	hb.readmsg(1)
+        msg = hb.readmsg(1)
+        if msg:
+            dbg(1, "Ignored incoming Message, no callback registered:", msg)
 
 if __name__ == '__main__':
-   try:
-	   main(sys.argv)
-   except KeyboardInterrupt:
+    try:
+	main(sys.argv)
+    except KeyboardInterrupt:
 	pass
-   except socket.error, e:
-	print e
+    except socket.error, e:
+	print "Socket error: %s" % e
 	exit(1)
