@@ -31,7 +31,7 @@
 Name:           heartbeat
 Summary:        Messaging and membership subsystem for High-Availability Linux
 Version:        3.0.6
-Release:	0rc2%{?dist}
+Release:	1%{?dist}
 License:        GPL v2 only; LGPL v2.1 or later
 Url:            http://linux-ha.org/
 Group:          Productivity/Clustering/HA
@@ -338,9 +338,11 @@ systemd-tmpfiles --create %{_tmpfilesdir}/%{name}.conf
 %{_libdir}/*.so
 
 %changelog
-* Thu Dec 04 2014 Lars Ellenberg <lars.ellenberg@linbit.com> - 3.0.6-0rc2
-- fix ccm not converging (addendum)
+* Wed Feb 04 2015 Lars Ellenberg <lars.ellenberg@linbit.com> - 3.0.6-1
 - fix emergency shutdown due to broken update_ackseq
+- fix node dead detection problems
+- fix converging of membership (ccm)
+- fix init script startup glitch (caused by changes in glue/resource-agents)
 - heartbeat.service file for systemd platforms
 - new ucast6 UDP IPv6 communication plugin
 - package ha_api.py in standard package
@@ -351,12 +353,6 @@ systemd-tmpfiles --create %{_tmpfilesdir}/%{name}.conf
 - apply various (mostly cosmetic) patches from Debian
 - drop HBcompress compression plugins: they are part of cluster glue
 - drop "openais" HBcomm plugin
-- split into heartbeat and heartbeat-libs packages also on suse
-
-* Tue Oct 28 2014 Lars Ellenberg <lars.ellenberg@linbit.com> - 3.0.6-0rc1
-- fix node dead detection problems
-- fix converging of membership (ccm)
-- fix init script startup glitch (caused by changes in glue/resource-agents)
 - better support for current pacemaker versions
 - try to not miss a SIGTERM (fix problem with very fast respawn/stop cycle)
 - dopd: ignore dead ping nodes
