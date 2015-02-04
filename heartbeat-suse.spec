@@ -280,9 +280,9 @@ systemd-tmpfiles --create %{_tmpfilesdir}/%{name}.conf
 %endif
 %config(noreplace) %{_sysconfdir}/logrotate.d/heartbeat
 %dir %{_var}/lib/heartbeat
-%dir %{_var}/run/heartbeat
-%dir %attr (0755, %{uname}, %{gname}) %{_var}/run/heartbeat/ccm
-%dir %attr (0750, %{uname}, %{gname})   %{_var}/run/heartbeat/dopd
+%dir %attr (0750, %{uname}, %{gname}) %{_var}/run/heartbeat
+%dir %attr (0750, %{uname}, %{gname}) %{_var}/run/heartbeat/ccm
+%dir %attr (0750, %{uname}, %{gname}) %{_var}/run/heartbeat/dopd
 %attr (2555, root, %{gname}) %{_bindir}/cl_status
 %{_bindir}/cl_respawn
 %{_libexecdir}/heartbeat/apphbd
