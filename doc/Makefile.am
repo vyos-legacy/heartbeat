@@ -37,7 +37,7 @@ man_MANS		= heartbeat.8 apphbd.8 cl_status.1  \
 			 hb_standby.1 hb_takeover.1 hb_addnode.1 hb_delnode.1 \
 			 ha.cf.5 authkeys.5
 
-STYLESHEET_PREFIX 	?= http://docbook.sourceforge.net/release/xsl/current
+STYLESHEET_PREFIX 	?= /usr/share/xml/docbook/stylesheet/docbook-xsl
 MANPAGES_STYLESHEET 	?= $(STYLESHEET_PREFIX)/manpages/docbook.xsl
 HTML_STYLESHEET 	?= $(STYLESHEET_PREFIX)/xhtml/docbook.xsl
 FO_STYLESHEET 		?= $(STYLESHEET_PREFIX)/fo/docbook.xsl
