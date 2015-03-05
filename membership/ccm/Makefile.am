@@ -83,7 +83,8 @@ ccm_testclient_LDADD	= libccmclient.la \
 
 libccmclient_la_SOURCES	= ccmlib_memapi.c ccmlib_eventapi.c ccmlib.h
 libccmclient_la_LDFLAGS	= -version-info 1:0:0
-
+libccmclient_la_LIBADD	= $(gliblib) \
+			  -lplumb
 
 ## library libclm.la
 libclmdir		= $(libdir)/@HB_PKG@
@@ -96,6 +97,9 @@ libclm_la_SOURCES	= ccmlib_clm.c
 ## Add -DPOSIX_THREADS to CFLAGS to compile a thread-safe version library
 libclm_la_CFLAGS	= -g #-DPOSIX_THREADS
 libclm_la_LDFLAGS	= -version-info 1:0:0
+libclm_la_LIBADD        = libccmclient.la \
+			  $(gliblib) \
+			  -lplumb
 
 clmtest_SOURCES		= clmtest.c
 clmtest_LDADD		= libclm.la libccmclient.la \

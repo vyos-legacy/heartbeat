@@ -45,7 +45,9 @@ lib_LTLIBRARIES		= libhbclient.la
 
 libhbclient_la_SOURCES	= client_lib.c
 libhbclient_la_LDFLAGS	= -version-info 1:0:0
-libhbclient_la_LIBADD	= $(top_builddir)/replace/libreplace.la  
+libhbclient_la_LIBADD	= $(top_builddir)/replace/libreplace.la \
+			  $(gliblib) \
+			  -lplumb
 
 ## binary progs
 halib_PROGRAMS		= api_test
