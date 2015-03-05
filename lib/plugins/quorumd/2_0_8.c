@@ -461,7 +461,7 @@ on_msg_arrived(GIOChannel *ch, GIOCondition condition, gpointer data)
 				ha_msg_add(ret, F_TYPE, T_ACK);
 				ha_msg_add(ret, "reason", "unknown msg type");
 				ha_msg_add(ret, "result", "fail");
-				quorum_log(LOG_ERR, "UNKOWN msg %s ", type);
+				quorum_log(LOG_ERR, "UNKNOWN msg %s ", type);
 			}
 			if (ret != NULL) {			
 				str  = msg2wirefmt(ret, &len);
