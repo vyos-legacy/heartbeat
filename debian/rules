@@ -134,7 +134,11 @@ binary-indep: build install
 	dh_pycentral -i
 	dh_python -i `pwd`/usr/lib/heartbeat/cts `pwd`/usr/lib/heartbeat
 	dh_shlibdeps -i
-	dh_gencontrol -i
+	if [ -f "../.VYOS_DEV_BUILD" ]; \
+		then dh_gencontrol -i -- -v1:999.dev; \
+	else \
+		dh_gencontrol -i; \
+	fi
 	dh_md5sums -i
 	dh_builddeb -i
 
@@ -166,7 +170,11 @@ binary-arch: build install
 	dh_pycentral -a
 	dh_python -a `pwd`/usr/lib/heartbeat/cts `pwd`/usr/lib/heartbeat
 	dh_shlibdeps -a
-	dh_gencontrol -a
+	if [ -f "../.VYOS_DEV_BUILD" ]; \
+		then dh_gencontrol -a -- -v1:999.dev; \
+	else \
+		dh_gencontrol -a; \
+	fi
 	dh_md5sums -a
 	dh_builddeb -a
 
