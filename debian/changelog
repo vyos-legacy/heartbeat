@@ -1,3 +1,12 @@
+heartbeat (1:3.0.3+vyos2+lithium1) unstable; urgency=low
+
+  [ Alex Harpin ]
+  * Update maintainer address
+  * heartbeat: add dh_gencontrol to enable development builds
+  * Switch to VyOS versioning for build integration
+
+ -- Alex Harpin <development@landsofshadow.co.uk>  Fri, 06 Mar 2015 07:31:49 +0000
+ 
 heartbeat (1:3.0.3-4) unstable; urgency=low
 
   [ Alex Harpin ]
