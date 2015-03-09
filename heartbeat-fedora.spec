@@ -15,7 +15,7 @@
 
 Summary:          Messaging and membership subsystem for High-Availability Linux
 Name:             heartbeat
-Version:          3.0.4
+Version:          3.0.5
 #Release:          %{?alphatag:0.}%{specversion}%{?alphatag:.%{alphatag}}%{?dist}
 Release:          1%{?dist}
 License:          GPLv2 and LGPLv2+
@@ -188,6 +188,13 @@ fi
 %{_libdir}/*.so
 
 %changelog
+* Thu Jun 16 2011 Lars Ellenberg <lars.ellenberg@linbit.com> - 3.0.5-1
+- do not request retransmission of lost messages from dead members
+- fix segfault due to recursion in api_remove_client_pid
+- properly cleanup pending delayed rexmit requests before reset of seqtrack
+- create HA_RSCTMP on start, if necessary
+- improve detection of pacemaker clusters in init script
+
 * Tue Nov 30 2010 Lars Ellenberg <lars.ellenberg@linbit.com> - 3.0.4-1
 - better support for Pacemaker >= 1.1
 - say Pacemaker support, not "v2", favor "pacemaker on" in ha.cf

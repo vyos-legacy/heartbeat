@@ -87,6 +87,7 @@
 #include <clplumbing/cl_poll.h>
 #include <clplumbing/cl_signal.h>
 #include <clplumbing/netstring.h>
+#include <clplumbing/cpulimits.h>
 #include "hb_signal.h"
 
 /* Definitions of API query handlers */
@@ -1623,6 +1624,7 @@ int
 api_remove_client_pid(pid_t c_pid, const char * reason)
 {
 	char		cpid[20];
+	int		backlog_processed = 0;
 	client_proc_t* 	client;
 
 	snprintf(cpid, sizeof(cpid)-1, "%d", c_pid);
@@ -1631,10 +1633,20 @@ api_remove_client_pid(pid_t c_pid, const char * reason)
 	}
 
 	client->removereason = reason;
-	while (client->chan->recv_queue->current_qlen > 0
+	client->isindispatch = TRUE; /* avoid recursion */
+	while (client->chan && client->chan->recv_queue->current_qlen > 0
 	&&	(!reason || strcmp(reason, API_SIGNOFF) != 0)) {
 		ProcessAnAPIRequest(client);
+		if ((++backlog_processed & 0x3f) == 0) {
+			/* FIXME backlog processing should be done from a
+			 * dedicated backlog processing callback from the
+			 * mainloop, so we won't stall other callback for too
+			 * long. For now, just try to avoid being killed by our
+			 * busy-loop protection. */
+			cl_cpu_limit_update();
+		}
 	}
+	client->isindispatch = FALSE;
 
 	G_main_del_IPC_Channel(client->gsource);
 	/* Should trigger G_remove_client (below) */

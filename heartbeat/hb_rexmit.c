@@ -164,14 +164,19 @@ send_rexmit_request( gpointer data)
 	seqno_t seq = (seqno_t) ri->seq;
 	struct node_info* node = ri->node;
 	struct ha_msg*	hmsg;
-	
+
+	if (STRNCMP_CONST(node->status, UPSTATUS) != 0 &&
+	    STRNCMP_CONST(node->status, ACTIVESTATUS) !=0) {
+		/* no point requesting rexmit from a dead node. */
+		return FALSE;
+	}
+
 	if ((hmsg = ha_msg_new(6)) == NULL) {
 		cl_log(LOG_ERR, "%s: no memory for " T_REXMIT, 
 		       __FUNCTION__);
 		return FALSE;
 	}
-	
-	
+
 	if (ha_msg_add(hmsg, F_TYPE, T_REXMIT) != HA_OK
 	    ||	ha_msg_add(hmsg, F_TO, node->nodename) !=HA_OK
 	    ||	ha_msg_add_int(hmsg, F_FIRSTSEQ, seq) != HA_OK

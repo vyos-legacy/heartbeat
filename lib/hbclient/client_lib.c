@@ -143,7 +143,6 @@ static const char * OurID = "Heartbeat private data";	/* "Magic cookie" */
 
 #define ISOURS(l) (l && l->ll_cluster_private &&			\
 		(((llc_private_t*)(l->ll_cluster_private))->PrivateId) == OurID)
-#define SEQGAP		16
 #define DEBUGORDER	0
 
 static void		ClearLog(void);
