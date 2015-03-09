@@ -38,7 +38,7 @@ BuildRequires:  libglue-devel
 
 Name:           heartbeat
 Summary:        Messaging and membership subsystem for High-Availability Linux
-Version:        3.0.3
+Version:        3.0.4
 Release:	1%{?dist}
 License:        GPL v2 only; LGPL v2.1 or later
 Url:            http://linux-ha.org/
@@ -46,7 +46,7 @@ Group:          Productivity/Clustering/HA
 Source:         heartbeat.tar.bz2
 BuildRoot:      %{_tmppath}/%{name}-%{version}-build
 Requires:       /bin/ping perl-TimeDate resource-agents
-BuildRequires:  curl-devel e2fsprogs-devel glib2-devel iputils libxml2-devel lynx python openhpi-devel
+BuildRequires:  e2fsprogs-devel glib2-devel iputils lynx python
 BuildRequires:  libxslt docbook_4 docbook-xsl-stylesheets
 AutoReqProv:    on
 Requires(pre):  cluster-glue
@@ -55,7 +55,7 @@ Requires(post): /sbin/chkconfig
 Requires(preun):/sbin/chkconfig
 %endif
 %if 0%{?suse_version}
-BuildRequires:  OpenIPMI-devel bison flex gdbm-devel
+BuildRequires:  bison flex
 PreReq:         %insserv_prereq %fillup_prereq
 Requires:       logrotate
 %define SSLeay		perl-Net_SSLeay
@@ -256,9 +256,7 @@ rm -rf $RPM_BUILD_DIR/heartbeat-%{version}
 %{_libdir}/heartbeat/plugins/HBcomm
 %{_libdir}/heartbeat/plugins/HBcompress
 %{_libdir}/heartbeat/plugins/quorum
-#%{_libdir}/heartbeat/plugins/quorumd
 %{_libdir}/heartbeat/plugins/tiebreaker
-#%{_libdir}/heartbeat/quorumd
 %{_libdir}/heartbeat/heartbeat
 %{_libdir}/heartbeat/ipfail
 %{_libdir}/heartbeat/ccm
@@ -322,16 +320,12 @@ rm -rf $RPM_BUILD_DIR/heartbeat-%{version}
 %{_includedir}/heartbeat/apphb_notify.h
 %{_includedir}/heartbeat/HBauth.h
 %{_includedir}/heartbeat/HBcomm.h
-%{_includedir}/heartbeat/ha_msg.h
-%{_includedir}/heartbeat/compress.h
 %{_includedir}/heartbeat/hb_config.h
 %{_includedir}/heartbeat/heartbeat.h
-%{_includedir}/heartbeat/replace_uuid.h
 %{_libdir}/libclm*.so
 %{_libdir}/libapphb*.so
 %{_libdir}/libhbclient*.so
 %{_libdir}/libccmclient*.so
-#%{_libdir}/heartbeat/quorumdtest
 %{_libdir}/heartbeat/clmtest
 %{_libdir}/heartbeat/api_test
 %{_libdir}/heartbeat/apphbtest
@@ -341,6 +335,18 @@ rm -rf $RPM_BUILD_DIR/heartbeat-%{version}
 %exclude %{_datadir}/heartbeat/cts
 
 %changelog
+* Tue Nov 30 2010 Lars Ellenberg <lars.ellenberg@linbit.com> - 3.0.4-1
+- better support for Pacemaker >= 1.1
+- say Pacemaker support, not "v2", favor "pacemaker on" in ha.cf
+- fix message rexmit request logic, it could cause rexmit packet storms
+- increase ccm ipc message queue length
+- new mcast6 UDP IPv6 communication plugin
+- improve some log messages
+- drop headers which are now in glue
+- fixed/dropped some package dependencies
+- fixed/dropped some build dependencies
+- new proof-of-concept-only known-to-be-broken RDS communication plugin
+
 * Wed Apr 14 2010 Lars Ellenberg <lars.ellenberg@linbit.com> - 3.0.3-1
 - added /var/run/* directory permission paranoia to init script
 - added SBD and lrmadmin configuration support to init script

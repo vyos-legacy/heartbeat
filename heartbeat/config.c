@@ -106,6 +106,7 @@ static int set_badpack_warn(const char*);
 static int set_coredump(const char*);
 static int set_corerootdir(const char*);
 static int set_release2mode(const char*);
+static int set_pcmk_support(const char*);
 static int set_autojoin(const char*);
 static int set_uuidfrom(const char*);
 static int ha_config_check_boolean(const char *);
@@ -162,8 +163,8 @@ struct directive {
 , {KEY_SYSLOGFMT, set_syslog_logfilefmt, TRUE, "true", "log to files in syslog format"}
 , {KEY_COREDUMP,  set_coredump, TRUE, "true", "enable Linux-HA core dumps"}
 , {KEY_COREROOTDIR,set_corerootdir, TRUE, NULL, "set root directory of core dump area"}
-, {KEY_REL2,      set_release2mode, TRUE, "false"
-,				"enable release 2 style resource management"}
+, {KEY_REL2,      set_release2mode, FALSE, NULL, "historical alias for '"KEY_PACEMAKER"'"}
+, {KEY_PACEMAKER, set_pcmk_support, TRUE, "false", "enable Pacemaker resource management"}
 , {KEY_AUTOJOIN,  set_autojoin, TRUE, "none" ,	"set automatic join mode/style"}
 , {KEY_UUIDFROM,  set_uuidfrom, TRUE, "file" ,	"set the source for uuid"}
 ,{KEY_COMPRESSION,   set_compression, TRUE ,"zlib", "set compression module"}
@@ -171,9 +172,9 @@ struct directive {
 ,{KEY_TRADITIONAL_COMPRESSION, set_traditional_compression, TRUE, "no", "set traditional_compression"}
 ,{KEY_ENV, set_env, FALSE, NULL, "set environment variable for respawn clients"}
 ,{KEY_MAX_REXMIT_DELAY, set_max_rexmit_delay, TRUE,"250", "set the maximum rexmit delay time"}
-,{KEY_LOG_CONFIG_CHANGES, ha_config_check_boolean, TRUE,"on", "record changes to the cib (valid only with: "KEY_REL2" on)"}
-,{KEY_LOG_PENGINE_INPUTS, ha_config_check_boolean, TRUE,"on", "record the input used by the policy engine (valid only with: "KEY_REL2" on)"}
-,{KEY_CONFIG_WRITES_ENABLED, ha_config_check_boolean, TRUE,"on", "write configuration changes to disk (valid only with: "KEY_REL2" on)"}
+,{KEY_LOG_CONFIG_CHANGES, ha_config_check_boolean, TRUE,"on", "record changes to the cib (valid only with: "KEY_PACEMAKER" on)"}
+,{KEY_LOG_PENGINE_INPUTS, ha_config_check_boolean, TRUE,"on", "record the input used by the policy engine (valid only with: "KEY_PACEMAKER" on)"}
+,{KEY_CONFIG_WRITES_ENABLED, ha_config_check_boolean, TRUE,"on", "write configuration changes to disk (valid only with: "KEY_PACEMAKER" on)"}
 ,{KEY_MEMRESERVE, set_memreserve, TRUE, "6500", "number of kbytes to preallocate in heartbeat"}
 ,{KEY_QSERVER,set_quorum_server, TRUE, NULL, "the name or ip of quorum server"}
 };
@@ -1367,7 +1368,8 @@ add_node(const char * value, int nodetype)
 	hip->track.last_seq = NOSEQUENCE;
 	hip->track.ackseq = 0;
 	hip->weight = 100;
-	srand(time(NULL));
+	/* srand() done in init_config() already,
+	 * and probably still too many places throughout the code */
 	hip->track.ack_trigger = rand()%ACK_MSG_DIV;
 	hip->nodetype = nodetype;
 	add_nametable(hip->nodename, hip);
@@ -2554,9 +2556,10 @@ set_corerootdir(const char* value)
 }
 
 /*
- *  Enable all these flags when  KEY_RELEASE2 is enabled...
+ *  Enable all these flags when  KEY_PACEMAKER is enabled...
  *	apiauth lrmd   		uid=root
  *	apiauth stonithd	uid=root
+ *	apiauth stonith-ng	uid=root
  *	apiauth crmd		uid=hacluster
  *	apiauth cib		uid=hacluster
  *	respawn root		/usr/lib/heartbeat/lrmd
@@ -2566,9 +2569,15 @@ set_corerootdir(const char* value)
  *	respawn hacluster       /usr/lib/heartbeat/crmd
  */
 
-
 static int
 set_release2mode(const char* value)
+{
+	/* alias KEY_REL2 to KEY_PACEMAKER */
+	return add_option(KEY_PACEMAKER, value);
+}
+
+static int
+set_pcmk_support(const char* value)
 {
 	struct do_directive {
 		const char * dname;
@@ -2589,6 +2598,9 @@ set_release2mode(const char* value)
 		{"apiauth", "cib 	uid=" HA_CCMUSER}
 		/* LRMd is not a heartbeat API client */
 	,	{"apiauth", "stonithd  	uid=root" }
+		/* "NG" registers as stonith-ng, but the name of the binary
+		 * is still the same: stonithd */
+	,	{"apiauth", "stonith-ng	uid=root" }
 	,	{"apiauth", "attrd   	uid=" HA_CCMUSER}
 	,	{"apiauth", "crmd   	uid=" HA_CCMUSER}
 	,	{"apiauth", "pingd   	uid=root"}
@@ -2615,6 +2627,7 @@ set_release2mode(const char* value)
 		{"apiauth", "cib 	uid=" HA_CCMUSER}
 		/* LRMd is not a heartbeat API client */
 	,	{"apiauth", "stonithd  	uid=root" }
+	,	{"apiauth", "stonith-ng	uid=root" }
 	,	{"apiauth", "attrd   	uid=" HA_CCMUSER}
 	,	{"apiauth", "crmd   	uid=" HA_CCMUSER}
 	,	{"apiauth", "pingd   	uid=root"}
@@ -2645,6 +2658,7 @@ set_release2mode(const char* value)
 	{	/* CCM apiauth already implicit elsewhere */
 		{"apiauth", "cib 	uid=" HA_CCMUSER}
 	,	{"apiauth", "stonithd  	uid=root" }
+	,	{"apiauth", "stonith-ng	uid=root" }
 	,	{"apiauth", "attrd   	uid=" HA_CCMUSER}
 	,	{"apiauth", "crmd   	uid=" HA_CCMUSER}
 
@@ -2664,7 +2678,7 @@ set_release2mode(const char* value)
 
 	r2dirs = &r2auto_dirs[0];
 	r2size = DIMOF(r2auto_dirs);
-	cl_log(LOG_INFO, "Version 2 support: %s", value);
+	cl_log(LOG_INFO, "Pacemaker support: %s", value);
 	if (0 == strcasecmp("minimal", value)
 		|| 0 == strcasecmp("manual", value)) {
 		r2dirs = &r2minimal_dirs[0];
@@ -2691,11 +2705,11 @@ set_release2mode(const char* value)
 	DoManageResources = FALSE;
 	if (cl_file_exists(RESOURCE_CFG)){
 		cl_log(LOG_WARNING, "File %s exists.", RESOURCE_CFG);
-		cl_log(LOG_WARNING, "This file is not used because crm is enabled");
+		cl_log(LOG_WARNING, "This file is not used because "KEY_PACEMAKER" is enabled");
 	}
 	
 
-	/* Enable release 2 style cluster management */
+	/* Enable Pacemaker cluster management */
 	for (j=0; j < r2size ; ++j) {
 		int	k;
 		for (k=0; k < DIMOF(WLdirectives); ++k) {

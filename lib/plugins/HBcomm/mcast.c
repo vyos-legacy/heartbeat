@@ -462,8 +462,9 @@ mcast_write(struct hb_media* hbm, void *pkt, int len)
 	,	sizeof(struct sockaddr))) != len) {
 		if (!hbm->suppresserrs) {
 			PILCallLog(LOG, PIL_CRIT
-			,	"%s: Unable to send mcast packet [%d]: %s"
-			,	__FUNCTION__, rc, strerror(errno));
+			,	"%s: Unable to send " PIL_PLUGINTYPE_S " packet %s %s:%u len=%d [%d]: %s"
+			,	__FUNCTION__, mcp->interface, inet_ntoa(mcp->addr.sin_addr), mcp->port
+			,	len, rc, strerror(errno));
 		}
 		return(HA_FAIL);
 	}

@@ -38,7 +38,7 @@ dopd_LDADD		= \
 			$(top_builddir)/lib/hbclient/libhbclient.la $(GLIBLIB)
 
 drbd_peer_outdater_SOURCES	= drbd-peer-outdater.c
-drbd_peer_outdater_LDADD	= -lplumb
+drbd_peer_outdater_LDADD	= -lplumb $(GLIBLIB)
 
 ## additional Makefile targets
 # additional installations not covered normally

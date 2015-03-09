@@ -434,8 +434,10 @@ ucast_write(struct hb_media* mp, void *pkt, int len)
 	,		(struct sockaddr *)&ei->addr
 	,		 sizeof(struct sockaddr))) != len) {
 		if (!mp->suppresserrs) {
-			PILCallLog(LOG, PIL_CRIT, "Unable to send [%d] ucast packet: %s"
-			,	rc, strerror(errno));
+			PILCallLog(LOG, PIL_CRIT
+			,	"%s: Unable to send " PIL_PLUGINTYPE_S " packet %s %s:%u len=%d [%d]: %s"
+			,	__FUNCTION__, ei->interface, inet_ntoa(ei->addr.sin_addr), ei->port
+			,	len, rc, strerror(errno));
 		}
 		return HA_FAIL;
 	}

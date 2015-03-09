@@ -8,7 +8,6 @@
 
 #global alphatag %{upstreamversion}.hg
 
-%global           ENABLE_SNMP_SUBAGENT 0
 %global           gname haclient
 %global           uname hacluster
 
@@ -16,7 +15,7 @@
 
 Summary:          Messaging and membership subsystem for High-Availability Linux
 Name:             heartbeat
-Version:          3.0.3
+Version:          3.0.4
 #Release:          %{?alphatag:0.}%{specversion}%{?alphatag:.%{alphatag}}%{?dist}
 Release:          1%{?dist}
 License:          GPLv2 and LGPLv2+
@@ -28,13 +27,11 @@ BuildRequires:    glib2-devel
 BuildRequires:    iputils
 %if 0%{?fedora} || 0%{?centos} > 4 || 0%{?rhel} > 4
 BuildRequires:    libtool-ltdl-devel
-BuildRequires:    net-snmp-devel >= 5.4
 %endif
 BuildRequires:    bzip2-devel 
 BuildRequires:    ncurses-devel
 BuildRequires:    openssl-devel
 BuildRequires:    libtool
-BuildRequires:    libxml2-devel
 BuildRequires:    gettext
 BuildRequires:    bison
 BuildRequires:    flex
@@ -43,6 +40,7 @@ BuildRequires:    mailx
 BuildRequires:    which
 BuildRequires:    cluster-glue-libs-devel
 BuildRequires:    libxslt docbook-dtds docbook-style-xsl
+Requires:         heartbeat-libs = %{version}-%{release}
 Requires:         PyXML
 Requires:         resource-agents
 Requires:         cluster-glue-libs
@@ -84,7 +82,6 @@ It implements the following kinds of heartbeats:
 %package libs
 Summary:          Heartbeat libraries
 Group:            System Environment/Daemons
-Requires:         heartbeat = %{version}-%{release}
 
 %description libs
 Heartbeat library package
@@ -92,7 +89,7 @@ Heartbeat library package
 %package devel 
 Summary:        Heartbeat development package
 Group:          System Environment/Daemons
-Requires:       heartbeat = %{version}-%{release}
+Requires:       heartbeat-libs = %{version}-%{release}
 
 %description devel
 Headers and shared libraries for writing programs for Heartbeat
@@ -173,9 +170,6 @@ fi
 %{_mandir}/man5/authkeys.5*
 %{_mandir}/man8/heartbeat.8*
 %{_mandir}/man8/apphbd.8*
-%if %{ENABLE_SNMP_SUBAGENT}
-/LINUX-HA-MIB.mib
-%endif
 
 %files libs
 %defattr(-,root,root,-)
@@ -194,6 +188,18 @@ fi
 %{_libdir}/*.so
 
 %changelog
+* Tue Nov 30 2010 Lars Ellenberg <lars.ellenberg@linbit.com> - 3.0.4-1
+- better support for Pacemaker >= 1.1
+- say Pacemaker support, not "v2", favor "pacemaker on" in ha.cf
+- fix message rexmit request logic, it could cause rexmit packet storms
+- increase ccm ipc message queue length
+- new mcast6 UDP IPv6 communication plugin
+- improve some log messages
+- drop headers which are now in glue
+- fixed/dropped some package dependencies
+- fixed/dropped some build dependencies
+- new proof-of-concept-only known-to-be-broken RDS communication plugin
+
 * Wed Apr 14 2010 Lars Ellenberg <lars.ellenberg@linbit.com> - 3.0.3-1
 - added /var/run/* directory permission paranoia to init script
 - added SBD and lrmadmin configuration support to init script

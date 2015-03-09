@@ -4979,6 +4979,10 @@ main(int argc, char * argv[], char **envp)
 	/*init table for nodename/uuid lookup*/
 	inittable();
 
+	/* srand will be done several times at a few other places in the code,
+	 * e.g. in gen_uuid_from_name();
+	 * it will be properly initialized once in cl_init_random(). */
+	srand(time(NULL));
 
 	/*
 	 *	We think we just performed an "exec" of ourselves to restart.

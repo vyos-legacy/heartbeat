@@ -39,7 +39,7 @@ AC_ARG_WITH(hapkgversion,
 )
 
 if test -z "$HAPKGVERSION" ; then
-   HAPKGVERSION="3.0.2"
+   HAPKGVERSION="3.0.4"
 fi
 AM_INIT_AUTOMAKE(heartbeat, $HAPKGVERSION)
 
@@ -244,7 +244,6 @@ mandir=`var "$mandir" "$exec_prefix/man"`
 dnl docdir is available in autoconf 2.60+, for older versions preseed
 dnl with the same value that 2.60+ uses
 docdir=`var "$docdir" "${datadir}/doc/${PACKAGE_NAME}"`
-stdocdir="${docdir}/stonith"
 libdir=`var "$libdir" "$exec_prefix/lib"`
 libexecdir=`var "$libexecdir" "$exec_prefix/libexec"`
 noarchlibdir=`var "$noarchlibdir" "$prefix/lib"`
@@ -535,7 +534,6 @@ AC_SUBST(MAILCMD)
 AC_DEFINE_UNQUOTED(IFCONFIG, "$IFCONFIG", path to the ifconfig command)
 AC_PATH_PROGS(GETENT, getent)
 AC_PATH_PROGS(IP2UTIL, ip, /sbin/ip)
-AC_PATH_PROGS(XML2CONFIG, xml2-config)
 
 AC_PATH_PROGS(REBOOT, reboot, /sbin/reboot)
 AC_PATH_PROGS(POWEROFF_CMD, poweroff, /sbin/poweroff)
@@ -605,7 +603,6 @@ AC_CHECK_LIB(c, dlopen)				dnl if dlopen is in libc...
 AC_CHECK_LIB(dl, dlopen)			dnl -ldl (for Linux)
 AC_CHECK_LIB(rt, sched_getscheduler)            dnl -lrt (for Tru64)
 AC_CHECK_LIB(gnugetopt, getopt_long)		dnl -lgnugetopt ( if available )
-AC_CHECK_LIB(pam, pam_start)			dnl -lpam (if available)
 
 #	Not sure what OSes need this... Linux and AIX don't...
 #	and AIX barfs on it...
@@ -1020,115 +1017,11 @@ dnl ************************************************************************
 dnl checks for headers needed by clplumbing On FreeBSD/Solaris
 AC_CHECK_HEADERS(sys/filio.h)
 
-dnl
-dnl	These next two are used to help us figure out whether to include
-dnl	some optional STONITH plugins...
-dnl
-AC_CHECK_HEADERS(vacmclient_api.h)
-AC_CHECK_HEADERS(curl/curl.h)
-AC_CHECK_HEADERS(openhpi/SaHpi.h)
-
-AC_MSG_CHECKING(for special libxml2 includes)
-if test "x$XML2CONFIG" = "x"; then
-   AC_MSG_RESULT(libxml2 config not found)
-else
-   XML2HEAD=`$XML2CONFIG --cflags`
-   AC_MSG_RESULT($XML2HEAD)
-   AC_CHECK_LIB(xml2, xmlReadMemory)
-fi
-
-CPPFLAGS="$CPPFLAGS $XML2HEAD"
-
-AC_CHECK_HEADERS(libxml/xpath.h)
-
-dnl
-dnl	Could check for the libraries, but if you have the headers,
-dnl	you're a dolt for not having installed the libs ;-)
-dnl
-AM_CONDITIONAL(USE_VACM, test "$ac_cv_header_vacmclient_api_h" = yes)
-AM_CONDITIONAL(USE_DRAC3, test "$ac_cv_header_curl_curl_h" = yes -a "$ac_cv_header_libxml_xpath_h" = yes)
-AM_CONDITIONAL(USE_OPENHPI, test "$ac_cv_header_openhpi_SaHpi_h" = yes && pkg-config --atleast-version 2.6 openhpi)
-
-dnl
-dnl    SNMP checks
-dnl
-
-SNMPLIB=""
-SNMPCONFIG=""
-
-ENABLE_SNMP="yes"
-if test "x${enable_snmp}" = "xno"; then
-   ENABLE_SNMP="no"
-fi
-
-AC_CHECK_HEADERS(ucd-snmp/snmp.h,[],[],[#include <sys/types.h>
-#include <ucd-snmp/asn1.h>])
-AC_CHECK_HEADERS(net-snmp/net-snmp-config.h)
-
-if test "x${ENABLE_SNMP}" = "xno"; then
-   # nothing
-   :
-elif test "x${ac_cv_header_net_snmp_net_snmp_config_h}" = "xyes"; then
-	AC_PATH_PROGS(SNMPCONFIG, net-snmp-config)
-	if test "X${SNMPCONFIG}" = "X"; then
-		AC_MSG_RESULT(You need the net_snmp development package to continue.)
-		ENABLE_SNMP="no"
-	else
-		AC_MSG_CHECKING(for special snmp libraries)
-		SNMPLIB=`net-snmp-config --libs`
-		AC_MSG_RESULT($SNMPLIB)
-	fi
-elif test "x${ac_cv_header_ucd_snmp_snmp_h}" = "xyes"; then
-	# UCD SNMP
-	# ucd-snmp-config does not seem to exist, so just 
-	# rely on people having their LDFLAGS set to the path where
-	AC_CHECK_LIB(snmp, init_snmp, SNMPLIB="-lsnmp")
-	if test "X${SNMPLIB}" = "X"; then
-		AC_CHECK_LIB(ucdsnmp, init_snmp, SNMPLIB="-lucdsnmp")
-	fi
-	if test "X${SNMPLIB}" = "X"; then
-		ENABLE_SNMP="no"
-		AC_MSG_RESULT("Could not find ucdsnmp libary."
-			"Please make sure that libsnmp or libucdsnmp"
-			"are in your library path. Or the path to LDFLAGS")
-	fi
-else
-	ENABLE_SNMP="no"
-fi
-
-AC_SUBST(SNMPLIB)
-AM_CONDITIONAL(USE_APC_SNMP, test "$ENABLE_SNMP" = "yes")
-
 #
 #	We've had this new API for a very long time
 #
 AC_DEFINE(HAVE_NEW_HB_API, 1, [have new heartbeat api])
-dnl
-dnl OpenIMPI checks
-dnl
 
-if test "x${enable_ipmilan}" = "x"; then
-	enable_ipmilan="yes"
-fi
-if test "x${enable_ipmilan}" = "xyes" -o "x${enable_ipmilan}" = "xtry"; then
-	AC_MSG_CHECKING(For libOpenIPMI version 1.4 or greater)
-	AC_TRY_COMPILE([#include <OpenIPMI/ipmiif.h>],
-		       [ #if (OPENIPMI_VERSION_MAJOR == 1) && (OPENIPMI_VERSION_MINOR < 4) 
-			 #error "Too Old"
-			 #endif ],
-		       AC_MSG_RESULT("yes"); enable_ipmilan="yes",
-		       AC_MSG_RESULT("no");  enable_ipmilan="no")
-else
-	enable_ipmilan="no"
-fi
-AM_CONDITIONAL(IPMILAN_BUILD, test "X$enable_ipmilan" = "Xyes")
-
-dnl
-dnl     On many systems libcrypto is needed when linking against libsnmp.
-dnl     Check to see if it exists, and if so use it.
-dnl
-AC_CHECK_LIB(crypto, CRYPTO_free, CRYPTOLIB="-lcrypto",)
-AC_SUBST(CRYPTOLIB)
 
 dnl ***************************************************************************
 dnl Enable distro-style RPMs
@@ -1141,6 +1034,14 @@ case $enable_distro_rpm in
    *)	DISTRO_STYLE_RPMS=0;;
 esac
 AC_SUBST(DISTRO_STYLE_RPMS)
+
+dnl ***************************************************************************
+dnl RDS communication module
+dnl ***************************************************************************
+AC_ARG_ENABLE([rds],
+ [  --enable-rds 	Enable known-to-be-broken proof-of-concept RDS module,
+		[default=no]], [enable_rds=yes], [])
+AM_CONDITIONAL(BUILD_RDS_MODULE, test "x${enable_rds}" = "xyes")
 
 dnl ***************************************************************************
 dnl TIPC communication module
@@ -1473,14 +1374,6 @@ AC_ARG_ENABLE([thread-safe],
 [  --enable-thread-safe Enable some client libraries to be thread safe.
                           [default=no]])
 
-AC_ARG_ENABLE([snmp],
-[  --enable-snmp Enable building of SNMP related functionality.
-                          [default=yes]])
-
-AC_ARG_ENABLE([ipmilan],
-[  --enable-ipmilan       enable IPMILan Stonith Plugin
-                          [default=yes]])
-
 
 CC_WARNINGS=""
 enable_crm=no
@@ -1491,7 +1384,6 @@ dnl - If requested, enable ALL subsystems.
 	  enable_ansi=yes;
 	  enable_fatal_warnings=yes;
 	  enable_quorumd=try;
-	  enable_ipmilan=try
 	fi
 
 AC_ARG_ENABLE([bundled-ltdl],
@@ -1773,14 +1665,6 @@ dnl case with glib2.
 		CFLAGS="$CFLAGS -fgnu89-inline"
 	fi
 
-	if test "x${ENABLE_SNMP}" = "xyes" &&
-			echo "${SNMPLIB}" | grep netsnmp >/dev/null; then
-		inline_ver=`echo 4.3.0 | ver2num`
-		if test $GCCVER -ge $inline_ver; then
-			CFLAGS="$CFLAGS -DNETSNMP_BROKEN_INLINE"
-		fi
-	fi
-
 fi
 if test "${enable_times_kludge}" = no; then
   echo "Disabling times(2) kludge"
@@ -1936,22 +1820,6 @@ AC_ARG_WITH(
 AC_SUBST(LOGD_INITSTOPPRI)
 AC_DEFINE_UNQUOTED(LOGD_INITSTOPPRI,"$LOGD_INITSTOPPRI", init stop priority)
 
-#
-#	Name of UCD-SNMP development package
-#
-AC_ARG_WITH(
-  ucd-snmp-devel,
-    [  --with-snmp-name=name   Name of ucd snmp developemnt RPM. 
-                          [default=ucd-snmp-devel]  ],
-    [ UCDSNMPDEVEL=$withval ],
-    [ UCDSNMPDEVEL=ucd-snmp-devel ],
-  )
-if test "$ac_cv_header_ucd_snmp_snmp_h" = no; then
-	UCDSNMPDEVEL=""
-fi
-AC_SUBST(UCDSNMPDEVEL)
-AC_DEFINE_UNQUOTED(UCDSNMPDEVEL, $UCDSNMPDEVEL, 
-	Name of UCD SNMP development package)
 
 dnl ************************************************************************
 dnl checks for library functions to replace them
@@ -2175,11 +2043,12 @@ dnl not have CFLAGS in their environment then this should have
 dnl no effect. However if CFLAGS was exported from the user's
 dnl environment, then the new CFLAGS will also be exported
 dnl to sub processes. This causes a problem when configure
-dnl is run in the libltdl directory. Horms 16th July 2002
-dnl
-
+dnl is run in the libltdl directory.
 if export | fgrep " CFLAGS=" > /dev/null; then
-	export -n CFLAGS || true # We don't want to bomb out if this fails
+	SAVED_CFLAGS="$CFLAGS"
+	unset CFLAGS
+	CFLAGS="$SAVED_CFLAGS"
+	unset SAVED_CFLAGS
 fi
 
 if test "$GCC" = yes; then
@@ -2218,14 +2087,6 @@ dnl ************************************************************************
 dnl management and quorum daemons.
 
 AC_CHECK_HEADERS(gnutls/gnutls.h)
-AC_CHECK_HEADERS(security/pam_appl.h pam/pam_appl.h)
-
-dnl ************************************************************************
-dnl * Check for (debian style?) $sysconfdir/pam.d/common-{account,auth}
-AC_CHECK_FILE($sysconfdir/pam.d/common-account)
-AC_CHECK_FILE($sysconfdir/pam.d/common-auth)
-AM_CONDITIONAL(USE_PAM_COMMON, test -f $sysconfdir/pam.d/common-account -a \
-				    -f /etc/pam.d/common-auth)
 
 dnl GNUTLS library: Attempt to determine by 'libgnutls-config' program.
 dnl If no 'libgnutls-config', try traditional autoconf means.
@@ -2579,10 +2440,6 @@ AC_MSG_RESULT([  HA group name            = "${HA_APIGROUP}"])
 AC_MSG_RESULT([  HA group id              = "${HA_APIGID}"])
 AC_MSG_RESULT([  HA user name             = "${HA_CCMUSER}"])
 AC_MSG_RESULT([  HA user user id          = "${HA_CCMUID}"])
-
-AC_MSG_RESULT([  SNMP libraries           = "${SNMPLIB}"])
-
-AC_MSG_RESULT([  Build IPMILan Plugin     = "${enable_ipmilan}"])
 
 AC_MSG_RESULT([  Build dopd plugin        = "${enable_dopd}"])
 

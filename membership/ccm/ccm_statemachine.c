@@ -31,12 +31,6 @@
 #include "ccmmisc.h"
 
 
-
-int ccm_send_node_msg(ll_cluster_t* hb, struct ha_msg* msg,  const char* node);
-int ccm_send_cluster_msg(ll_cluster_t* hb, struct ha_msg* msg);
-
-
-
 /* PROTOTYPE */
 static void
 ccm_reset_all_join_request(ccm_info_t* info);
@@ -3224,6 +3218,16 @@ ccm_initialize()
 		goto errout;
 	}
 
+	/* we'll benefit from a bigger queue length on heartbeat side.
+	* Otherwise, if peers send messages faster than we can consume
+	* them right now, heartbeat messaging layer will kick us out once
+	* it's (small) default queue fills up :(
+	* If we fail to adjust the sendq length, that's not yet fatal, though.
+	*/
+	if (HA_OK != hb_fd->llc_ops->set_sendq_len(hb_fd, 1024)) {
+		ccm_log(LOG_WARNING, "Cannot set sendq length: %s",
+			hb_fd->llc_ops->errmsg(hb_fd));
+	}
 
 	if (set_llm_from_heartbeat(hb_fd, global_info) != HA_OK){
 		goto errout;

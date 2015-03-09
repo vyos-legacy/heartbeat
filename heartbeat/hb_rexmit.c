@@ -48,8 +48,6 @@ struct rexmit_info{
 	struct node_info* node;
 };
 
-static gboolean rand_seed_set = FALSE;
-
 void
 hb_set_max_rexmit_delay(int value)
 {
@@ -63,9 +61,6 @@ hb_set_max_rexmit_delay(int value)
 		       value);
 	}
 	max_rexmit_delay =value;
-	srand(cl_randseed());
-	rand_seed_set = TRUE;
-	
 	return;
 }
 static guint
@@ -208,7 +203,15 @@ send_rexmit_request( gpointer data)
 	return FALSE;
 }
 
-#define	RANDROUND	(RAND_MAX/2)
+#ifndef HAVE_CL_RAND_FROM_INTERVAL
+/* you should grab latest glue headers! */
+static inline int cl_rand_from_interval(const int a, const int b)
+{
+	/* RAND_MAX may be INT_MAX */
+	long long r = get_next_random();
+	return a + (r * (b-a) + RAND_MAX/2)/RAND_MAX;
+}
+#endif
 
 static void
 schedule_rexmit_request(struct node_info* node, seqno_t seq, int delay)    
@@ -216,12 +219,14 @@ schedule_rexmit_request(struct node_info* node, seqno_t seq, int delay)
 	unsigned long		sourceid;
 	struct rexmit_info*	ri;
 
-	if (delay == 0){
-		if (!rand_seed_set) {
-			srand(cl_randseed());
-			rand_seed_set = TRUE;
-		}
-		delay = ((rand()*max_rexmit_delay)+RANDROUND)/RAND_MAX;
+	if (delay == 0) {
+		/* generate some random delay,
+		 * 50ms offset to allow for out-of-order arrival
+		 * without actually sending the rexmit requests,
+		 * which happens more often than one might think. */
+		const int a = max_rexmit_delay < 100 ? 0 : 50;
+		const int b = max_rexmit_delay;
+		delay = cl_rand_from_interval(a,b);
 	}
 	
 	ri = malloc(sizeof(struct rexmit_info));
